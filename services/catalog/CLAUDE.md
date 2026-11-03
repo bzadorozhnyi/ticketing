@@ -13,6 +13,7 @@ cd src && set -a && . ../.env && set +a && uv run uvicorn main:app --reload
 uv run pytest                                    # creates and drops testing_catalog_db
 uv run alembic -c src/alembic.ini upgrade head   # needs DB__* in the environment
 uv run --directory src python -m scripts.seed    # demo data; no-op if venues exist
+uv run alembic -c src/alembic.ini downgrade base # wipe local data before re-seeding
 ```
 
 ## Layout notes

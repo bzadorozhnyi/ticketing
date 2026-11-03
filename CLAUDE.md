@@ -88,6 +88,9 @@ src/
 - Each injectable class (use case, service, repository) is defined in the same file as its FastAPI wiring:
   a `get_<name>()` factory and `<Name>Dep = Annotated[<Name>, Depends(...)]`. No separate dependency module.
 - Constructors and methods use keyword-only arguments (`*`).
+- `__init__.py` files stay empty: no re-exports, no `__all__`. Import from the module that defines the name.
+  Side-effect imports (`# noqa: F401`) only where registration needs them: `core/models_registry.py`
+  (every models module) and `<entity>/endpoints/v1/routes/__init__.py` (every endpoint module).
 - Errors: raise `AppException` subclasses (`NotFoundException`, `ConflictException`, ...) carrying an `ErrorCode` StrEnum;
   one exception handler maps codes to HTTP statuses and returns `{"code", "message", "details"}`.
 - Settings: pydantic-settings, nested groups with `__` delimiter (`DB__HOST`), read only from `os.environ`, no env_file.

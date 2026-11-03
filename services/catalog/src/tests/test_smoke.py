@@ -6,6 +6,8 @@ import pytest
 from sqlalchemy import func, select
 
 from events.models.event import Event
+from venues.models.seat import Seat
+from venues.models.section import Section
 from venues.models.venue import Venue
 
 
@@ -46,3 +48,18 @@ async def test_event_factory_reuses_explicit_venue_override(
     event_count = await db_session.scalar(select(func.count()).select_from(Event))
     assert venue_count == 1  # not 3 — the override was actually honored
     assert event_count == 2
+
+
+@pytest.mark.anyio
+async def test_seat_factory_reuses_explicit_section_override(
+    db_session, section_factory, seat_factory
+):
+    section = await section_factory()
+
+    await seat_factory(section=section)
+    await seat_factory(section=section)
+
+    section_count = await db_session.scalar(select(func.count()).select_from(Section))
+    seat_count = await db_session.scalar(select(func.count()).select_from(Seat))
+    assert section_count == 1
+    assert seat_count == 2
