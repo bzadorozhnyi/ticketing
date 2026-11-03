@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Rust
+target/
+
+# Local environment
+.env
+.env.test
+.env.test.e2e
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

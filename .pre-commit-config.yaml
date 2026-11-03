@@ -1,0 +1,33 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-toml
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+
+  # Local hooks run each tool from the service's own venv, so versions come from
+  # its uv.lock and ty can resolve the service's third-party imports.
+  - repo: local
+    hooks:
+      - id: catalog-ruff-check
+        name: ruff check (catalog)
+        entry: uv run --frozen --directory services/catalog ruff check --fix
+        language: system
+        files: ^services/catalog/.*\.py$
+        pass_filenames: false
+      - id: catalog-ruff-format
+        name: ruff format (catalog)
+        entry: uv run --frozen --directory services/catalog ruff format
+        language: system
+        files: ^services/catalog/.*\.py$
+        pass_filenames: false
+      - id: catalog-ty
+        name: ty check (catalog)
+        entry: uv run --frozen --directory services/catalog ty check
+        language: system
+        files: ^services/catalog/.*\.py$
+        pass_filenames: false
