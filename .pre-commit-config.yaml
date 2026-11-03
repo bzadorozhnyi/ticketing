@@ -9,8 +9,6 @@ repos:
       - id: check-merge-conflict
       - id: check-added-large-files
 
-  # Local hooks run each tool from the service's own venv, so versions come from
-  # its uv.lock and ty can resolve the service's third-party imports.
   - repo: local
     hooks:
       - id: catalog-ruff-check

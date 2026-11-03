@@ -9,7 +9,6 @@ def _db_name(*, db_url: str) -> str:
 
 
 def _db_root_url(*, db_url: str) -> str:
-    """The same server, connected to the default `postgres` maintenance database."""
     return urlunparse(urlparse(db_url)._replace(path="/postgres"))
 
 

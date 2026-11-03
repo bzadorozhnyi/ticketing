@@ -13,8 +13,6 @@ PRETTY_FORMAT = (
     "<level>{message}</level> | {extra}"
 )
 
-# Third-party loggers that write through stdlib logging and would otherwise
-# bypass loguru (plain-text lines mixed into the JSON stream).
 STDLIB_LOGGERS = ("uvicorn", "uvicorn.error", "uvicorn.access", "sqlalchemy")
 
 

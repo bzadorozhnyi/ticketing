@@ -7,6 +7,8 @@ Features are secondary; failure experiments and evidence are the point.
 ## Working mode
 
 - Reply to the user in Ukrainian (never Russian). Code, comments, README, ADRs, commit messages: English.
+- Comments in code only when necessary: a docstring for a complex function is fine, a comment on a simple `if` is not.
+  Answers to the user's questions and explanations of decisions go in the chat, not into code comments.
 - Work milestone by milestone. For each milestone: propose a plan, wait for approval, then implement in small steps.
 - Incremental approach: each increment is small and leaves the code working (tools and tests pass)
   before the next one starts. Build the minimal working version first, then extend it.

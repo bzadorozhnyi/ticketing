@@ -22,7 +22,6 @@ async def test_ready_returns_200_when_db_reachable(async_client):
 
 @pytest.mark.anyio
 async def test_ready_returns_503_when_db_unreachable(async_client):
-    # Port 1 on localhost: nothing listens there, so the connection is refused.
     engine = create_async_engine("postgresql+asyncpg://u:p@127.0.0.1:1/none")
     unreachable_session = async_sessionmaker(engine)
 

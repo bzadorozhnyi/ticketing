@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy import MetaData, func
+from sqlalchemy import DateTime, MetaData, func
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -26,6 +26,7 @@ naming_convention = {
 
 class BaseModel(DeclarativeBase):
     metadata = MetaData(naming_convention=naming_convention)
+    type_annotation_map = {datetime: DateTime(timezone=True)}
 
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 

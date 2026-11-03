@@ -58,10 +58,7 @@ def session_factory(async_engine):
 
 @pytest.fixture
 async def db_connection(async_engine):
-    """One test = one connection-level transaction, rolled back at the end.
-    Rows written here are invisible to any other connection, so tests that
-    need several concurrent connections belong to the e2e suite.
-    """
+    """One test = one connection-level transaction, rolled back at the end."""
     async with async_engine.connect() as conn:
         transaction = await conn.begin()
         yield conn

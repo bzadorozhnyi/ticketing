@@ -48,3 +48,10 @@ quote-style = "double"
 [tool.ty.environment]
 python-version = "3.14"
 root = ["src"]
+
+# factory_boy's nested `class Meta` is reported as an invalid override.
+[[tool.ty.overrides]]
+include = ["src/tests/factories/**"]
+
+[tool.ty.overrides.rules]
+invalid-attribute-override = "ignore"

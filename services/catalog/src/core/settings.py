@@ -10,7 +10,6 @@ class DBSettings(BaseModel):
     PASS: str
     HOST: str
     PORT: int = 5432
-    # asyncpg's own default is 60s: an unreachable host would hang /ready for a minute.
     CONNECT_TIMEOUT_SECONDS: float = 5
 
     @property
