@@ -57,7 +57,9 @@ def configure_logging() -> None:
     logger.remove()
     logger.configure(extra={"service": settings.SERVICE_NAME}, patcher=add_trace_id)
     if settings.LOGGING.FORMAT == LogFormat.JSON:
-        logger.add(sys.stdout, serialize=True, level=settings.LOGGING.LEVEL)
+        logger.add(
+            sys.stdout, serialize=True, level=settings.LOGGING.LEVEL, diagnose=False
+        )
     else:
         logger.add(sys.stdout, format=PRETTY_FORMAT, level=settings.LOGGING.LEVEL)
 

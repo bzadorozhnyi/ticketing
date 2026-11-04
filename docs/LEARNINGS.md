@@ -14,3 +14,4 @@
 - `pool_pre_ping` fixes stale pooled connections only. It does not help during an outage or when a connection dies mid-query.
 - `pool_pre_ping` added 0.25-0.36 ms to p50 on a request of about 3 ms, with the database on the same host. With 20 clients the difference was lost in noise. Assumption: over a real network the cost grows by the round trip. Gateway retries (M4) may make the setting unnecessary.
 - `logger.contextualize` and any middleware that resets its context lose the trace id for unhandled errors: Starlette's `ServerErrorMiddleware` sits outside every user middleware, and uvicorn logs the traceback later still. A context variable set once per request survives, because uvicorn runs each request in its own task.
+- loguru defaults to `diagnose=True`, which prints variable values into tracebacks. In production logs that can expose secrets, so the JSON format turns it off.
