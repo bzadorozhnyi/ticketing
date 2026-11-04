@@ -15,7 +15,7 @@ UNAVAILABLE = status.HTTP_503_SERVICE_UNAVAILABLE
 
 def test_contract_file_matches_code():
     assert CONTRACT_PATH.read_text() == render_contract(), (
-        "Stale contract: run `pre-commit run catalog-contract --all-files`"
+        "Stale contract: run `pre-commit run contract --all-files`"
     )
 
 

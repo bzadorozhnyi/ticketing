@@ -1,53 +1,89 @@
-x-catalog-service: &catalog-service
+x-postgres: &postgres
+  image: postgres:18-alpine
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+    interval: 2s
+    timeout: 3s
+    retries: 15
+
+x-postgres-env: &postgres-env
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: password
+
+x-service-db-env: &service-db-env
+  DB__USER: postgres
+  DB__PASS: password
+  DB__PORT: 5432
+
+x-ready-check: &ready-check
+  test:
+    - CMD
+    - python
+    - -c
+    - "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready', timeout=2)"
+  interval: 2s
+  timeout: 3s
+  retries: 15
+
+x-catalog: &catalog
   build: ./services/catalog
   image: ticketing/catalog
   environment:
+    <<: *service-db-env
     DB__NAME: catalog_db
-    DB__USER: postgres
-    DB__PASS: password
     DB__HOST: catalog-db
-    DB__PORT: 5432
+
+x-booking: &booking
+  build: ./services/booking
+  image: ticketing/booking
+  environment:
+    <<: *service-db-env
+    DB__NAME: booking_db
+    DB__HOST: booking-db
 
 services:
   catalog-db:
-    image: postgres:18-alpine
+    <<: *postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      <<: *postgres-env
       POSTGRES_DB: catalog_db
-    ports:
-      - "5433:5432"
-    volumes:
-      - catalog-db-data:/var/lib/postgresql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d catalog_db"]
-      interval: 2s
-      timeout: 3s
-      retries: 15
+    ports: ["5433:5432"]
+    volumes: ["catalog-db-data:/var/lib/postgresql"]
 
   catalog-migrate:
-    <<: *catalog-service
+    <<: *catalog
     command: ["alembic", "upgrade", "head"]
     depends_on:
-      catalog-db:
-        condition: service_healthy
+      catalog-db: { condition: service_healthy }
 
   catalog:
-    <<: *catalog-service
-    ports:
-      - "8001:8000"
+    <<: *catalog
+    ports: ["8001:8000"]
+    healthcheck: *ready-check
     depends_on:
-      catalog-migrate:
-        condition: service_completed_successfully
-    healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready', timeout=2)"
-      interval: 2s
-      timeout: 3s
-      retries: 15
+      catalog-migrate: { condition: service_completed_successfully }
+
+  booking-db:
+    <<: *postgres
+    environment:
+      <<: *postgres-env
+      POSTGRES_DB: booking_db
+    ports: ["5434:5432"]
+    volumes: ["booking-db-data:/var/lib/postgresql"]
+
+  booking-migrate:
+    <<: *booking
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      booking-db: { condition: service_healthy }
+
+  booking:
+    <<: *booking
+    ports: ["8002:8000"]
+    healthcheck: *ready-check
+    depends_on:
+      booking-migrate: { condition: service_completed_successfully }
 
 volumes:
   catalog-db-data:
+  booking-db-data:

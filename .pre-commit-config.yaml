@@ -11,27 +11,27 @@ repos:
 
   - repo: local
     hooks:
-      - id: catalog-ruff-check
-        name: ruff check (catalog)
-        entry: uv run --frozen --directory services/catalog ruff check --fix
+      - id: ruff-check
+        name: ruff check
+        entry: infra/python-services.sh ruff check --fix
         language: system
-        files: ^services/catalog/.*\.py$
+        files: ^services/.*\.py$
         pass_filenames: false
-      - id: catalog-ruff-format
-        name: ruff format (catalog)
-        entry: uv run --frozen --directory services/catalog ruff format
+      - id: ruff-format
+        name: ruff format
+        entry: infra/python-services.sh ruff format
         language: system
-        files: ^services/catalog/.*\.py$
+        files: ^services/.*\.py$
         pass_filenames: false
-      - id: catalog-ty
-        name: ty check (catalog)
-        entry: uv run --frozen --directory services/catalog ty check
+      - id: ty
+        name: ty check
+        entry: infra/python-services.sh ty check
         language: system
-        files: ^services/catalog/.*\.py$
+        files: ^services/.*\.py$
         pass_filenames: false
-      - id: catalog-contract
-        name: export contract (catalog)
-        entry: env DB__NAME=unused DB__USER=unused DB__PASS=unused DB__HOST=unused uv run --frozen --directory services/catalog/src python -m scripts.export_openapi
+      - id: contract
+        name: export contracts
+        entry: env PYTHONPATH=src DB__NAME=unused DB__USER=unused DB__PASS=unused DB__HOST=unused infra/python-services.sh python -m scripts.export_openapi
         language: system
-        files: ^(services/catalog/.*\.py|contracts/catalog\.openapi\.json)$
+        files: ^(services/.*\.py|contracts/.*\.openapi\.json)$
         pass_filenames: false

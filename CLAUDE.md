@@ -60,7 +60,7 @@ Features are secondary; failure experiments and evidence are the point.
 ```
 services/<name>/        one directory per service, self-contained (own dependencies, Dockerfile, tests, CLAUDE.md)
 contracts/              generated OpenAPI per service (code-first, see ADR 0001)
-infra/                  compose helpers, observability, k8s
+infra/                  repository scripts, compose helpers, observability, k8s
 docs/BOARD.md           task board (TIK-<n> tickets)
 docs/adr/               NNNN-title.md
 docs/CLAIMS.md          reliability claim -> evidence (test or recorded measurement) -> known limits

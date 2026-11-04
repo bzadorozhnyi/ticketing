@@ -16,7 +16,7 @@ uv run --directory src python -m scripts.seed    # demo data; no-op if venues ex
 uv run alembic -c src/alembic.ini downgrade base # wipe local data before re-seeding
 ```
 
-The pre-commit hook `catalog-contract` regenerates `contracts/catalog.openapi.json`.
+The pre-commit hook `contract` regenerates `contracts/catalog.openapi.json`.
 If the API changed, the commit stops: review the diff, `git add` the file, and commit again.
 
 ## Run in Docker
