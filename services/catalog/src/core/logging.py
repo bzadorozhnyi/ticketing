@@ -1,10 +1,15 @@
 import inspect
 import logging
 import sys
+from contextvars import ContextVar
+from typing import TYPE_CHECKING
 
 from loguru import logger
 
 from core.settings import LogFormat, settings
+
+if TYPE_CHECKING:
+    from loguru import Record
 
 PRETTY_FORMAT = (
     "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
@@ -14,6 +19,8 @@ PRETTY_FORMAT = (
 )
 
 STDLIB_LOGGERS = ("uvicorn", "uvicorn.error", "uvicorn.access", "sqlalchemy")
+
+trace_id_var: ContextVar[str | None] = ContextVar("trace_id", default=None)
 
 
 class InterceptHandler(logging.Handler):
@@ -40,9 +47,15 @@ class InterceptHandler(logging.Handler):
         )
 
 
+def add_trace_id(record: Record) -> None:
+    trace_id = trace_id_var.get()
+    if trace_id is not None:
+        record["extra"]["trace_id"] = trace_id
+
+
 def configure_logging() -> None:
     logger.remove()
-    logger.configure(extra={"service": settings.SERVICE_NAME})
+    logger.configure(extra={"service": settings.SERVICE_NAME}, patcher=add_trace_id)
     if settings.LOGGING.FORMAT == LogFormat.JSON:
         logger.add(sys.stdout, serialize=True, level=settings.LOGGING.LEVEL)
     else:

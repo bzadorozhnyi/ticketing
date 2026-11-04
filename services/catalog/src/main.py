@@ -11,12 +11,14 @@ from core.middlewares.exception_handler import (
     unhandled_exception_handler,
     validation_exception_handler,
 )
+from core.middlewares.trace_context import TraceContextMiddleware
 from routes import router
 
 configure_logging()
 
 app = FastAPI(title="catalog")
 
+app.add_middleware(TraceContextMiddleware)
 app.include_router(router)
 app.include_router(health_router)
 app.add_exception_handler(AppException, app_exception_handler)

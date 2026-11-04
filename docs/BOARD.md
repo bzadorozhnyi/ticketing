@@ -1,6 +1,6 @@
 # Board
 
-Next ticket: TIK-8
+Next ticket: TIK-9
 
 ## In progress
 
@@ -14,3 +14,4 @@ Next ticket: TIK-8
 - [x] TIK-5 Catalog: multistage Dockerfile and compose service (M1)
 - [x] TIK-6 Catalog: 503 on database outage, one error format for all errors (M1)
 - [x] TIK-7 Catalog: stale pooled connections after a database restart (M1)
+- [x] TIK-8 Catalog: trace context in logs (M1)
