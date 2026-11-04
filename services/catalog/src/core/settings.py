@@ -11,6 +11,7 @@ class DBSettings(BaseModel):
     HOST: str
     PORT: int = 5432
     CONNECT_TIMEOUT_SECONDS: float = 5
+    POOL_PRE_PING: bool = True
 
     @property
     def url(self) -> str:

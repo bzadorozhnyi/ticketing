@@ -24,7 +24,18 @@ Features are secondary; failure experiments and evidence are the point.
   If unsure, say so. Mark every assumption as "Assumption: ...".
 - When a design is challenged, answer with evidence (test, experiment, measurement).
   If something is not guaranteed, say so and describe the failure scenario.
+- Experiments are throwaway: no scripts or reports in the repository.
+  Record the conclusion and the key numbers in `docs/CLAIMS.md` and `docs/LEARNINGS.md`.
 - After each milestone: a short summary of the concepts used and 3-5 interview-style questions (no answers).
+
+## Design principles
+
+- Idempotency first: every process is a sequence of steps, and each step is safe to re-run.
+  If a process crashes at any step, running it again must not create duplicates or repeat a side effect (such as a charge).
+- A check before acting is not enough on its own: two concurrent runs can both pass it.
+  Enforce the guarantee where it is atomic: a unique constraint in the database, or an idempotency key on the external call.
+- For every multi-step process, state what happens if it crashes after each step. Explain this to the user in detail
+  before implementing it (first in M3, the saga).
 
 ## Constraints
 
@@ -50,10 +61,9 @@ Features are secondary; failure experiments and evidence are the point.
 services/<name>/        one directory per service, self-contained (own dependencies, Dockerfile, tests, CLAUDE.md)
 contracts/              API contracts
 infra/                  compose helpers, observability, k8s
-experiments/<mN-name>/  scripts + REPORT.md; results/ only for raw data that does not fit in the report
 docs/BOARD.md           task board (TIK-<n> tickets)
 docs/adr/               NNNN-title.md
-docs/CLAIMS.md          reliability claim -> evidence (reproducible test) -> known limits
+docs/CLAIMS.md          reliability claim -> evidence (test or recorded measurement) -> known limits
 docs/LEARNINGS.md       short running log of what was learned / what surprised us
 ```
 

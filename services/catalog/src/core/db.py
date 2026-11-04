@@ -15,6 +15,7 @@ from core.settings import settings
 engine = create_async_engine(
     settings.DB.url,
     connect_args={"timeout": settings.DB.CONNECT_TIMEOUT_SECONDS},
+    pool_pre_ping=settings.DB.POOL_PRE_PING,
 )
 async_session = async_sessionmaker(engine, expire_on_commit=False)
 
