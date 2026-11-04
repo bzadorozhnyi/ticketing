@@ -16,6 +16,15 @@ uv run --directory src python -m scripts.seed    # demo data; no-op if venues ex
 uv run alembic -c src/alembic.ini downgrade base # wipe local data before re-seeding
 ```
 
+## Run in Docker
+
+From the repo root; catalog is on `localhost:8001`:
+
+```
+docker compose up -d --wait --build                     # db -> catalog-migrate -> catalog
+docker compose run --rm catalog python -m scripts.seed  # demo data
+```
+
 ## Layout notes
 
 - Code lives in `src/` and is imported without a package prefix (`from core.db import ...`);
