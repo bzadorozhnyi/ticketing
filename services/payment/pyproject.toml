@@ -1,0 +1,49 @@
+[project]
+name = "payment"
+version = "0.1.0"
+description = "Payment service: mock provider, idempotent charges and refunds"
+requires-python = ">=3.14"
+dependencies = [
+    "alembic==1.20.1",
+    "asyncpg==0.32.0",
+    "fastapi==0.162.0",
+    "loguru==0.7.3",
+    "pydantic-settings==2.16.2",
+    "sqlalchemy[asyncio]==2.1.6",
+    "uvicorn[standard]==0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "anyio==4.16.0",
+    "httpx==0.28.1",
+    "pytest==9.2.0",
+    "ruff==0.17.3",
+    "ty==0.0.96",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["src/tests"]
+
+[tool.ruff]
+target-version = "py314"
+src = ["src"]
+
+[tool.ruff.lint]
+preview = true
+select = ["E", "F", "I", "UP", "B", "C4", "SIM", "C901", "PLR1702"]
+ignore = ["E731"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-nested-blocks = 4
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ty.environment]
+python-version = "3.14"
+root = ["src"]

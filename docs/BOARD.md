@@ -5,7 +5,6 @@ Next ticket: TIK-12
 ## In progress
 
 ## To do
-- TIK-11 Payment: service skeleton (M1)
 
 ## Done
 - [x] TIK-1 Catalog: service skeleton (M1)
@@ -18,3 +17,4 @@ Next ticket: TIK-12
 - [x] TIK-8 Catalog: trace context in logs (M1)
 - [x] TIK-9 Catalog: API contract (M1)
 - [x] TIK-10 Booking: service skeleton (M1)
+- [x] TIK-11 Payment: service skeleton (M1)

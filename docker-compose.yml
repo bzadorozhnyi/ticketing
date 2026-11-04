@@ -41,6 +41,14 @@ x-booking: &booking
     DB__NAME: booking_db
     DB__HOST: booking-db
 
+x-payment: &payment
+  build: ./services/payment
+  image: ticketing/payment
+  environment:
+    <<: *service-db-env
+    DB__NAME: payment_db
+    DB__HOST: payment-db
+
 services:
   catalog-db:
     <<: *postgres
@@ -84,6 +92,28 @@ services:
     depends_on:
       booking-migrate: { condition: service_completed_successfully }
 
+  payment-db:
+    <<: *postgres
+    environment:
+      <<: *postgres-env
+      POSTGRES_DB: payment_db
+    ports: ["5435:5432"]
+    volumes: ["payment-db-data:/var/lib/postgresql"]
+
+  payment-migrate:
+    <<: *payment
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      payment-db: { condition: service_healthy }
+
+  payment:
+    <<: *payment
+    ports: ["8003:8000"]
+    healthcheck: *ready-check
+    depends_on:
+      payment-migrate: { condition: service_completed_successfully }
+
 volumes:
   catalog-db-data:
   booking-db-data:
+  payment-db-data:
