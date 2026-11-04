@@ -1,10 +1,12 @@
 # Board
 
-Next ticket: TIK-12
+Next ticket: TIK-15
 
 ## In progress
 
 ## To do
+- [ ] TIK-13 Gateway: JWT auth (M1)
+- [ ] TIK-14 Gateway: benchmark against a Python baseline, ADR (M1)
 
 ## Done
 - [x] TIK-1 Catalog: service skeleton (M1)
@@ -18,3 +20,4 @@ Next ticket: TIK-12
 - [x] TIK-9 Catalog: API contract (M1)
 - [x] TIK-10 Booking: service skeleton (M1)
 - [x] TIK-11 Payment: service skeleton (M1)
+- [x] TIK-12 Gateway: routing to catalog (M1)

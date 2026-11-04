@@ -1,0 +1,92 @@
+use axum::Json;
+use axum::extract::rejection::BytesRejection;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
+use serde::Serialize;
+use thiserror::Error;
+
+#[derive(Clone, Copy, Debug, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ErrorCode {
+    BadGateway,
+    GatewayTimeout,
+    HttpError,
+    NotFound,
+    PayloadTooLarge,
+    ServiceUnavailable,
+}
+
+#[derive(Debug, Serialize)]
+struct ErrorOut {
+    code: ErrorCode,
+    message: String,
+    details: Vec<String>,
+}
+
+#[derive(Debug, Error)]
+pub enum GatewayError {
+    #[error("Not found")]
+    NotFound,
+    #[error("Request body is too large")]
+    PayloadTooLarge,
+    #[error("Failed to read the request body")]
+    UnreadableBody,
+    #[error("Upstream is unavailable")]
+    UpstreamUnavailable,
+    #[error("Upstream did not respond in time")]
+    UpstreamTimeout,
+    #[error("Upstream request failed")]
+    UpstreamFailed,
+}
+
+impl GatewayError {
+    fn status_and_code(&self) -> (StatusCode, ErrorCode) {
+        match self {
+            Self::NotFound => (StatusCode::NOT_FOUND, ErrorCode::NotFound),
+            Self::PayloadTooLarge => (StatusCode::PAYLOAD_TOO_LARGE, ErrorCode::PayloadTooLarge),
+            Self::UnreadableBody => (StatusCode::BAD_REQUEST, ErrorCode::HttpError),
+            Self::UpstreamUnavailable => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                ErrorCode::ServiceUnavailable,
+            ),
+            Self::UpstreamTimeout => (StatusCode::GATEWAY_TIMEOUT, ErrorCode::GatewayTimeout),
+            Self::UpstreamFailed => (StatusCode::BAD_GATEWAY, ErrorCode::BadGateway),
+        }
+    }
+}
+
+impl From<BytesRejection> for GatewayError {
+    fn from(rejection: BytesRejection) -> Self {
+        if rejection.status() == StatusCode::PAYLOAD_TOO_LARGE {
+            Self::PayloadTooLarge
+        } else {
+            Self::UnreadableBody
+        }
+    }
+}
+
+impl From<reqwest::Error> for GatewayError {
+    fn from(error: reqwest::Error) -> Self {
+        let kind = if error.is_connect() {
+            Self::UpstreamUnavailable
+        } else if error.is_timeout() {
+            Self::UpstreamTimeout
+        } else {
+            Self::UpstreamFailed
+        };
+        tracing::warn!(error = ?error.without_url(), "{kind}");
+        kind
+    }
+}
+
+impl IntoResponse for GatewayError {
+    fn into_response(self) -> Response {
+        let (status, code) = self.status_and_code();
+        let body = ErrorOut {
+            code,
+            message: self.to_string(),
+            details: Vec::new(),
+        };
+        (status, Json(body)).into_response()
+    }
+}

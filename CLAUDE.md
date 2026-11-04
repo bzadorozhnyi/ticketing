@@ -49,7 +49,7 @@ Features are secondary; failure experiments and evidence are the point.
 
 | Service | Lang | Role |
 |---|---|---|
-| gateway | Rust | routing, auth, rate limiting, timeouts, retries (idempotent only), circuit breaker, load shedding, trace propagation, metrics |
+| gateway | Rust | routing, JWT auth, rate limiting, timeouts, retries (idempotent only), circuit breaker, load shedding, trace propagation, metrics |
 | catalog | Python | events, venues, seat maps, prices; read-heavy |
 | seat-hold | Rust | authoritative seat holds with TTL; no seat held by two people |
 | booking | Python | orders, idempotency keys, saga orchestrator with persisted state |
@@ -122,15 +122,25 @@ src/
 ## Rust services
 
 - Edition 2024, toolchain pinned in `rust-toolchain.toml`.
-- Lints: clippy `all` + `pedantic` as warnings, `excessive-nesting-threshold = 4`; `cargo fmt --check` and clippy must pass.
+- Lints: `unsafe_code = "forbid"`; clippy `all` + `pedantic` plus `unwrap_used`, `indexing_slicing`, `wildcard_enum_match_arm`,
+  `fallible_impl_from`, `excessive_nesting` as warnings, `excessive-nesting-threshold = 4`; `cargo fmt --check` and clippy must pass.
+  `unwrap` and indexing are allowed in tests through `clippy.toml`.
+- Panics: `panic = "unwind"`, so a bug kills one request and not the process (measured, see `docs/CLAIMS.md`).
+  A panic hook writes the panic to the JSON log.
+- Limits are explicit: request body size, upstream connect and total timeouts. SIGTERM triggers graceful shutdown.
+- Docker: `cargo-chef` caches the dependency build; runtime image `debian:trixie-slim`, non-root user (no distroless).
 - `lib.rs` exposes modules, `main.rs` only wires dependencies and starts the server.
 - Modules by layer: `settings`, `errors`, `dto`, `enums`, `repositories`, `services`, handlers.
 - Repositories take the executor/connection as a parameter, so a service can compose several of them in one transaction.
 - Errors: `thiserror` enums per area.
+- Settings: `config` crate without default features, nested groups with `__` delimiter (`UPSTREAMS__CATALOG_URL`),
+  upper case names, read only from the environment. A group with defaults uses `#[serde(default)]`
+  and a hand-written `impl Default`; required values live in a group without defaults.
 - pre-commit runs `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings`.
 - Tests with a database: candidate is `#[sqlx::test]` (fresh database per test, migrations applied automatically,
   real commits allowed). Decide when building seat-hold; it is several times slower than rollback-per-test.
-  Gateway tests run against a mock upstream; the tool is chosen when we get there.
+- Gateway tests run against a real axum server started inside the test (real sockets, no mock library),
+  and the path through real services is checked in the running compose stack.
 
 ## Git
 
@@ -148,5 +158,4 @@ src/
 ## Open decisions
 
 - Inter-service communication: synchronous HTTP vs messaging (decide when we reach it).
-- Gateway auth: static API keys vs JWT.
 - CI platform.

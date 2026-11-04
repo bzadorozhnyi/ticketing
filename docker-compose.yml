@@ -50,6 +50,18 @@ x-payment: &payment
     DB__HOST: payment-db
 
 services:
+  gateway:
+    build: ./services/gateway
+    image: ticketing/gateway
+    environment:
+      UPSTREAMS__CATALOG_URL: http://catalog:8000
+    ports: ["8000:8000"]
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--max-time", "2", "http://localhost:8000/ready"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
   catalog-db:
     <<: *postgres
     environment:

@@ -1,0 +1,92 @@
+use axum::Extension;
+use axum::body::{Body, Bytes};
+use axum::extract::State;
+use axum::extract::rejection::BytesRejection;
+use axum::http::header::{
+    CONNECTION, HeaderMap, HeaderName, HeaderValue, PROXY_AUTHENTICATE, PROXY_AUTHORIZATION, TE,
+    TRAILER, TRANSFER_ENCODING, UPGRADE,
+};
+use axum::http::{Method, Uri};
+use axum::response::Response;
+use reqwest::Url;
+
+use crate::app::AppState;
+use crate::errors::GatewayError;
+use crate::trace_context::TraceContext;
+
+const TRACEPARENT: HeaderName = HeaderName::from_static("traceparent");
+const TRACESTATE: HeaderName = HeaderName::from_static("tracestate");
+const HOP_BY_HOP: [HeaderName; 9] = [
+    CONNECTION,
+    HeaderName::from_static("keep-alive"),
+    HeaderName::from_static("proxy-connection"),
+    PROXY_AUTHENTICATE,
+    PROXY_AUTHORIZATION,
+    TE,
+    TRAILER,
+    TRANSFER_ENCODING,
+    UPGRADE,
+];
+
+/// The request body is buffered, so `DefaultBodyLimit` applies to it.
+/// The response is streamed, so its size does not cost the gateway memory.
+pub async fn forward(
+    State(state): State<AppState>,
+    Extension(trace): Extension<TraceContext>,
+    method: Method,
+    uri: Uri,
+    headers: HeaderMap,
+    body: Result<Bytes, BytesRejection>,
+) -> Result<Response, GatewayError> {
+    let url = upstream_url(&state.catalog_url, &uri)?;
+    let upstream = state
+        .client
+        .request(method, url)
+        .headers(request_headers(headers, &trace)?)
+        .body(body?)
+        .send()
+        .await?;
+    Ok(into_response(upstream))
+}
+
+/// `Url` resolves `..` and `%2e%2e`, so `/api/v1/events/../../internal` would match the
+/// public route here and reach a different path upstream. Such a request is refused.
+fn upstream_url(base: &Url, uri: &Uri) -> Result<Url, GatewayError> {
+    let mut url = base.clone();
+    url.set_path(uri.path());
+    url.set_query(uri.query());
+    if url.path() == uri.path() {
+        Ok(url)
+    } else {
+        Err(GatewayError::NotFound)
+    }
+}
+
+fn request_headers(
+    mut headers: HeaderMap,
+    trace: &TraceContext,
+) -> Result<HeaderMap, GatewayError> {
+    remove_hop_by_hop(&mut headers);
+    headers.remove(TRACESTATE);
+    let traceparent =
+        HeaderValue::try_from(trace.traceparent()).map_err(|_| GatewayError::UpstreamFailed)?;
+    headers.insert(TRACEPARENT, traceparent);
+    Ok(headers)
+}
+
+fn into_response(upstream: reqwest::Response) -> Response {
+    let status = upstream.status();
+    let mut headers = upstream.headers().clone();
+    remove_hop_by_hop(&mut headers);
+
+    let mut response = Response::new(Body::from_stream(upstream.bytes_stream()));
+    *response.status_mut() = status;
+    *response.headers_mut() = headers;
+    response
+}
+
+fn remove_hop_by_hop(headers: &mut HeaderMap) {
+    for name in HOP_BY_HOP {
+        headers.remove(name);
+    }
+}

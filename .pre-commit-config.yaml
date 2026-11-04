@@ -29,6 +29,18 @@ repos:
         language: system
         files: ^services/.*\.py$
         pass_filenames: false
+      - id: cargo-fmt
+        name: cargo fmt
+        entry: infra/rust-services.sh cargo fmt --check
+        language: system
+        files: ^services/.*\.rs$
+        pass_filenames: false
+      - id: cargo-clippy
+        name: cargo clippy
+        entry: infra/rust-services.sh cargo clippy --all-targets -- -D warnings
+        language: system
+        files: ^services/.*(\.rs|Cargo\.(toml|lock)|clippy\.toml)$
+        pass_filenames: false
       - id: contract
         name: export contracts
         entry: env PYTHONPATH=src DB__NAME=unused DB__USER=unused DB__PASS=unused DB__HOST=unused infra/python-services.sh python -m scripts.export_openapi
