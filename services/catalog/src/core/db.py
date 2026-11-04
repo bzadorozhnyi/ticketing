@@ -3,10 +3,13 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import Depends
+from loguru import logger
 from sqlalchemy import DateTime, MetaData, func
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from core.exceptions import ServiceUnavailableException
 from core.settings import settings
 
 engine = create_async_engine(
@@ -31,9 +34,24 @@ class BaseModel(DeclarativeBase):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
+def is_connection_error(exc: Exception) -> bool:
+    """asyncpg raises plain OSError subclasses while connecting; SQLAlchemy only
+    wraps failures on an already open connection.
+    """
+    if isinstance(exc, DBAPIError):
+        return exc.connection_invalidated
+    return isinstance(exc, OSError)
+
+
 async def get_session() -> AsyncIterator[AsyncSession]:
     async with async_session() as session:
-        yield session
+        try:
+            yield session
+        except (OSError, DBAPIError) as exc:
+            if is_connection_error(exc):
+                logger.bind(error=repr(exc)).warning("Database is unavailable")
+                raise ServiceUnavailableException("Database is unavailable") from exc
+            raise
 
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]

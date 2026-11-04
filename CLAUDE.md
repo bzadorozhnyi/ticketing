@@ -50,7 +50,7 @@ Features are secondary; failure experiments and evidence are the point.
 services/<name>/        one directory per service, self-contained (own dependencies, Dockerfile, tests, CLAUDE.md)
 contracts/              API contracts
 infra/                  compose helpers, observability, k8s
-experiments/<mN-name>/  scripts + results/ + REPORT.md
+experiments/<mN-name>/  scripts + REPORT.md; results/ only for raw data that does not fit in the report
 docs/BOARD.md           task board (TIK-<n> tickets)
 docs/adr/               NNNN-title.md
 docs/CLAIMS.md          reliability claim -> evidence (reproducible test) -> known limits

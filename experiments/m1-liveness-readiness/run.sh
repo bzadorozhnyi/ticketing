@@ -2,7 +2,7 @@
 # Run from the repository root with the stack up and seeded:
 #   docker compose up -d --wait
 #   docker compose run --rm catalog python -m scripts.seed
-#   experiments/m1-liveness-readiness/run.sh | tee experiments/m1-liveness-readiness/results/latest.txt
+#   experiments/m1-liveness-readiness/run.sh
 set -u
 
 BASE=http://localhost:8001

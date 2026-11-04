@@ -5,6 +5,9 @@ class ErrorCode(StrEnum):
     INTERNAL_ERROR = auto()
     NOT_FOUND = auto()
     CONFLICT = auto()
+    SERVICE_UNAVAILABLE = auto()
+    VALIDATION_ERROR = auto()
+    HTTP_ERROR = auto()
 
 
 class AppException(Exception):
@@ -26,3 +29,7 @@ class ConflictException(AppException):
 
 class InternalServerException(AppException):
     code = ErrorCode.INTERNAL_ERROR
+
+
+class ServiceUnavailableException(AppException):
+    code = ErrorCode.SERVICE_UNAVAILABLE

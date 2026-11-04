@@ -17,6 +17,7 @@ from tests.helpers.env import load_dotenv_into_environ  # noqa: E402
 
 load_dotenv_into_environ(".env.test", "../.env.test")
 
+from core.db import engine as core_engine  # noqa: E402
 from core.db import get_session  # noqa: E402
 from core.settings import settings  # noqa: E402
 from main import app  # noqa: E402
@@ -90,6 +91,17 @@ async def async_client(db_session):
         yield client
 
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def real_session_client(async_engine):
+    """The real get_session, and unhandled errors become responses."""
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        yield client
+
+    app.dependency_overrides.clear()
+    await core_engine.dispose()
 
 
 # Auto-load every fixture-factory in tests/factories/ without manual imports.
