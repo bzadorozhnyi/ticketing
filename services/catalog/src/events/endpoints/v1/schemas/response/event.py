@@ -23,6 +23,7 @@ class EventOut(BaseModel):
     title: str
     starts_at: datetime
     sales_start_at: datetime
+    currency: str
     venue: EventVenueOut
 
     @classmethod
@@ -32,6 +33,7 @@ class EventOut(BaseModel):
             title=dto.title,
             starts_at=dto.starts_at,
             sales_start_at=dto.sales_start_at,
+            currency=dto.currency,
             venue=EventVenueOut.from_dto(dto.venue),
         )
 

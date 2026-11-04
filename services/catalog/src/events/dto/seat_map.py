@@ -9,6 +9,7 @@ from venues.dto.section import SectionDTO
 class EventSectionsDTO(BaseModel):
     event_id: uuid.UUID
     venue_id: uuid.UUID
+    currency: str
     sections: list[SectionDTO]
 
 

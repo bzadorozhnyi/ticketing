@@ -71,7 +71,9 @@ async def db_session(db_connection, session_factory):
     own commit() as a savepoint release, not a real commit — so app code (and
     factories) can commit freely without breaking isolation between tests.
     """
-    async with session_factory(bind=db_connection) as session:
+    async with session_factory(
+        bind=db_connection, join_transaction_mode="create_savepoint"
+    ) as session:
         yield session
 
 

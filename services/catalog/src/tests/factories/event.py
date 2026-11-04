@@ -17,6 +17,7 @@ def event_factory(db_session, venue_factory):
 
         venue = factory.SubFactory(venue_factory.factory_class)
         title = factory.Sequence(lambda n: f"Event {n}")
+        currency = "UAH"
         starts_at = factory.LazyFunction(lambda: datetime.now(UTC) + timedelta(days=30))
         sales_start_at = factory.LazyFunction(
             lambda: datetime.now(UTC) + timedelta(days=1)

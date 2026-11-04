@@ -7,3 +7,4 @@ class SectionDTO(BaseModel):
     id: uuid.UUID
     name: str
     seat_count: int
+    price_minor: int | None

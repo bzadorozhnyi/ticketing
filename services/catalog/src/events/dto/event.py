@@ -13,6 +13,7 @@ class EventDTO(BaseModel):
     title: str
     starts_at: datetime
     sales_start_at: datetime
+    currency: str
     venue: VenueDTO
 
     @classmethod
@@ -23,5 +24,6 @@ class EventDTO(BaseModel):
             title=event.title,
             starts_at=event.starts_at,
             sales_start_at=event.sales_start_at,
+            currency=event.currency,
             venue=VenueDTO.from_model(event.venue),
         )

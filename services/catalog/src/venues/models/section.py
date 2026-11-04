@@ -10,7 +10,10 @@ from venues.models.venue import Venue
 
 class Section(BaseModel):
     __tablename__ = "sections"
-    __table_args__ = (UniqueConstraint("venue_id", "name"),)
+    __table_args__ = (
+        UniqueConstraint("venue_id", "name"),
+        UniqueConstraint("id", "venue_id"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         primary_key=True, server_default=func.uuidv7()

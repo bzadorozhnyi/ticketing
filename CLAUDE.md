@@ -130,10 +130,10 @@ src/
   with `git branch -D` (git does not treat a squashed branch as merged, so `-d` refuses).
 - Moving a ticket on the board is part of the same commit as the work, never a separate commit.
 - Commit message: `TIK-<n> <Summary>`, where `<n>` is the ticket number from `docs/BOARD.md`.
-- `TIK-0` marks small technical fixes that don't deserve their own ticket (not tracked on the board).
-  They follow the same branch + squash flow (`TIK-0-<short-slug>`); the only exception is the repository's root commit.
   Summary: English, past tense, starts with a verb, at most 50 characters (not counting the ticket prefix).
   Example: `TIK-12 Added username field in patch profile endpoint`.
+- `TIK-0` marks small technical fixes that don't deserve their own ticket (not tracked on the board).
+  They follow the same branch + squash flow (`TIK-0-<short-slug>`); the only exception is the repository's root commit.
 
 ## Open decisions
 

@@ -20,6 +20,7 @@ async def test_get_event_returns_event_with_venue(async_client, event_factory):
     body = response.json()
     assert body["id"] == str(event.id)
     assert body["title"] == event.title
+    assert body["currency"] == event.currency
     assert body["venue"]["id"] == str(event.venue.id)
 
 

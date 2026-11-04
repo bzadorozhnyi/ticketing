@@ -10,11 +10,13 @@ class SectionOut(BaseModel):
     id: uuid.UUID
     name: str
     seat_count: int
+    price_minor: int | None
 
 
 class EventSectionsOut(BaseModel):
     event_id: uuid.UUID
     venue_id: uuid.UUID
+    currency: str
     sections: list[SectionOut]
 
     @classmethod
@@ -22,8 +24,14 @@ class EventSectionsOut(BaseModel):
         return cls(
             event_id=dto.event_id,
             venue_id=dto.venue_id,
+            currency=dto.currency,
             sections=[
-                SectionOut(id=s.id, name=s.name, seat_count=s.seat_count)
+                SectionOut(
+                    id=s.id,
+                    name=s.name,
+                    seat_count=s.seat_count,
+                    price_minor=s.price_minor,
+                )
                 for s in dto.sections
             ],
         )
