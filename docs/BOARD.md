@@ -1,6 +1,6 @@
 # Board
 
-Next ticket: TIK-9
+Next ticket: TIK-10
 
 ## In progress
 
@@ -15,3 +15,4 @@ Next ticket: TIK-9
 - [x] TIK-6 Catalog: 503 on database outage, one error format for all errors (M1)
 - [x] TIK-7 Catalog: stale pooled connections after a database restart (M1)
 - [x] TIK-8 Catalog: trace context in logs (M1)
+- [x] TIK-9 Catalog: API contract (M1)

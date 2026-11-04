@@ -29,3 +29,9 @@ repos:
         language: system
         files: ^services/catalog/.*\.py$
         pass_filenames: false
+      - id: catalog-contract
+        name: export contract (catalog)
+        entry: env DB__NAME=unused DB__USER=unused DB__PASS=unused DB__HOST=unused uv run --frozen --directory services/catalog/src python -m scripts.export_openapi
+        language: system
+        files: ^(services/catalog/.*\.py|contracts/catalog\.openapi\.json)$
+        pass_filenames: false

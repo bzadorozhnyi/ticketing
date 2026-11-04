@@ -59,7 +59,7 @@ Features are secondary; failure experiments and evidence are the point.
 
 ```
 services/<name>/        one directory per service, self-contained (own dependencies, Dockerfile, tests, CLAUDE.md)
-contracts/              API contracts
+contracts/              generated OpenAPI per service (code-first, see ADR 0001)
 infra/                  compose helpers, observability, k8s
 docs/BOARD.md           task board (TIK-<n> tickets)
 docs/adr/               NNNN-title.md
@@ -148,6 +148,5 @@ src/
 ## Open decisions
 
 - Inter-service communication: synchronous HTTP vs messaging (decide when we reach it).
-- Contracts: code-first vs design-first.
 - Gateway auth: static API keys vs JWT.
 - CI platform.

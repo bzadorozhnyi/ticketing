@@ -1,11 +1,18 @@
 import uuid
 
+from fastapi import status
+
+from core.schemas import error_responses
 from events.endpoints.v1.routes.router import router
 from events.endpoints.v1.schemas.response.event import EventOut
 from events.use_cases.get_event import GetEventUseCaseDep
 
 
-@router.get("/{event_id}", response_model=EventOut)
+@router.get(
+    "/{event_id}",
+    response_model=EventOut,
+    responses=error_responses(status.HTTP_404_NOT_FOUND),
+)
 async def get_event(event_id: uuid.UUID, use_case: GetEventUseCaseDep) -> EventOut:
     dto = await use_case.execute(event_id=event_id)
     return EventOut.from_dto(dto)

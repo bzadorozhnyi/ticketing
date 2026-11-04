@@ -13,7 +13,12 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@router.get("/ready")
+@router.get(
+    "/ready",
+    responses={
+        status.HTTP_503_SERVICE_UNAVAILABLE: {"description": "A dependency is down"}
+    },
+)
 async def ready(session: SessionDep) -> JSONResponse:
     checks = {"db": "ok"}
     try:
