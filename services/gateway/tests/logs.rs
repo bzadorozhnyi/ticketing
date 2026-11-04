@@ -76,6 +76,22 @@ async fn writes_json_logs_with_the_trace_id_sent_upstream() {
     assert!(!line.contains(r#""duration_ms":""#), "{line}");
     assert!(!line.contains("secret"), "{line}");
 
+    client()
+        .get(format!("{gateway}/api/v1/events"))
+        .header("authorization", "Bearer forged.token.value")
+        .send()
+        .await
+        .unwrap();
+
+    let logs = buffer.text();
+    let line = logs
+        .lines()
+        .find(|line| line.contains("Token rejected"))
+        .unwrap();
+    assert!(line.contains(r#""reason":"#), "{line}");
+    assert!(line.contains(r#""trace_id":"#), "{line}");
+    assert!(!logs.contains("forged.token.value"), "{logs}");
+
     let span = tracing::info_span!("request", trace_id = "panicking-trace");
     let result = span.in_scope(|| catch_unwind(|| panic!("boom")));
 

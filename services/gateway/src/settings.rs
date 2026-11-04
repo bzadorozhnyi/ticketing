@@ -8,6 +8,10 @@ use serde::de::Error;
 use serde::{Deserialize, Deserializer};
 use tracing::Level;
 
+/// RFC 7518 requires a key at least as long as the HS256 hash. A shorter one
+/// can be brute-forced offline from any single token.
+const MIN_JWT_SECRET_BYTES: usize = 32;
+
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum LogFormat {
@@ -73,10 +77,18 @@ impl Default for LimitSettings {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+/// No `Debug` here or on `Settings`: the secret must not be printable by accident.
+#[derive(Clone, Deserialize)]
+pub struct AuthSettings {
+    #[serde(deserialize_with = "jwt_secret")]
+    pub jwt_secret: String,
+}
+
+#[derive(Clone, Deserialize)]
 pub struct Settings {
     #[serde(default = "default_port")]
     pub port: u16,
+    pub auth: AuthSettings,
     pub upstreams: UpstreamSettings,
     #[serde(default)]
     pub client: ClientSettings,
@@ -108,6 +120,16 @@ where
     String::deserialize(deserializer)?
         .parse()
         .map_err(D::Error::custom)
+}
+
+fn jwt_secret<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    let secret = String::deserialize(deserializer)?;
+    if secret.len() < MIN_JWT_SECRET_BYTES {
+        return Err(D::Error::custom(format!(
+            "must be at least {MIN_JWT_SECRET_BYTES} bytes"
+        )));
+    }
+    Ok(secret)
 }
 
 fn seconds<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Duration, D::Error> {

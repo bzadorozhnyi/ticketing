@@ -23,3 +23,7 @@
 - A connection pool that keeps idle connections longer than the server does hits a race: the gateway sends on a connection uvicorn is closing, and a healthy upstream looks like a 502. With requests about 5 s apart this happened 2 times in 60 with a 90 s idle timeout, and 0 times with 3 s.
 - The `config` crate lowercases environment names, so `port=9001` overrides `PORT=9000`, and any non-Unicode variable stops the start, even one the service does not read. Accepted: the environment of a container is ours, and the failure is loud.
 - `#[serde(default)]` on a nested struct uses that struct's `Default`, not the defaults of its fields: a derived `Default` gave `max_body_bytes: 0`, which would refuse every request body.
+- `jsonwebtoken` accepts a token for 60 s after `exp` by default, and it never checks the length of an HMAC secret. Both are visible only in its source.
+- A rejection test can pass for the wrong reason: `Basic dXNlcjpwYXNz` was refused because it is not a JWT, not because of the scheme, so removing the scheme check changed nothing. A rejection test needs an input that is valid in every way except the one under test.
+- Removing `Debug` from the settings that hold a secret turns "do not log the secret" into a compile error.
+- `jsonwebtoken` with `rust_crypto` grew `Cargo.lock` from 124 to 180 packages, mostly for RSA and elliptic curves that HS256 does not use.

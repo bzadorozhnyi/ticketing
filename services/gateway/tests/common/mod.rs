@@ -8,20 +8,24 @@ use std::time::Duration;
 use axum::Router;
 use axum::body::Bytes;
 use axum::extract::{Request, State};
+use axum::http::header::{AUTHORIZATION, HeaderValue};
 use axum::http::{HeaderMap, Method, StatusCode};
 use axum::middleware::{Next, from_fn_with_state};
 use axum::response::Response;
 use gateway::app::build_app;
+use gateway::auth::issue_token;
 use gateway::settings::{
-    ClientSettings, LimitSettings, LogFormat, LoggingSettings, Settings, UpstreamSettings,
+    AuthSettings, ClientSettings, LimitSettings, LogFormat, LoggingSettings, Settings,
+    UpstreamSettings,
 };
-use reqwest::Client;
 use reqwest::redirect::Policy;
+use reqwest::{Client, ClientBuilder};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tracing::Level;
 
 pub const MAX_BODY_BYTES: usize = 64;
+pub const JWT_SECRET: &str = "test-secret-with-at-least-32-bytes";
 
 #[derive(Clone, Debug)]
 pub struct Received {
@@ -94,6 +98,9 @@ pub fn test_settings(catalog_url: &str) -> Settings {
         limits: LimitSettings {
             max_body_bytes: MAX_BODY_BYTES,
         },
+        auth: AuthSettings {
+            jwt_secret: JWT_SECRET.to_owned(),
+        },
         upstreams: UpstreamSettings {
             catalog_url: catalog_url.parse().expect("a valid upstream url"),
         },
@@ -114,10 +121,24 @@ pub async fn spawn_gateway(settings: &Settings) -> String {
     format!("http://{}", serve(app).await)
 }
 
+pub fn authorization() -> String {
+    let token = issue_token(JWT_SECRET, "user-1", Duration::from_secs(60));
+    format!("Bearer {}", token.expect("a signed token"))
+}
+
+fn client_builder() -> ClientBuilder {
+    Client::builder().no_proxy().redirect(Policy::none())
+}
+
+pub fn anonymous_client() -> Client {
+    client_builder().build().expect("a valid test client")
+}
+
 pub fn client() -> Client {
-    Client::builder()
-        .no_proxy()
-        .redirect(Policy::none())
+    let mut value = HeaderValue::try_from(authorization()).expect("an ASCII token");
+    value.set_sensitive(true);
+    client_builder()
+        .default_headers(HeaderMap::from_iter([(AUTHORIZATION, value)]))
         .build()
         .expect("a valid test client")
 }

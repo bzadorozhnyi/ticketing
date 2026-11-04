@@ -8,8 +8,8 @@ use axum::http::{HeaderMap, Method, StatusCode};
 use axum::response::{IntoResponse, Redirect};
 use axum::routing::{any, get};
 use common::{
-    MAX_BODY_BYTES, client, dead_upstream_url, send_raw, spawn_gateway, spawn_upstream,
-    test_settings,
+    MAX_BODY_BYTES, anonymous_client, authorization, client, dead_upstream_url, send_raw,
+    spawn_gateway, spawn_upstream, test_settings,
 };
 
 fn echo_routes() -> Router {
@@ -215,7 +215,11 @@ async fn refuses_paths_that_climb_out_of_the_public_route() {
         "/api/v1/events/%2e%2e/%2e%2e/%2e%2e/health",
         "/api/v1/events/%2E%2E/%2E%2E/%2E%2E/health",
     ] {
-        let request = format!("GET {path} HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n");
+        let request = format!(
+            "GET {path} HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\
+             Authorization: {}\r\n\r\n",
+            authorization()
+        );
 
         let status = send_raw(&gateway, &request).await;
 
@@ -229,7 +233,7 @@ async fn health_and_ready_do_not_depend_on_upstreams() {
     let gateway = spawn_gateway(&test_settings(&dead_upstream_url().await)).await;
 
     for path in ["/health", "/ready"] {
-        let response = client()
+        let response = anonymous_client()
             .get(format!("{gateway}{path}"))
             .send()
             .await
@@ -322,7 +326,9 @@ async fn rejects_a_chunked_body_over_the_limit_without_a_content_length() {
     let chunk = "x".repeat(size);
     let request = format!(
         "POST /api/v1/events HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\
-         Transfer-Encoding: chunked\r\n\r\n{size:x}\r\n{chunk}\r\n0\r\n\r\n"
+         Authorization: {}\r\nTransfer-Encoding: chunked\r\n\r\n\
+         {size:x}\r\n{chunk}\r\n0\r\n\r\n",
+        authorization()
     );
 
     let status = send_raw(&gateway, &request).await;

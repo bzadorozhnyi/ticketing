@@ -1,6 +1,7 @@
 use axum::Json;
 use axum::extract::rejection::BytesRejection;
 use axum::http::StatusCode;
+use axum::http::header::{HeaderValue, WWW_AUTHENTICATE};
 use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 use thiserror::Error;
@@ -14,6 +15,7 @@ pub enum ErrorCode {
     NotFound,
     PayloadTooLarge,
     ServiceUnavailable,
+    Unauthorized,
 }
 
 #[derive(Debug, Serialize)]
@@ -25,6 +27,8 @@ struct ErrorOut {
 
 #[derive(Debug, Error)]
 pub enum GatewayError {
+    #[error("Authentication required")]
+    Unauthorized,
     #[error("Not found")]
     NotFound,
     #[error("Request body is too large")]
@@ -42,6 +46,7 @@ pub enum GatewayError {
 impl GatewayError {
     fn status_and_code(&self) -> (StatusCode, ErrorCode) {
         match self {
+            Self::Unauthorized => (StatusCode::UNAUTHORIZED, ErrorCode::Unauthorized),
             Self::NotFound => (StatusCode::NOT_FOUND, ErrorCode::NotFound),
             Self::PayloadTooLarge => (StatusCode::PAYLOAD_TOO_LARGE, ErrorCode::PayloadTooLarge),
             Self::UnreadableBody => (StatusCode::BAD_REQUEST, ErrorCode::HttpError),
@@ -87,6 +92,11 @@ impl IntoResponse for GatewayError {
             message: self.to_string(),
             details: Vec::new(),
         };
-        (status, Json(body)).into_response()
+        let mut response = (status, Json(body)).into_response();
+        if matches!(self, Self::Unauthorized) {
+            let challenge = HeaderValue::from_static("Bearer");
+            response.headers_mut().insert(WWW_AUTHENTICATE, challenge);
+        }
+        response
     }
 }

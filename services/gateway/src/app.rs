@@ -1,10 +1,11 @@
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
-use axum::middleware::from_fn;
+use axum::middleware::{from_fn, from_fn_with_state};
 use axum::routing::{any, get};
 use reqwest::redirect::Policy;
 use reqwest::{Client, Url};
 
+use crate::auth::{TokenVerifier, authenticate};
 use crate::errors::GatewayError;
 use crate::handlers::{health, proxy};
 use crate::settings::{ClientSettings, Settings};
@@ -21,11 +22,18 @@ pub fn build_app(settings: &Settings) -> Result<Router, reqwest::Error> {
         client: build_client(&settings.client)?,
         catalog_url: settings.upstreams.catalog_url.clone(),
     };
+    let verifier = TokenVerifier::new(&settings.auth.jwt_secret);
+
+    // A token is the default: a public route is an explicit exception next to /health.
+    let protected = Router::new()
+        .route("/api/v1/events", any(proxy::forward))
+        .route("/api/v1/events/{*rest}", any(proxy::forward))
+        .route_layer(from_fn_with_state(verifier, authenticate));
+
     Ok(Router::new()
         .route("/health", get(health::health))
         .route("/ready", get(health::health))
-        .route("/api/v1/events", any(proxy::forward))
-        .route("/api/v1/events/{*rest}", any(proxy::forward))
+        .merge(protected)
         .fallback(async || GatewayError::NotFound)
         .layer(DefaultBodyLimit::max(settings.limits.max_body_bytes))
         .layer(from_fn(trace_request))

@@ -3,19 +3,21 @@ use axum::body::{Body, Bytes};
 use axum::extract::State;
 use axum::extract::rejection::BytesRejection;
 use axum::http::header::{
-    CONNECTION, HeaderMap, HeaderName, HeaderValue, PROXY_AUTHENTICATE, PROXY_AUTHORIZATION, TE,
-    TRAILER, TRANSFER_ENCODING, UPGRADE,
+    AUTHORIZATION, CONNECTION, HeaderMap, HeaderName, HeaderValue, PROXY_AUTHENTICATE,
+    PROXY_AUTHORIZATION, TE, TRAILER, TRANSFER_ENCODING, UPGRADE,
 };
 use axum::http::{Method, Uri};
 use axum::response::Response;
 use reqwest::Url;
 
 use crate::app::AppState;
+use crate::auth::AuthenticatedUser;
 use crate::errors::GatewayError;
 use crate::trace_context::TraceContext;
 
 const TRACEPARENT: HeaderName = HeaderName::from_static("traceparent");
 const TRACESTATE: HeaderName = HeaderName::from_static("tracestate");
+const X_USER_ID: HeaderName = HeaderName::from_static("x-user-id");
 const HOP_BY_HOP: [HeaderName; 9] = [
     CONNECTION,
     HeaderName::from_static("keep-alive"),
@@ -33,6 +35,7 @@ const HOP_BY_HOP: [HeaderName; 9] = [
 pub async fn forward(
     State(state): State<AppState>,
     Extension(trace): Extension<TraceContext>,
+    user: Option<Extension<AuthenticatedUser>>,
     method: Method,
     uri: Uri,
     headers: HeaderMap,
@@ -42,7 +45,7 @@ pub async fn forward(
     let upstream = state
         .client
         .request(method, url)
-        .headers(request_headers(headers, &trace)?)
+        .headers(request_headers(headers, &trace, user.map(|user| user.0))?)
         .body(body?)
         .send()
         .await?;
@@ -65,9 +68,15 @@ fn upstream_url(base: &Url, uri: &Uri) -> Result<Url, GatewayError> {
 fn request_headers(
     mut headers: HeaderMap,
     trace: &TraceContext,
+    user: Option<AuthenticatedUser>,
 ) -> Result<HeaderMap, GatewayError> {
     remove_hop_by_hop(&mut headers);
+    headers.remove(AUTHORIZATION);
     headers.remove(TRACESTATE);
+    headers.remove(X_USER_ID);
+    if let Some(AuthenticatedUser(user_id)) = user {
+        headers.insert(X_USER_ID, user_id);
+    }
     let traceparent =
         HeaderValue::try_from(trace.traceparent()).map_err(|_| GatewayError::UpstreamFailed)?;
     headers.insert(TRACEPARENT, traceparent);
@@ -88,5 +97,20 @@ fn into_response(upstream: reqwest::Response) -> Response {
 fn remove_hop_by_hop(headers: &mut HeaderMap) {
     for name in HOP_BY_HOP {
         headers.remove(name);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_client_cannot_claim_a_user_on_a_public_route() {
+        let mut headers = HeaderMap::new();
+        headers.insert(X_USER_ID, HeaderValue::from_static("admin"));
+
+        let forwarded = request_headers(headers, &TraceContext::generate(), None).unwrap();
+
+        assert!(!forwarded.contains_key(X_USER_ID));
     }
 }

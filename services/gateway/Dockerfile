@@ -22,7 +22,7 @@ RUN cargo chef cook --release --locked --recipe-path recipe.json
 
 COPY . .
 
-RUN cargo build --release --locked --bin gateway
+RUN cargo build --release --locked --bins
 
 
 FROM debian:trixie-slim AS runtime
@@ -33,7 +33,7 @@ RUN apt-get update \
     && groupadd --system app \
     && useradd --system --gid app app
 
-COPY --from=builder /app/target/release/gateway /usr/local/bin/gateway
+COPY --from=builder /app/target/release/gateway /app/target/release/issue-token /usr/local/bin/
 
 USER app
 
