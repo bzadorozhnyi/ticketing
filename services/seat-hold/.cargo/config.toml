@@ -1,0 +1,2 @@
+[env]
+DATABASE_URL = "postgres://postgres:password@localhost:5436/postgres"

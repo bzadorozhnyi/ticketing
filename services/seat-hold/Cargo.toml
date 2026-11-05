@@ -1,0 +1,37 @@
+[package]
+name = "seat-hold"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+
+[dependencies]
+axum = "0.8.9"
+config = { version = "0.15.27", default-features = false }
+rand = "0.10.3"
+serde = { version = "1.0.229", features = ["derive"] }
+sqlx = { version = "0.9.0", default-features = false, features = ["macros", "migrate", "postgres", "runtime-tokio"] }
+thiserror = "2.0.21"
+tokio = { version = "1.54.1", features = ["macros", "net", "rt-multi-thread", "signal"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["json"] }
+
+[dev-dependencies]
+reqwest = { version = "0.13.5", default-features = false }
+tokio = { version = "1.54.1", features = ["sync", "time"] }
+
+[profile.release]
+panic = "unwind"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+excessive_nesting = "warn"
+fallible_impl_from = "warn"
+indexing_slicing = "warn"
+missing_errors_doc = "allow"
+unwrap_used = "warn"
+wildcard_enum_match_arm = "warn"

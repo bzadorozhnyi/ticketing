@@ -36,3 +36,9 @@
 - Threads are not automatically better than processes: from 1 to 4 CPUs Python workers gained 3.7x and the Rust gateway 2.1x, so the gap fell from 3.7x to 2.2x.
 - Overwriting one file between `docker run` calls on Docker Desktop gave `oasdiff` a truncated read. Assumption: the shared file system cached the size of the previous file. A separate file per contract fixed it.
 - One advisory database is not the whole picture. `jsonwebtoken` 9.3.1 passes `cargo-deny`, but OSV lists CVE-2026-25537 for it (a claim of the wrong type passes validation, fixed in 10.3.0). The RustSec database that `cargo-deny` reads does not have it.
+
+## M2
+
+- 200 database tests, 10 threads: rollback per test 1.3 s, a shared database with unique data 1.3 s, a clone from a template database 6.2 s, `#[sqlx::test]` 8.0 s with one migration and 9.0 s with ten.
+- A shared database with random keys was as fast as rollback, but it was rejected: isolation would rest on key generation and on every query filtering by that key.
+- In sqlx a `Transaction` held for the whole test turns every inner `begin` into a savepoint, so a `commit` in the code under test stays invisible to other connections. A raw `BEGIN` would not do this, because sqlx tracks the depth itself.

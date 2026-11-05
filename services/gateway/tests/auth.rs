@@ -3,10 +3,9 @@ mod common;
 use axum::Router;
 use axum::http::StatusCode;
 use axum::routing::any;
-use common::{
-    JWT_SECRET, MAX_BODY_BYTES, Upstream, anonymous_client, client, spawn_gateway, spawn_upstream,
-    test_settings,
-};
+use common::app::{JWT_SECRET, MAX_BODY_BYTES, spawn_gateway, test_settings};
+use common::client::{anonymous_client, client};
+use common::upstream::{Upstream, spawn_upstream};
 use gateway::auth::{Claims, issue_token};
 use jsonwebtoken::{Algorithm, EncodingKey, Header, encode, get_current_timestamp};
 use serde::Serialize;

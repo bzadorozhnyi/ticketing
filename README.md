@@ -23,6 +23,7 @@ flowchart LR
         catalog --> catalogdb[(catalog_db)]
         booking --> bookingdb[(booking_db)]
         payment --> paymentdb[(payment_db)]
+        seathold --> seatholddb[(seat_hold_db)]
     end
 ```
 
@@ -34,7 +35,7 @@ Solid lines work today; dotted lines are planned.
 | catalog | Python, FastAPI | Events, venues, seat maps, prices | Read API |
 | booking | Python, FastAPI | Orders, idempotency keys, saga orchestrator | Skeleton |
 | payment | Python, FastAPI | Mock provider with fault injection | Skeleton |
-| seat-hold | Rust | Authoritative seat holds with a TTL | Planned (M2) |
+| seat-hold | Rust, Axum | Authoritative seat holds with a TTL | Skeleton |
 
 Each service owns its database. The gateway checks who the caller is and passes the user in `X-User-Id`;
 a service decides what that user may do. Services trust this header, so they are reachable only through the gateway.

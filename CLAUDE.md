@@ -131,6 +131,7 @@ src/
 - Limits are explicit: request body size, upstream connect and total timeouts. SIGTERM triggers graceful shutdown.
 - Docker: `cargo-chef` caches the dependency build; runtime image `debian:trixie-slim`, non-root user (no distroless).
 - `lib.rs` exposes modules, `main.rs` only wires dependencies and starts the server.
+- `mod.rs` only declares modules: no logic and no re-exports, the same as `__init__.py`. Import from the module that defines the name.
 - Modules by layer: `settings`, `errors`, `dto`, `enums`, `repositories`, `services`, handlers.
 - Repositories take the executor/connection as a parameter, so a service can compose several of them in one transaction.
 - Errors: `thiserror` enums per area.
@@ -138,8 +139,13 @@ src/
   upper case names, read only from the environment. A group with defaults uses `#[serde(default)]`
   and a hand-written `impl Default`; required values live in a group without defaults.
 - pre-commit runs `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings`.
-- Tests with a database: candidate is `#[sqlx::test]` (fresh database per test, migrations applied automatically,
-  real commits allowed). Decide when building seat-hold; it is several times slower than rollback-per-test.
+- Code reaches the database through the `DbPool` trait: the pool in production, `TestPool` in tests. Test code stays in `tests/`.
+- Tests with a database mirror the Python services: a dedicated `testing_<service>_db`, recreated and migrated once per test binary.
+  Each test gets a `TestPool`: one connection inside one transaction that is never committed. A `commit` in the code under test
+  is a savepoint there. The server URL comes from `DATABASE_URL` in `.cargo/config.toml`.
+- Tests that need several connections (concurrency, recovery) use `#[sqlx::test]`: a fresh database per test with real commits,
+  about 6 times slower.
+- Test data: factories built with `bon` (added with the first entity).
 - Gateway tests run against a real axum server started inside the test (real sockets, no mock library),
   and the path through real services is checked in the running compose stack.
 

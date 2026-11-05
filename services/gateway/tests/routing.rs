@@ -7,10 +7,9 @@ use axum::http::header::{HOST, LOCATION};
 use axum::http::{HeaderMap, Method, StatusCode};
 use axum::response::{IntoResponse, Redirect};
 use axum::routing::{any, get};
-use common::{
-    MAX_BODY_BYTES, anonymous_client, authorization, client, dead_upstream_url, send_raw,
-    spawn_gateway, spawn_upstream, test_settings,
-};
+use common::app::{MAX_BODY_BYTES, spawn_gateway, test_settings};
+use common::client::{anonymous_client, authorization, client, send_raw};
+use common::upstream::{Upstream, dead_upstream_url, spawn_upstream};
 
 fn echo_routes() -> Router {
     let reply = async || (StatusCode::CREATED, [("x-upstream", "catalog")], "created");
@@ -20,7 +19,7 @@ fn echo_routes() -> Router {
         .route("/health", get(async || "upstream internal health"))
 }
 
-async fn gateway_with_echo() -> (String, common::Upstream) {
+async fn gateway_with_echo() -> (String, Upstream) {
     let upstream = spawn_upstream(echo_routes()).await;
     let gateway = spawn_gateway(&test_settings(&upstream.url)).await;
     (gateway, upstream)

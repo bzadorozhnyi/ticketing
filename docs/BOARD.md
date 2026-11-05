@@ -1,10 +1,17 @@
 # Board
 
-Next ticket: TIK-18
+Next ticket: TIK-26
 
 ## In progress
 
 ## To do
+- [ ] TIK-19 Seat-hold: storage ADR (M2)
+- [ ] TIK-20 Seat-hold: hold seats atomically, 409 if any is taken (M2)
+- [ ] TIK-21 Seat-hold: release and TTL (M2)
+- [ ] TIK-22 Gateway: route seat-hold, owner from X-User-Id (M2)
+- [ ] TIK-23 Seat-hold: concurrency experiment, exactly one winner per seat (M2)
+- [ ] TIK-24 Seat-hold: benchmark against a Python baseline, ADR (M2)
+- [ ] TIK-25 CI: run only what changed, reuse dependency images while dependencies are unchanged
 
 ## Done
 - [x] TIK-1 Catalog: service skeleton (M1)
@@ -24,3 +31,4 @@ Next ticket: TIK-18
 - [x] TIK-15 Compose: stop publishing service ports, gateway is the only entry (M1)
 - [x] TIK-16 README with architecture diagram (M1)
 - [x] TIK-17 CI: GitHub Actions, cargo-deny, breaking contract check (M1)
+- [x] TIK-18 Seat-hold: service skeleton (M2)
