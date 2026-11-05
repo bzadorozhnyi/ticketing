@@ -33,13 +33,13 @@ repos:
         name: cargo fmt
         entry: infra/rust-services.sh cargo fmt --check
         language: system
-        files: ^services/.*\.rs$
+        files: ^(services|infra)/.*\.rs$
         pass_filenames: false
       - id: cargo-clippy
         name: cargo clippy
         entry: infra/rust-services.sh cargo clippy --all-targets -- -D warnings
         language: system
-        files: ^services/.*(\.rs|Cargo\.(toml|lock)|clippy\.toml)$
+        files: ^(services|infra)/.*(\.rs|Cargo\.(toml|lock)|clippy\.toml)$
         pass_filenames: false
       - id: contract
         name: export contracts

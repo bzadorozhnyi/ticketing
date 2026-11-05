@@ -1,8 +1,9 @@
 # Board
 
-Next ticket: TIK-17
+Next ticket: TIK-18
 
 ## In progress
+- [ ] TIK-17 CI: GitHub Actions, cargo-deny, breaking contract check (M1)
 
 ## To do
 

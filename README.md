@@ -1,5 +1,7 @@
 # Ticketing
 
+[![CI](https://github.com/bzadorozhnyi/ticketing/actions/workflows/ci.yml/badge.svg)](https://github.com/bzadorozhnyi/ticketing/actions/workflows/ci.yml)
+
 A learning and portfolio project for distributed-systems patterns, built around one domain:
 selling tickets to events with limited seats and a traffic spike at the start of sales.
 

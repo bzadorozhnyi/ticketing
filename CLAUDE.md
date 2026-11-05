@@ -143,6 +143,15 @@ src/
 - Gateway tests run against a real axum server started inside the test (real sockets, no mock library),
   and the path through real services is checked in the running compose stack.
 
+## CI
+
+GitHub Actions on every push (`.github/workflows/ci.yml`), because pre-commit can be skipped:
+- Python: ruff, ty, pytest against the compose database.
+- Rust: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, `cargo test --release`.
+- `cargo-deny` for advisories and licenses (`services/gateway/deny.toml`).
+- `infra/check-contracts.sh` runs `oasdiff`: a breaking API change fails the build.
+- All Docker images build.
+
 ## Git
 
 - Tasks live in `docs/BOARD.md` (sections: In progress, To do, Done). New tickets take the number from its `Next ticket` counter.
@@ -159,4 +168,3 @@ src/
 ## Open decisions
 
 - Inter-service communication: synchronous HTTP vs messaging (decide when we reach it).
-- CI platform. Whatever it is, CI runs `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings`: pre-commit can be skipped.
