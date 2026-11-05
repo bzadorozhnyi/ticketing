@@ -156,7 +156,11 @@ GitHub Actions on pull requests into `main` and on pushes to `main` (`.github/wo
 - Rust: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, `cargo test --release`.
 - `cargo-deny` for advisories and licenses (`services/gateway/deny.toml`).
 - `infra/check-contracts.sh` runs `oasdiff`: a breaking API change fails the build.
-- All Docker images build.
+- All Docker images build, with the layers cached between runs.
+
+`infra/changed_areas.py` decides what runs in a pull request: only documentation is skipped, a service runs its own checks,
+and an unknown path runs everything. A push to `main` always runs everything. The only required check is `ci-passed`:
+a skipped job counts as success, a failed one fails it, so a new service needs no change in the repository settings.
 
 ## Git
 
