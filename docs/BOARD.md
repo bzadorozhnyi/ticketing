@@ -1,6 +1,6 @@
 # Board
 
-Next ticket: TIK-16
+Next ticket: TIK-17
 
 ## In progress
 
@@ -22,3 +22,4 @@ Next ticket: TIK-16
 - [x] TIK-13 Gateway: JWT auth (M1)
 - [x] TIK-14 Gateway: benchmark against a Python baseline, ADR (M1)
 - [x] TIK-15 Compose: stop publishing service ports, gateway is the only entry (M1)
+- [x] TIK-16 README with architecture diagram (M1)
