@@ -41,6 +41,12 @@ repos:
         language: system
         files: ^(services|infra)/.*(\.rs|Cargo\.(toml|lock)|clippy\.toml)$
         pass_filenames: false
+      - id: seat-hold-contract
+        name: export seat-hold contract
+        entry: bash -c 'cd services/seat-hold && cargo run --quiet --bin export-openapi'
+        language: system
+        files: ^(services/seat-hold/.*\.rs|contracts/seat-hold\.openapi\.json)$
+        pass_filenames: false
       - id: contract
         name: export contracts
         entry: env PYTHONPATH=src DB__NAME=unused DB__USER=unused DB__PASS=unused DB__HOST=unused infra/python-services.sh python -m scripts.export_openapi

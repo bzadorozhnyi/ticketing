@@ -5,8 +5,8 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use common::db::dead_pool;
 use common::service::{client, spawn_service};
-use seat_hold::logging::init_with_writer;
-use seat_hold::settings::LoggingSettings;
+use seat_hold::core::logging::init_with_writer;
+use seat_hold::core::settings::LoggingSettings;
 use tracing_subscriber::fmt::MakeWriter;
 
 #[derive(Clone, Default)]

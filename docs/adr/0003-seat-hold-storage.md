@@ -48,6 +48,17 @@ No row in the result means the seat is taken.
 - **After the commit, before the response:** the seats are held, but the client does not know. It can retry and get a conflict with itself, or the hold ends with the TTL.
   An idempotency key for this case is part of M3.
 
+## A payment that outlives the hold
+
+A hold can expire while a payment runs: another client takes the seat, then the payment succeeds. A longer TTL only blocks seats for people who left,
+and a hung payment can outlast any TTL. So M3 adds two atomic steps (TIK-26):
+
+- **Before the charge,** the hold is extended, only if it is still alive. If it is gone, no money is taken.
+- **After the charge,** the hold is confirmed, again only if it is alive.
+
+A provider can still answer after the extended hold has ended. This cannot be removed, only compensated: the saga refunds the payment.
+The guarantee is that a seat is never sold twice, not that a payment never needs a refund.
+
 ## Measurements
 
 `pgbench`, 16 clients, 3 runs of 15 s, one table with the primary key, no CPU limit, `synchronous_commit = on`:

@@ -2,24 +2,27 @@ use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
 use serde::Serialize;
+use utoipa::ToSchema;
 
-use crate::db::DbPool;
+use crate::app::AppState;
+use crate::core::db::DbPool;
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct HealthOut {
     status: &'static str,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct Checks {
     db: &'static str,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ReadyOut {
     checks: Checks,
 }
 
+#[utoipa::path(get, path = "/health", responses((status = 200, body = HealthOut)))]
 pub async fn health() -> Json<HealthOut> {
     Json(HealthOut { status: "ok" })
 }
@@ -30,8 +33,16 @@ async fn ping<D: DbPool>(db: &D) -> Result<(), sqlx::Error> {
     Ok(())
 }
 
-pub async fn ready<D: DbPool>(State(db): State<D>) -> (StatusCode, Json<ReadyOut>) {
-    match ping(&db).await {
+#[utoipa::path(
+    get,
+    path = "/ready",
+    responses(
+        (status = 200, body = ReadyOut),
+        (status = 503, description = "A dependency is down", body = ReadyOut),
+    )
+)]
+pub async fn ready<D: DbPool>(State(state): State<AppState<D>>) -> (StatusCode, Json<ReadyOut>) {
+    match ping(&state.db).await {
         Ok(()) => (StatusCode::OK, ready_out("ok")),
         Err(error) => {
             tracing::warn!(%error, "Readiness check failed: db unreachable");

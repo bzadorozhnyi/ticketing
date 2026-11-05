@@ -1,7 +1,7 @@
 mod common;
 
 use common::db::{TestPool, test_options};
-use seat_hold::db::DbPool;
+use seat_hold::core::db::DbPool;
 use sqlx::{Connection, PgConnection};
 
 async fn table_is_visible_outside() -> bool {
