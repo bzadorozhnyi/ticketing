@@ -40,6 +40,8 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
 | `POOL__ACQUIRE_TIMEOUT_SECONDS` | 5 | wait for a connection; `/ready` fails after this time |
 | `HOLDS__TTL_SECONDS` | 300 | how long a hold lasts |
 | `HOLDS__MAX_SEATS` | 10 | seats in one request |
+| `HOLDS__CLEANUP_INTERVAL_SECONDS` | 60 | how often expired rows are removed |
+| `HOLDS__CLEANUP_BATCH_SIZE` | 1000 | rows removed in one statement |
 | `PORT` | 8000 | listening port |
 | `LOGGING__FORMAT` | `JSON` | `JSON` or `PRETTY` |
 | `LOGGING__LEVEL` | `INFO` | `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE` |
@@ -49,4 +51,6 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
 - Migrations are SQL files in `migrations/`, embedded into the `migrate` binary.
 - The trace comes from the gateway: a valid `traceparent` is continued, an invalid one starts a new trace.
 - `POST /api/v1/holds` takes all seats or none, see ADR 0003. `X-User-Id` is the owner; TIK-22 routes it through the gateway.
+- `DELETE /api/v1/holds/{hold_id}` always answers 204, so a retry is safe. Another user's hold stays untouched.
+- Background job: `holds/cleanup_job.rs` removes expired rows. Correctness does not depend on it, and replicas need no coordination.
 - `/ready` checks the database; the pool connects lazily, so the service starts during an outage.

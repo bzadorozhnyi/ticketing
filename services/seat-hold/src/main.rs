@@ -5,6 +5,8 @@ use seat_hold::core::db::build_pool;
 use seat_hold::core::logging;
 use seat_hold::core::settings::Settings;
 use seat_hold::core::shutdown::shutdown_signal;
+use seat_hold::holds::cleanup_job;
+use seat_hold::holds::use_cases::cleanup_expired_holds::CleanupExpiredHoldsUseCase;
 use tokio::net::TcpListener;
 use tokio::signal::unix::{SignalKind, signal};
 
@@ -13,7 +15,11 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let settings = Settings::from_env()?;
     logging::init(&settings.logging)?;
 
-    let app = build_app(build_pool(&settings), settings.holds);
+    let db = build_pool(&settings);
+    let cleanup = CleanupExpiredHoldsUseCase::new(db.clone(), settings.holds.cleanup_batch_size);
+    let cleanup_job = tokio::spawn(cleanup_job::run(cleanup, settings.holds.cleanup_interval));
+
+    let app = build_app(db, settings.holds);
     let listener = TcpListener::bind(("0.0.0.0", settings.port)).await?;
     let terminate = signal(SignalKind::terminate())?;
 
@@ -21,6 +27,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal(terminate))
         .await?;
+    cleanup_job.abort();
     tracing::info!("Seat-hold stopped");
     Ok(())
 }

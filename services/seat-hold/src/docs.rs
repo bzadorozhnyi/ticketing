@@ -3,12 +3,17 @@ use std::path::PathBuf;
 use utoipa::OpenApi;
 
 use crate::core::health;
-use crate::holds::endpoints::v1::routes::create_hold;
+use crate::holds::endpoints::v1::routes::{create_hold, release_hold};
 
 #[derive(OpenApi)]
 #[openapi(
     info(title = "seat-hold", version = "0.1.0"),
-    paths(health::health, health::ready, create_hold::create_hold)
+    paths(
+        health::health,
+        health::ready,
+        create_hold::create_hold,
+        release_hold::release_hold,
+    )
 )]
 struct ApiDoc;
 

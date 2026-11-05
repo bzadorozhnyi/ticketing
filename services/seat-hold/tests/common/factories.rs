@@ -4,9 +4,11 @@ use uuid::Uuid;
 
 use super::db::TestPool;
 
+#[allow(clippy::struct_field_names)]
 pub struct HoldRow {
     pub event_id: Uuid,
     pub seat_id: Uuid,
+    pub hold_id: Uuid,
 }
 
 #[builder]
@@ -14,11 +16,13 @@ pub async fn hold_factory(
     pool: &TestPool,
     event_id: Option<Uuid>,
     seat_id: Option<Uuid>,
+    hold_id: Option<Uuid>,
     owner_id: Option<String>,
     expires_in_seconds: Option<f64>,
 ) -> HoldRow {
     let event_id = event_id.unwrap_or_else(Uuid::now_v7);
     let seat_id = seat_id.unwrap_or_else(Uuid::now_v7);
+    let hold_id = hold_id.unwrap_or_else(Uuid::now_v7);
     let mut conn = pool.get_conn().await.expect("a test connection");
     sqlx::query(
         "INSERT INTO holds (event_id, seat_id, hold_id, owner_id, expires_at)
@@ -26,11 +30,15 @@ pub async fn hold_factory(
     )
     .bind(event_id)
     .bind(seat_id)
-    .bind(Uuid::now_v7())
+    .bind(hold_id)
     .bind(owner_id.unwrap_or_else(|| "someone-else".to_owned()))
     .bind(expires_in_seconds.unwrap_or(300.0))
     .execute(&mut *conn)
     .await
     .expect("a stored hold");
-    HoldRow { event_id, seat_id }
+    HoldRow {
+        event_id,
+        seat_id,
+        hold_id,
+    }
 }

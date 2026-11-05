@@ -65,6 +65,9 @@ pub struct HoldSettings {
     #[serde(rename = "ttl_seconds", deserialize_with = "seconds")]
     pub ttl: Duration,
     pub max_seats: usize,
+    #[serde(rename = "cleanup_interval_seconds", deserialize_with = "seconds")]
+    pub cleanup_interval: Duration,
+    pub cleanup_batch_size: i64,
 }
 
 impl Default for HoldSettings {
@@ -72,6 +75,8 @@ impl Default for HoldSettings {
         Self {
             ttl: Duration::from_mins(5),
             max_seats: 10,
+            cleanup_interval: Duration::from_mins(1),
+            cleanup_batch_size: 1000,
         }
     }
 }

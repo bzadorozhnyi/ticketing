@@ -138,6 +138,8 @@ src/
 - The layers mean the same as in Python. Endpoints are thin. A use case is a struct with `execute()`, one per file;
   it holds the business rules and owns the transaction. `services` appear only for logic reused by several use cases.
   A repository is a unit struct with associated functions: SQL only, no business decisions.
+- `AppState` holds dependencies only (database, settings). Each use case implements `FromRef<AppState<D>>` in its own file,
+  and an endpoint asks for it with `State<...>`, like `Depends` in Python.
 - Repositories take the executor/connection as a parameter, so a service can compose several of them in one transaction.
 - Errors: `thiserror` enums per area.
 - Settings: `config` crate without default features, nested groups with `__` delimiter (`UPSTREAMS__CATALOG_URL`),

@@ -1,8 +1,10 @@
 use std::collections::HashSet;
 
+use axum::extract::FromRef;
 use sqlx::Connection;
 use uuid::Uuid;
 
+use crate::app::AppState;
 use crate::core::db::DbPool;
 use crate::core::errors::ServiceError;
 use crate::core::settings::HoldSettings;
@@ -13,6 +15,12 @@ use crate::holds::repositories::hold::HoldRepository;
 pub struct HoldSeatsUseCase<D: DbPool> {
     db: D,
     settings: HoldSettings,
+}
+
+impl<D: DbPool> FromRef<AppState<D>> for HoldSeatsUseCase<D> {
+    fn from_ref(state: &AppState<D>) -> Self {
+        Self::new(state.db.clone(), state.holds)
+    }
 }
 
 impl<D: DbPool> HoldSeatsUseCase<D> {
