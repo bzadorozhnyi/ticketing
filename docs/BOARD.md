@@ -5,7 +5,6 @@ Next ticket: TIK-26
 ## In progress
 
 ## To do
-- [ ] TIK-19 Seat-hold: storage ADR (M2)
 - [ ] TIK-20 Seat-hold: hold seats atomically, 409 if any is taken (M2)
 - [ ] TIK-21 Seat-hold: release and TTL (M2)
 - [ ] TIK-22 Gateway: route seat-hold, owner from X-User-Id (M2)
@@ -32,3 +31,4 @@ Next ticket: TIK-26
 - [x] TIK-16 README with architecture diagram (M1)
 - [x] TIK-17 CI: GitHub Actions, cargo-deny, breaking contract check (M1)
 - [x] TIK-18 Seat-hold: service skeleton (M2)
+- [x] TIK-19 Seat-hold: storage ADR (M2)

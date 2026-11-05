@@ -42,3 +42,4 @@
 - 200 database tests, 10 threads: rollback per test 1.3 s, a shared database with unique data 1.3 s, a clone from a template database 6.2 s, `#[sqlx::test]` 8.0 s with one migration and 9.0 s with ten.
 - A shared database with random keys was as fast as rollback, but it was rejected: isolation would rest on key generation and on every query filtering by that key.
 - In sqlx a `Transaction` held for the whole test turns every inner `begin` into a savepoint, so a `commit` in the code under test stays invisible to other connections. A raw `BEGIN` would not do this, because sqlx tracks the depth itself.
+- One `INSERT ... ON CONFLICT DO UPDATE ... WHERE expired` both takes a free seat and takes over an expired hold, so TTL correctness needs no background job. On Postgres it ran about 32,000 times per second, and heavy conflict on 100 seats cost only 4%.
