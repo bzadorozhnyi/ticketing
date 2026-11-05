@@ -47,3 +47,7 @@
 - An index on `expires_at` cost nothing measurable on the hold statement: 31,600 operations/s without it and 31,700 with it, in the noise.
 - A test that waits on a lock hangs forever when the code regresses, and CI hangs with it. Such a test needs its own timeout, so that it fails.
 - The mutation script restored files only on a normal exit. A hanging mutation left a changed file behind, twice. A script that changes code must be bounded in time and restore the file on every path.
+- A burst of new connections above the listen backlog fails before any application code runs. On macOS `kern.ipc.somaxconn` is 128, so 200 connections at once gave about 35 `Connection reset by peer`. The same limit matters for a real spike (M5).
+- A constant duration is a sign of a timeout, not of load. Three different tests took the same 5.6 s, while the requests took 0.37 s: `#[sqlx::test]` was waiting for a pool it did not own.
+- An experiment can fail by itself. Opening a connection per request used up local ports, and the "Postgres killed" run served one request and looked clean. A baseline run without any failure shows whether the load is real.
+- "After the commit, before the response" is real and measurable: 2 of 52,245 holds when a replica was killed, 6 of 51,506 when Postgres was. Those clients got an error for a hold that exists, which is the case for idempotency keys in M3.
