@@ -26,6 +26,7 @@ Features are secondary; failure experiments and evidence are the point.
   If something is not guaranteed, say so and describe the failure scenario.
 - Experiments are throwaway: no scripts or reports in the repository.
   Record the conclusion and the key numbers in `docs/CLAIMS.md` and `docs/LEARNINGS.md`.
+  Exception: the benchmark behind a Rust ADR stays in `infra/benchmark/`, so its numbers can be reproduced.
 - After each milestone: a short summary of the concepts used and 3-5 interview-style questions (no answers).
 
 ## Design principles
@@ -60,7 +61,7 @@ Features are secondary; failure experiments and evidence are the point.
 ```
 services/<name>/        one directory per service, self-contained (own dependencies, Dockerfile, tests, CLAUDE.md)
 contracts/              generated OpenAPI per service (code-first, see ADR 0001)
-infra/                  repository scripts, compose helpers, observability, k8s
+infra/                  repository scripts, compose helpers, benchmarks, observability, k8s
 docs/BOARD.md           task board (TIK-<n> tickets)
 docs/adr/               NNNN-title.md
 docs/CLAIMS.md          reliability claim -> evidence (test or recorded measurement) -> known limits

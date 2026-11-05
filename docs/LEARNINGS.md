@@ -27,3 +27,10 @@
 - A rejection test can pass for the wrong reason: `Basic dXNlcjpwYXNz` was refused because it is not a JWT, not because of the scheme, so removing the scheme check changed nothing. A rejection test needs an input that is valid in every way except the one under test.
 - Removing `Debug` from the settings that hold a secret turns "do not log the secret" into a compile error.
 - `jsonwebtoken` with `rust_crypto` grew `Cargo.lock` from 124 to 180 packages, mostly for RSA and elliptic curves that HS256 does not use.
+- The choice of client library in the baseline moved the result more than the language: the same Python proxy reached 3,943 requests/s with aiohttp and 746 with httpx. Against httpx, Rust would have looked 20 times faster instead of 3.7.
+- Comparing behaviour before measuring paid off: the first parity run found a different status for a dead upstream and an `Accept` header that `reqwest` adds by itself.
+- With a real service behind it, the proxy language almost disappears: 599 against 596 requests/s, 2.1 against 2.4 ms at p50. The gain of Rust is cost per request at the gateway, not speed for the user.
+- Writing one JSON log line per request costs the gateway 22% of throughput on 1 CPU and 31% on 2 CPUs, because the writes share one stdout.
+- `docker stats` during a run showed in a minute that the gateway, not the stub or `oha`, was the limit. Check what is saturated before trusting a maximum.
+- One uvicorn process does not use a second CPU: 3,779 requests/s on 2 CPUs and 3,793 on 4. Workers are separate processes with their own GIL and event loop, so they scale almost linearly (14,078 on 4 CPUs), but memory grows with them (237 MB) and they share no state.
+- Threads are not automatically better than processes: from 1 to 4 CPUs Python workers gained 3.7x and the Rust gateway 2.1x, so the gap fell from 3.7x to 2.2x.
