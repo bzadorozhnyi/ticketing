@@ -70,6 +70,7 @@ services:
     environment:
       AUTH__JWT_SECRET: local-dev-secret-with-at-least-32-bytes
       UPSTREAMS__CATALOG_URL: http://catalog:8000
+      UPSTREAMS__SEAT_HOLD_URL: http://seat-hold:8000
     ports: ["8000:8000"]
     healthcheck: *rust-ready-check
 

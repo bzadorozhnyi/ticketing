@@ -335,3 +335,45 @@ async fn rejects_a_chunked_body_over_the_limit_without_a_content_length() {
     assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
     assert!(upstream.received().is_empty());
 }
+
+#[tokio::test]
+async fn each_route_goes_to_its_own_upstream() {
+    let catalog = spawn_upstream(echo_routes()).await;
+    let seat_hold_routes = Router::new()
+        .route("/api/v1/holds", any(async || StatusCode::CREATED))
+        .route(
+            "/api/v1/holds/{*rest}",
+            any(async || StatusCode::NO_CONTENT),
+        );
+    let seat_hold = spawn_upstream(seat_hold_routes).await;
+    let mut settings = test_settings(&catalog.url);
+    settings.upstreams.seat_hold_url = seat_hold.url.parse().unwrap();
+    let gateway = spawn_gateway(&settings).await;
+
+    let created = client()
+        .post(format!("{gateway}/api/v1/holds"))
+        .body("{}")
+        .send()
+        .await
+        .unwrap();
+    let released = client()
+        .delete(format!("{gateway}/api/v1/holds/7"))
+        .send()
+        .await
+        .unwrap();
+    client()
+        .get(format!("{gateway}/api/v1/events"))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(created.status(), StatusCode::CREATED);
+    assert_eq!(released.status(), StatusCode::NO_CONTENT);
+    let holds = seat_hold.received();
+    assert_eq!(holds.len(), 2);
+    assert_eq!(holds[0].uri, "/api/v1/holds");
+    assert_eq!(holds[1].method, Method::DELETE);
+    assert_eq!(holds[1].uri, "/api/v1/holds/7");
+    assert_eq!(catalog.received().len(), 1);
+    assert_eq!(catalog.received()[0].uri, "/api/v1/events");
+}

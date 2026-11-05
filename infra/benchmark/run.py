@@ -79,7 +79,7 @@ def start_proxy(
     docker(
         "run", "-d", "--rm", "--name", name, "--network", network, *ports,
         "--cpuset-cpus", PROXY_CPUS[cpus], "--memory", "512m", "--log-driver", "none",
-        "-e", f"AUTH__JWT_SECRET={SECRET}", "-e", f"UPSTREAMS__CATALOG_URL={upstream}",
+        "-e", f"AUTH__JWT_SECRET={SECRET}", "-e", f"UPSTREAMS__CATALOG_URL={upstream}", "-e", f"UPSTREAMS__SEAT_HOLD_URL={upstream}",
         "-e", f"WORKERS={cpus}", IMAGES[kind],
     )  # fmt: skip
     return name

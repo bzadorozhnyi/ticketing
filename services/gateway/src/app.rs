@@ -1,7 +1,7 @@
-use axum::Router;
 use axum::extract::DefaultBodyLimit;
 use axum::middleware::{from_fn, from_fn_with_state};
 use axum::routing::{any, get};
+use axum::{Extension, Router};
 use reqwest::redirect::Policy;
 use reqwest::{Client, Url};
 
@@ -14,20 +14,28 @@ use crate::trace_context::trace_request;
 #[derive(Clone)]
 pub struct AppState {
     pub client: Client,
-    pub catalog_url: Url,
+}
+
+#[derive(Clone)]
+pub struct Upstream(pub Url);
+
+fn upstream_routes(prefix: &str, url: &Url) -> Router<AppState> {
+    Router::new()
+        .route(prefix, any(proxy::forward))
+        .route(&format!("{prefix}/{{*rest}}"), any(proxy::forward))
+        .route_layer(Extension(Upstream(url.clone())))
 }
 
 pub fn build_app(settings: &Settings) -> Result<Router, reqwest::Error> {
     let state = AppState {
         client: build_client(&settings.client)?,
-        catalog_url: settings.upstreams.catalog_url.clone(),
     };
     let verifier = TokenVerifier::new(&settings.auth.jwt_secret);
 
     // A token is the default: a public route is an explicit exception next to /health.
-    let protected = Router::new()
-        .route("/api/v1/events", any(proxy::forward))
-        .route("/api/v1/events/{*rest}", any(proxy::forward))
+    let upstreams = &settings.upstreams;
+    let protected = upstream_routes("/api/v1/events", &upstreams.catalog_url)
+        .merge(upstream_routes("/api/v1/holds", &upstreams.seat_hold_url))
         .route_layer(from_fn_with_state(verifier, authenticate));
 
     Ok(Router::new()

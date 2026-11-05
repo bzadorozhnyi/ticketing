@@ -8,7 +8,7 @@ All commands from `services/gateway/`:
 
 ```
 docker compose run --rm -d -p 8001:8000 catalog  # from the repo root; publishes catalog for a local gateway
-export AUTH__JWT_SECRET=local-dev-secret-with-at-least-32-bytes UPSTREAMS__CATALOG_URL=http://localhost:8001
+export AUTH__JWT_SECRET=local-dev-secret-with-at-least-32-bytes UPSTREAMS__CATALOG_URL=http://localhost:8001 UPSTREAMS__SEAT_HOLD_URL=http://localhost:8004
 cargo run --bin gateway
 cargo run --bin issue-token -- user-1            # prints a token valid for 15 minutes
 cargo test
@@ -33,6 +33,7 @@ Read from the environment with the `config` crate; a wrong value stops the start
 |---|---|---|
 | `AUTH__JWT_SECRET` | required | HS256 secret, at least 32 bytes |
 | `UPSTREAMS__CATALOG_URL` | required | catalog base URL |
+| `UPSTREAMS__SEAT_HOLD_URL` | required | seat-hold base URL |
 | `CLIENT__CONNECT_TIMEOUT_SECONDS` | 2 | TCP connect to an upstream |
 | `CLIENT__REQUEST_TIMEOUT_SECONDS` | 10 | whole upstream call; must exceed catalog's DB timeout (5s), or the gateway answers 504 before catalog answers 503 |
 | `CLIENT__POOL_IDLE_TIMEOUT_SECONDS` | 3 | must stay below uvicorn's keep-alive (5s) |
