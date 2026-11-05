@@ -5,7 +5,6 @@ Next ticket: TIK-27
 ## In progress
 
 ## To do
-- [ ] TIK-24 Seat-hold: benchmark against a Python baseline, ADR (M2)
 - [ ] TIK-26 Seat-hold: extend a hold before payment, confirm after it (M3)
 
 ## Done
@@ -33,3 +32,4 @@ Next ticket: TIK-27
 - [x] TIK-21 Seat-hold: release and TTL (M2)
 - [x] TIK-22 Gateway: route seat-hold, owner from X-User-Id (M2)
 - [x] TIK-23 Seat-hold: concurrency experiment, exactly one winner per seat (M2)
+- [x] TIK-24 Seat-hold: benchmark against a Python baseline, ADR (M2)

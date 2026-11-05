@@ -67,7 +67,8 @@ curl -H "Authorization: Bearer $TOKEN" localhost:8000/api/v1/events
 
 Rust is allowed only where a benchmark against a Python baseline justifies it.
 [ADR 0002](docs/adr/0002-rust-for-the-gateway.md) records the result for the gateway: 3.7x the requests per CPU and 4.5x lower p99 than the same proxy in Python,
-but almost no difference for a client while catalog is the slower part. The benchmark lives in [infra/benchmark/](infra/benchmark/).
+but almost no difference for a client while catalog is the slower part. [ADR 0004](docs/adr/0004-rust-for-seat-hold.md) records seat-hold:
+about 2x the requests per CPU and a 2.5x shorter tail, a gap that closes as CPUs are added. The benchmarks live in [infra/benchmark/](infra/benchmark/).
 
 ## Development
 
@@ -99,8 +100,8 @@ docs/               board, ADRs, claims, learnings
 
 | Milestone | Topic | State |
 |---|---|---|
-| M1 | Service skeletons, gateway, contracts | In progress |
-| M2 | Concurrency and seat holds | Planned |
+| M1 | Service skeletons, gateway, contracts | Done |
+| M2 | Concurrency and seat holds | Done |
 | M3 | Saga and idempotency | Planned |
 | M4 | Resilience: timeouts, retries, circuit breaker | Planned |
 | M5 | Load spike: rate limiting, load shedding, p95 and p99 | Planned |
