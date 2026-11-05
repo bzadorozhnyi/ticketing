@@ -79,7 +79,6 @@ services:
 
   catalog:
     <<: *catalog
-    ports: ["8001:8000"]
     healthcheck: *ready-check
     depends_on:
       catalog-migrate: { condition: service_completed_successfully }
@@ -100,7 +99,6 @@ services:
 
   booking:
     <<: *booking
-    ports: ["8002:8000"]
     healthcheck: *ready-check
     depends_on:
       booking-migrate: { condition: service_completed_successfully }
@@ -121,7 +119,6 @@ services:
 
   payment:
     <<: *payment
-    ports: ["8003:8000"]
     healthcheck: *ready-check
     depends_on:
       payment-migrate: { condition: service_completed_successfully }

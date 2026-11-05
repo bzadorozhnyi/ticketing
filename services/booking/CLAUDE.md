@@ -19,7 +19,8 @@ If the API changed, the commit stops: review the diff, `git add` the file, and c
 
 ## Run in Docker
 
-From the repo root; booking is on `localhost:8002`:
+From the repo root. The port is not published: clients go through the gateway.
+For a direct call, `docker compose run --rm -p 8002:8000 booking` starts a second container on `localhost:8002`.
 
 ```
 docker compose up -d --wait --build                     # db -> booking-migrate -> booking

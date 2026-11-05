@@ -5,7 +5,6 @@ Next ticket: TIK-16
 ## In progress
 
 ## To do
-- [ ] TIK-15 Compose: stop publishing service ports, gateway is the only entry (before M3)
 
 ## Done
 - [x] TIK-1 Catalog: service skeleton (M1)
@@ -22,3 +21,4 @@ Next ticket: TIK-16
 - [x] TIK-12 Gateway: routing to catalog (M1)
 - [x] TIK-13 Gateway: JWT auth (M1)
 - [x] TIK-14 Gateway: benchmark against a Python baseline, ADR (M1)
+- [x] TIK-15 Compose: stop publishing service ports, gateway is the only entry (M1)

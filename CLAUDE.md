@@ -159,4 +159,4 @@ src/
 ## Open decisions
 
 - Inter-service communication: synchronous HTTP vs messaging (decide when we reach it).
-- CI platform.
+- CI platform. Whatever it is, CI runs `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings`: pre-commit can be skipped.

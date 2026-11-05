@@ -7,6 +7,7 @@ The only public entry point: routing, trace start, limits. Project-wide rules: s
 All commands from `services/gateway/`:
 
 ```
+docker compose run --rm -d -p 8001:8000 catalog  # from the repo root; publishes catalog for a local gateway
 export AUTH__JWT_SECRET=local-dev-secret-with-at-least-32-bytes UPSTREAMS__CATALOG_URL=http://localhost:8001
 cargo run --bin gateway
 cargo run --bin issue-token -- user-1            # prints a token valid for 15 minutes

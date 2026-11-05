@@ -21,7 +21,8 @@ If the API changed, the commit stops: review the diff, `git add` the file, and c
 
 ## Run in Docker
 
-From the repo root; catalog is on `localhost:8001`:
+From the repo root. The port is not published: clients go through the gateway.
+For a direct call, `docker compose run --rm -p 8001:8000 catalog` starts a second container on `localhost:8001`.
 
 ```
 docker compose up -d --wait --build                     # db -> catalog-migrate -> catalog
