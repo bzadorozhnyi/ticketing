@@ -3,7 +3,6 @@
 Next ticket: TIK-18
 
 ## In progress
-- [ ] TIK-17 CI: GitHub Actions, cargo-deny, breaking contract check (M1)
 
 ## To do
 
@@ -24,3 +23,4 @@ Next ticket: TIK-18
 - [x] TIK-14 Gateway: benchmark against a Python baseline, ADR (M1)
 - [x] TIK-15 Compose: stop publishing service ports, gateway is the only entry (M1)
 - [x] TIK-16 README with architecture diagram (M1)
+- [x] TIK-17 CI: GitHub Actions, cargo-deny, breaking contract check (M1)

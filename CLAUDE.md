@@ -145,7 +145,7 @@ src/
 
 ## CI
 
-GitHub Actions on every push (`.github/workflows/ci.yml`), because pre-commit can be skipped:
+GitHub Actions on pull requests into `main` and on pushes to `main` (`.github/workflows/ci.yml`), because pre-commit can be skipped:
 - Python: ruff, ty, pytest against the compose database.
 - Rust: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, `cargo test --release`.
 - `cargo-deny` for advisories and licenses (`services/gateway/deny.toml`).
@@ -156,14 +156,15 @@ GitHub Actions on every push (`.github/workflows/ci.yml`), because pre-commit ca
 
 - Tasks live in `docs/BOARD.md` (sections: In progress, To do, Done). New tickets take the number from its `Next ticket` counter.
 - Every ticket (or part of a ticket) is a separate task on its own branch, created from `main`: `TIK-<n>-<short-slug>`.
-- When the task is done, it lands in `main` as one squash commit (`git merge --squash`); the branch is then deleted
-  with `git branch -D` (git does not treat a squashed branch as merged, so `-d` refuses).
-- Moving a ticket on the board is part of the same commit as the work, never a separate commit.
+- When the task is done, the branch goes to a pull request into `main`, titled like the commit message. CI must pass.
+  It lands as one commit with **Squash and merge** on GitHub. The branch is then deleted, locally with `git branch -D`
+  (git does not treat a squashed branch as merged, so `-d` refuses).
+- Moving a ticket on the board is part of the same pull request as the work, never a separate one.
 - Commit message: `TIK-<n> <Summary>`, where `<n>` is the ticket number from `docs/BOARD.md`.
   Summary: English, past tense, starts with a verb, at most 50 characters (not counting the ticket prefix).
   Example: `TIK-12 Added username field in patch profile endpoint`.
 - `TIK-0` marks small technical fixes that don't deserve their own ticket (not tracked on the board).
-  They follow the same branch + squash flow (`TIK-0-<short-slug>`); the only exception is the repository's root commit.
+  They follow the same branch + pull request flow (`TIK-0-<short-slug>`); the only exception is the repository's root commit.
 
 ## Open decisions
 

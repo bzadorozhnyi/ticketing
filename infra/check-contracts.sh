@@ -1,14 +1,8 @@
 #!/usr/bin/env bash
-# Fails on a breaking API change. A branch is compared with main, main with its previous commit.
+# Fails on a breaking API change. A pull request is compared with main, main with its previous commit.
 set -euo pipefail
 
-main_ref=${MAIN_REF:-origin/main}
-if ! git rev-parse --quiet --verify "$main_ref" > /dev/null; then
-  echo "$main_ref does not exist yet, nothing to compare with"
-  exit 0
-fi
-
-base=$(git merge-base "$main_ref" HEAD)
+base=$(git merge-base origin/main HEAD)
 if [ "$base" = "$(git rev-parse HEAD)" ]; then
   base=$(git rev-parse HEAD~1)
 fi
