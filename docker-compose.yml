@@ -68,7 +68,7 @@ services:
     environment:
       <<: *postgres-env
       POSTGRES_DB: catalog_db
-    ports: ["5433:5432"]
+    ports: ["127.0.0.1:5433:5432"]
     volumes: ["catalog-db-data:/var/lib/postgresql"]
 
   catalog-migrate:
@@ -88,7 +88,7 @@ services:
     environment:
       <<: *postgres-env
       POSTGRES_DB: booking_db
-    ports: ["5434:5432"]
+    ports: ["127.0.0.1:5434:5432"]
     volumes: ["booking-db-data:/var/lib/postgresql"]
 
   booking-migrate:
@@ -108,7 +108,7 @@ services:
     environment:
       <<: *postgres-env
       POSTGRES_DB: payment_db
-    ports: ["5435:5432"]
+    ports: ["127.0.0.1:5435:5432"]
     volumes: ["payment-db-data:/var/lib/postgresql"]
 
   payment-migrate:

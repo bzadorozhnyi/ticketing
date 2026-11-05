@@ -25,5 +25,5 @@ Use code-first, and keep the generated schema in the repository as `contracts/<s
 
 - There is one source of truth, and no hand-written YAML to keep in sync.
 - The contract describes what exists, not what is planned, so a consumer cannot be built against an API that has no code yet.
-- Nothing rejects a breaking change automatically: a person has to notice it in the diff. Tooling for this is decided together with CI.
+- CI rejects a breaking change in a pull request with `oasdiff` (`infra/check-contracts.sh`). It blocks the merge only while branch protection requires this check.
 - Rust services need their own way to generate a schema, chosen when we build them.

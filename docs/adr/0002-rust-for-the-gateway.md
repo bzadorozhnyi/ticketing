@@ -80,6 +80,11 @@ would exist once per worker in Python, or would need an external store. Assumpti
 - The benchmark stays in `infra/benchmark/`, so these numbers can be reproduced after a change.
 - Logging every request costs 22% of throughput on 1 CPU and 31% on 2 CPUs. Sampling access logs is an option for M5.
 
+## Update
+
+The measurements above used the `rust_crypto` backend of `jsonwebtoken`. TIK-17 replaced it with `aws_lc_rs` because of two advisories.
+Scenario 1 on 1 CPU, 3 runs of 15 s: 14,208 requests/s against Python's 3,862, still 3.7x. The other scenarios were not repeated.
+
 ## Known limits
 
 - Docker Desktop runs in a VM on an M1 Max, and the load generator shares the machine. Only the ratios matter, not the absolute numbers.

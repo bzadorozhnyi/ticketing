@@ -3,6 +3,6 @@
 # the toolchain from rust-toolchain.toml by the working directory.
 set -euo pipefail
 
-for manifest in services/*/Cargo.toml; do
+for manifest in services/*/Cargo.toml infra/benchmark/*/Cargo.toml; do
   (cd "$(dirname "$manifest")" && "$@")
 done
