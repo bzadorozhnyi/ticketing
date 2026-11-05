@@ -3,7 +3,7 @@ use std::io;
 
 use tracing_subscriber::fmt::MakeWriter;
 
-use crate::settings::{LogFormat, LoggingSettings};
+use crate::core::settings::{LogFormat, LoggingSettings};
 
 pub fn init(settings: &LoggingSettings) -> Result<(), Box<dyn Error + Send + Sync>> {
     init_with_writer(settings, io::stdout)

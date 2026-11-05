@@ -132,13 +132,21 @@ src/
 - Docker: `cargo-chef` caches the dependency build; runtime image `debian:trixie-slim`, non-root user (no distroless).
 - `lib.rs` exposes modules, `main.rs` only wires dependencies and starts the server.
 - `mod.rs` only declares modules: no logic and no re-exports, the same as `__init__.py`. Import from the module that defines the name.
-- Modules by layer: `settings`, `errors`, `dto`, `enums`, `repositories`, `services`, handlers.
+- A service with entities follows the Python layout: `core/` for cross-cutting code, `routes.rs` mounts the versioned routers,
+  and each entity has `endpoints/v1/routes/` (one endpoint per file + `router.rs`), `endpoints/v1/schemas/{request,response}/`,
+  `use_cases/`, `services/`, `repositories/`, `dto/`. The gateway has no entities, so its modules stay at the root.
+- The layers mean the same as in Python. Endpoints are thin. A use case is a struct with `execute()`, one per file;
+  it holds the business rules and owns the transaction. `services` appear only for logic reused by several use cases.
+  A repository is a unit struct with associated functions: SQL only, no business decisions.
 - Repositories take the executor/connection as a parameter, so a service can compose several of them in one transaction.
 - Errors: `thiserror` enums per area.
 - Settings: `config` crate without default features, nested groups with `__` delimiter (`UPSTREAMS__CATALOG_URL`),
   upper case names, read only from the environment. A group with defaults uses `#[serde(default)]`
   and a hand-written `impl Default`; required values live in a group without defaults.
 - pre-commit runs `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings`.
+- SQL goes through `sqlx::query!` and `query_as!`, checked at compile time against the `.sqlx` cache, which is committed.
+  `SQLX_OFFLINE` is on in `.cargo/config.toml`, so a build needs no database. CI runs `cargo sqlx prepare --check` (`sqlx-cli` 0.9.0).
+- API contract: `utoipa` generates `contracts/<service>.openapi.json`, a test fails on drift.
 - Code reaches the database through the `DbPool` trait: the pool in production, `TestPool` in tests. Test code stays in `tests/`.
 - Tests with a database mirror the Python services: a dedicated `testing_<service>_db`, recreated and migrated once per test binary.
   Each test gets a `TestPool`: one connection inside one transaction that is never committed. A `commit` in the code under test

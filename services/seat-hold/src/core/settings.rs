@@ -59,6 +59,23 @@ impl Default for PoolSettings {
     }
 }
 
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(default)]
+pub struct HoldSettings {
+    #[serde(rename = "ttl_seconds", deserialize_with = "seconds")]
+    pub ttl: Duration,
+    pub max_seats: usize,
+}
+
+impl Default for HoldSettings {
+    fn default() -> Self {
+        Self {
+            ttl: Duration::from_mins(5),
+            max_seats: 10,
+        }
+    }
+}
+
 #[derive(Clone, Deserialize)]
 pub struct Settings {
     #[serde(default = "default_port")]
@@ -66,6 +83,8 @@ pub struct Settings {
     pub db: DbSettings,
     #[serde(default)]
     pub pool: PoolSettings,
+    #[serde(default)]
+    pub holds: HoldSettings,
     #[serde(default)]
     pub logging: LoggingSettings,
 }

@@ -66,6 +66,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2.9.3
         with:
           workspaces: ${{ matrix.project }}
+      - if: matrix.project == 'services/seat-hold'
+        run: cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres
+      - if: matrix.project == 'services/seat-hold'
+        env:
+          DATABASE_URL: postgres://postgres:password@localhost:5436/seat_hold_db
+          SQLX_OFFLINE: "false"
+        run: sqlx migrate run && cargo sqlx prepare --check
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test

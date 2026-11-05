@@ -3,7 +3,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use seat_hold::db::DbPool;
+use seat_hold::core::db::DbPool;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{Connection, PgConnection, PgPool, Postgres, Transaction};
 use tokio::net::TcpListener;

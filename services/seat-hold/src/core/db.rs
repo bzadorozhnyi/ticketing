@@ -5,7 +5,7 @@ use sqlx::pool::PoolConnection;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{PgConnection, PgPool, Postgres};
 
-use crate::settings::Settings;
+use crate::core::settings::Settings;
 
 /// Code that needs the database asks this trait for a connection. Production uses the
 /// pool; tests use one connection inside a transaction that is rolled back at the end.
