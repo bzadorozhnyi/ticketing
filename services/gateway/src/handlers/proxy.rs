@@ -2,15 +2,16 @@ use axum::Extension;
 use axum::body::{Body, Bytes};
 use axum::extract::State;
 use axum::extract::rejection::BytesRejection;
+use axum::http::Uri;
 use axum::http::header::{
     AUTHORIZATION, CONNECTION, HeaderMap, HeaderName, HeaderValue, PROXY_AUTHENTICATE,
     PROXY_AUTHORIZATION, TE, TRAILER, TRANSFER_ENCODING, UPGRADE,
 };
-use axum::http::{Method, Uri};
+use axum::http::request::Parts;
 use axum::response::Response;
 use reqwest::Url;
 
-use crate::app::AppState;
+use crate::app::{AppState, Upstream};
 use crate::auth::AuthenticatedUser;
 use crate::errors::GatewayError;
 use crate::trace_context::TraceContext;
@@ -34,18 +35,21 @@ const HOP_BY_HOP: [HeaderName; 9] = [
 /// The response is streamed, so its size does not cost the gateway memory.
 pub async fn forward(
     State(state): State<AppState>,
+    Extension(Upstream(base)): Extension<Upstream>,
     Extension(trace): Extension<TraceContext>,
     user: Option<Extension<AuthenticatedUser>>,
-    method: Method,
-    uri: Uri,
-    headers: HeaderMap,
+    parts: Parts,
     body: Result<Bytes, BytesRejection>,
 ) -> Result<Response, GatewayError> {
-    let url = upstream_url(&state.catalog_url, &uri)?;
+    let url = upstream_url(&base, &parts.uri)?;
     let upstream = state
         .client
-        .request(method, url)
-        .headers(request_headers(headers, &trace, user.map(|user| user.0))?)
+        .request(parts.method, url)
+        .headers(request_headers(
+            parts.headers,
+            &trace,
+            user.map(|user| user.0),
+        )?)
         .body(body?)
         .send()
         .await?;

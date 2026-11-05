@@ -178,6 +178,20 @@ async fn passes_the_user_from_the_token_and_not_from_the_client() {
 }
 
 #[tokio::test]
+async fn hold_routes_need_a_token() {
+    let (gateway, upstream) = gateway().await;
+
+    let response = anonymous_client()
+        .post(format!("{gateway}/api/v1/holds"))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    assert!(upstream.received().is_empty());
+}
+
+#[tokio::test]
 async fn does_not_forward_the_token_upstream() {
     let (gateway, upstream) = gateway().await;
 

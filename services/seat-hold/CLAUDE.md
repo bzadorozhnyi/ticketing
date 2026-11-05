@@ -50,7 +50,7 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
 
 - Migrations are SQL files in `migrations/`, embedded into the `migrate` binary.
 - The trace comes from the gateway: a valid `traceparent` is continued, an invalid one starts a new trace.
-- `POST /api/v1/holds` takes all seats or none, see ADR 0003. `X-User-Id` is the owner; TIK-22 routes it through the gateway.
+- `POST /api/v1/holds` takes all seats or none, see ADR 0003. `X-User-Id` is the owner, set by the gateway from the token.
 - `DELETE /api/v1/holds/{hold_id}` always answers 204, so a retry is safe. Another user's hold stays untouched.
 - Background job: `holds/cleanup_job.rs` removes expired rows. Correctness does not depend on it, and replicas need no coordination.
 - `/ready` checks the database; the pool connects lazily, so the service starts during an outage.

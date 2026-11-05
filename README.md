@@ -17,7 +17,8 @@ flowchart LR
     subgraph network[Private Docker network]
         gateway[gateway<br/>Rust] --> catalog[catalog<br/>Python]
         gateway -.-> booking[booking<br/>Python]
-        booking -.-> seathold[seat-hold<br/>Rust]
+        gateway --> seathold[seat-hold<br/>Rust]
+        booking -.-> seathold
         booking -.-> payment[payment<br/>Python]
 
         catalog --> catalogdb[(catalog_db)]
@@ -31,11 +32,11 @@ Solid lines work today; dotted lines are planned.
 
 | Service | Language | Role | State |
 |---|---|---|---|
-| gateway | Rust, Axum | The only entry point: routing, JWT auth, trace start, limits | Routes catalog |
+| gateway | Rust, Axum | The only entry point: routing, JWT auth, trace start, limits | Routes catalog and seat-hold |
 | catalog | Python, FastAPI | Events, venues, seat maps, prices | Read API |
 | booking | Python, FastAPI | Orders, idempotency keys, saga orchestrator | Skeleton |
 | payment | Python, FastAPI | Mock provider with fault injection | Skeleton |
-| seat-hold | Rust, Axum | Authoritative seat holds with a TTL | Holds and releases seats, not routed yet |
+| seat-hold | Rust, Axum | Authoritative seat holds with a TTL | Holds and releases seats |
 
 Each service owns its database. The gateway checks who the caller is and passes the user in `X-User-Id`;
 a service decides what that user may do. Services trust this header, so they are reachable only through the gateway.
