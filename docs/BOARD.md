@@ -5,7 +5,6 @@ Next ticket: TIK-27
 ## In progress
 
 ## To do
-- [ ] TIK-21 Seat-hold: release and TTL (M2)
 - [ ] TIK-22 Gateway: route seat-hold, owner from X-User-Id (M2)
 - [ ] TIK-23 Seat-hold: concurrency experiment, exactly one winner per seat (M2)
 - [ ] TIK-24 Seat-hold: benchmark against a Python baseline, ADR (M2)
@@ -33,3 +32,4 @@ Next ticket: TIK-27
 - [x] TIK-19 Seat-hold: storage ADR (M2)
 - [x] TIK-25 CI: run only what changed, reuse dependency images while dependencies are unchanged
 - [x] TIK-20 Seat-hold: hold seats atomically, 409 if any is taken (M2)
+- [x] TIK-21 Seat-hold: release and TTL (M2)

@@ -44,3 +44,6 @@
 - In sqlx a `Transaction` held for the whole test turns every inner `begin` into a savepoint, so a `commit` in the code under test stays invisible to other connections. A raw `BEGIN` would not do this, because sqlx tracks the depth itself.
 - One `INSERT ... ON CONFLICT DO UPDATE ... WHERE expired` both takes a free seat and takes over an expired hold, so TTL correctness needs no background job. On Postgres it ran about 32,000 times per second, and heavy conflict on 100 seats cost only 4%.
 - The `time` crate was expected to bring fewer dependencies than `chrono`. Measured in the sqlx tree it brought more: 131 crates against 128.
+- An index on `expires_at` cost nothing measurable on the hold statement: 31,600 operations/s without it and 31,700 with it, in the noise.
+- A test that waits on a lock hangs forever when the code regresses, and CI hangs with it. Such a test needs its own timeout, so that it fails.
+- The mutation script restored files only on a normal exit. A hanging mutation left a changed file behind, twice. A script that changes code must be bounded in time and restore the file on every path.

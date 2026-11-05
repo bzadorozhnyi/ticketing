@@ -5,3 +5,4 @@ pub mod logging;
 pub mod settings;
 pub mod shutdown;
 pub mod trace_context;
+pub mod user;
