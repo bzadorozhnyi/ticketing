@@ -1,0 +1,9 @@
+[project]
+name = "benchmark-python-seat-hold"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "asyncpg==0.32.0",
+    "fastapi==0.162.0",
+    "uvicorn[standard]==0.54.0",
+]
