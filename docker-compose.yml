@@ -25,6 +25,12 @@ x-ready-check: &ready-check
   timeout: 3s
   retries: 15
 
+x-rust-ready-check: &rust-ready-check
+  test: ["CMD", "curl", "--fail", "--silent", "--max-time", "2", "http://localhost:8000/ready"]
+  interval: 2s
+  timeout: 3s
+  retries: 15
+
 x-catalog: &catalog
   build: ./services/catalog
   image: ticketing/catalog
@@ -49,6 +55,14 @@ x-payment: &payment
     DB__NAME: payment_db
     DB__HOST: payment-db
 
+x-seat-hold: &seat-hold
+  build: ./services/seat-hold
+  image: ticketing/seat-hold
+  environment:
+    <<: *service-db-env
+    DB__NAME: seat_hold_db
+    DB__HOST: seat-hold-db
+
 services:
   gateway:
     build: ./services/gateway
@@ -57,11 +71,7 @@ services:
       AUTH__JWT_SECRET: local-dev-secret-with-at-least-32-bytes
       UPSTREAMS__CATALOG_URL: http://catalog:8000
     ports: ["8000:8000"]
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "--max-time", "2", "http://localhost:8000/ready"]
-      interval: 2s
-      timeout: 3s
-      retries: 15
+    healthcheck: *rust-ready-check
 
   catalog-db:
     <<: *postgres
@@ -123,7 +133,28 @@ services:
     depends_on:
       payment-migrate: { condition: service_completed_successfully }
 
+  seat-hold-db:
+    <<: *postgres
+    environment:
+      <<: *postgres-env
+      POSTGRES_DB: seat_hold_db
+    ports: ["127.0.0.1:5436:5432"]
+    volumes: ["seat-hold-db-data:/var/lib/postgresql"]
+
+  seat-hold-migrate:
+    <<: *seat-hold
+    command: ["migrate"]
+    depends_on:
+      seat-hold-db: { condition: service_healthy }
+
+  seat-hold:
+    <<: *seat-hold
+    healthcheck: *rust-ready-check
+    depends_on:
+      seat-hold-migrate: { condition: service_completed_successfully }
+
 volumes:
   catalog-db-data:
   booking-db-data:
   payment-db-data:
+  seat-hold-db-data:

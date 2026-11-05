@@ -6,7 +6,9 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use axum::Router;
 use axum::routing::get;
-use common::{client, spawn_gateway, spawn_upstream, test_settings};
+use common::app::{spawn_gateway, test_settings};
+use common::client::client;
+use common::upstream::spawn_upstream;
 use gateway::logging::init_with_writer;
 use tracing_subscriber::fmt::MakeWriter;
 

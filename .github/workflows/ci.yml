@@ -34,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [services/gateway, infra/benchmark/stub]
+        project: [services/gateway, services/seat-hold, infra/benchmark/stub]
     defaults:
       run:
         working-directory: ${{ matrix.project }}
@@ -42,6 +42,8 @@ jobs:
       - uses: actions/checkout@v7.0.1
       - run: rustup toolchain install
       - run: rustup component add clippy rustfmt
+      - if: matrix.project == 'services/seat-hold'
+        run: docker compose up -d --wait seat-hold-db
       - uses: Swatinem/rust-cache@v2.9.3
         with:
           workspaces: ${{ matrix.project }}
@@ -57,6 +59,9 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@v2.1.1
         with:
           manifest-path: services/gateway/Cargo.toml
+      - uses: EmbarkStudios/cargo-deny-action@v2.1.1
+        with:
+          manifest-path: services/seat-hold/Cargo.toml
 
   contracts:
     runs-on: ubuntu-latest
