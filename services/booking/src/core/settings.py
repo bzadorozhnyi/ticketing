@@ -28,10 +28,30 @@ class LoggingSettings(BaseModel):
     LEVEL: str = "INFO"
 
 
+class RabbitMQSettings(BaseModel):
+    HOST: str = "localhost"
+    PORT: int = 5672
+    USER: str = "ticketing"
+    PASS: str = "password"
+    PREFETCH_COUNT: int = 10
+
+    @property
+    def url(self) -> str:
+        return f"amqp://{self.USER}:{self.PASS}@{self.HOST}:{self.PORT}/"
+
+
+class OutboxSettings(BaseModel):
+    POLL_INTERVAL_SECONDS: float = 0.5
+    BATCH_SIZE: int = 100
+    PUBLISH_TIMEOUT_SECONDS: float = 5
+
+
 class Settings(BaseSettings):
     SERVICE_NAME: str = "booking"
     DB: DBSettings
     LOGGING: LoggingSettings = LoggingSettings()
+    RABBITMQ: RabbitMQSettings = RabbitMQSettings()
+    OUTBOX: OutboxSettings = OutboxSettings()
 
     # No env_file: this reads only os.environ. Docker compose sets the values
     # directly; tests/conftest.py loads .env.test before anything is imported.

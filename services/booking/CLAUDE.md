@@ -32,4 +32,6 @@ docker compose up -d --wait --build                     # db -> booking-migrate 
   pytest and ty use `src` as the import root.
 - `core/` is copied from catalog, not shared: services stay independent. A fix there may need repeating in each service.
 - The `probe_routes` fixture (`tests/helpers/probe_routes.py`) gives tests failures a real route cannot produce on demand.
-- `src/tests_e2e/` has real commits and several connections: run it with `uv run pytest src/tests_e2e`.
+- `src/tests_e2e/` has real commits and several connections: run it with `uv run pytest src/tests_e2e`. It needs RabbitMQ.
+- The outbox relay is a background job: `python -m scripts.relay`, the `booking-relay` service in compose.
+  Payment declares its queues, so booking only publishes: a message for a queue that does not exist stays in the outbox.

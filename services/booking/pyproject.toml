@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Booking service: orders, idempotency keys, saga orchestrator"
 requires-python = ">=3.14"
 dependencies = [
+    "aio-pika==10.2.2",
     "alembic==1.20.1",
     "asyncpg==0.32.0",
     "fastapi==0.162.0",
