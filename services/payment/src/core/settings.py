@@ -28,10 +28,18 @@ class LoggingSettings(BaseModel):
     LEVEL: str = "INFO"
 
 
+class FaultSettings(BaseModel):
+    SLOW_SECONDS: float = 3
+    DECLINE_RATE: float = 0
+    CRASH_BEFORE_COMMIT_RATE: float = 0
+    CRASH_AFTER_COMMIT_RATE: float = 0
+
+
 class Settings(BaseSettings):
     SERVICE_NAME: str = "payment"
     DB: DBSettings
     LOGGING: LoggingSettings = LoggingSettings()
+    FAULTS: FaultSettings = FaultSettings()
 
     # No env_file: this reads only os.environ. Docker compose sets the values
     # directly; tests/conftest.py loads .env.test before anything is imported.

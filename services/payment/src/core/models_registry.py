@@ -3,3 +3,6 @@
 Alembic autogenerate (see migrations/env.py) relies on this to detect
 schema changes. Add a line here whenever a new models module appears.
 """
+
+import payments.models.charge  # noqa: F401
+import payments.models.refund  # noqa: F401

@@ -56,3 +56,9 @@
 - A striking number needs its cause before it is used. Rust looked 15x better in the tail, and looking into the 3 s of Python showed a weak baseline: `@app.middleware("http")` (`BaseHTTPMiddleware`) halved the throughput and raised the p99 of a spike from 0.6 s to 3 s. With pure ASGI middleware the honest numbers are 2.1x and 2.8x.
 - A spike at the start of a run was the obvious suspect for that tail and was wrong: the slowest 1% was spread over the run, and `gc.disable()` changed nothing. Both were checked by measuring latency over time.
 - `oha -Z` picks body lines at random with repeats, not in order: 1000 requests over 1000 lines reached only 624 seats. A load tool's behaviour needs checking before its numbers can be trusted.
+
+## M3
+
+- An idempotency key does not need a column of its own when the business already has a natural one: one charge per order makes `order_id` the key.
+- Autogenerate turned `Mapped[int]` into a 32-bit `Integer`, which is too small for money in minor units: the type has to be stated.
+- A test comment claimed a refund could lose a race and do nothing, and the test ran refunds twice to compensate. The logic never needed it; removing the second round made the test stricter.

@@ -1,4 +1,5 @@
 import asyncio
+import pkgutil
 from pathlib import Path
 
 import pytest
@@ -22,6 +23,13 @@ from core.settings import settings  # noqa: E402
 from main import app  # noqa: E402
 from tests.helpers.db import create_db, drop_db  # noqa: E402
 from tests.helpers.probe_routes import router as probe_router  # noqa: E402
+
+pytest_plugins = [
+    f"tests.factories.{modname}"
+    for _, modname, _ in pkgutil.iter_modules(
+        [str(Path(__file__).resolve().parent / "factories")]
+    )
+]
 
 
 @pytest.fixture(scope="session")

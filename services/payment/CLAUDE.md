@@ -34,3 +34,18 @@ docker compose up -d --wait --build                     # db -> payment-migrate 
 - There are no API routes yet, so tests use the `probe_routes` fixture (`tests/helpers/probe_routes.py`).
   Replace them with real routes as they appear.
 - `tests/factories/` and factory-boy come with the first entity; catalog shows the setup.
+
+## Payments
+
+Charges and refunds are use cases for now; TIK-36 connects them to RabbitMQ.
+
+`order_id` is the idempotency key: one charge per order, enforced by a unique constraint. The same order with another
+amount is refused. A refund that arrives first leaves a `cancelled` row, so a late charge takes no money.
+
+```
+uv run pytest src/tests_e2e                      # real commits, testing_payment_e2e_db
+```
+
+Faults come from the payment token (`tok_declined`, `tok_slow`, `tok_crash_before_commit`, `tok_crash_after_commit`)
+or from random rates: `FAULTS__DECLINE_RATE`, `FAULTS__CRASH_BEFORE_COMMIT_RATE`, `FAULTS__CRASH_AFTER_COMMIT_RATE`,
+`FAULTS__SLOW_SECONDS`. A crash is `os._exit`, a real one.
