@@ -43,6 +43,7 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
 | `HOLDS__MAX_SEATS` | 10 | seats in one request |
 | `HOLDS__CLEANUP_INTERVAL_SECONDS` | 60 | how often expired rows are removed |
 | `HOLDS__CLEANUP_BATCH_SIZE` | 1000 | rows removed in one statement |
+| `HOLDS__IDEMPOTENCY_RETENTION_SECONDS` | 86400 | how long a used `Idempotency-Key` is remembered |
 | `PORT` | 8000 | listening port |
 | `LOGGING__FORMAT` | `JSON` | `JSON` or `PRETTY` |
 | `LOGGING__LEVEL` | `INFO` | `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE` |
@@ -52,6 +53,9 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
 - Migrations are SQL files in `migrations/`, embedded into the `migrate` binary.
 - The trace comes from the gateway: a valid `traceparent` is continued, an invalid one starts a new trace.
 - `POST /api/v1/holds` takes all seats or none, see ADR 0003. `X-User-Id` is the owner, set by the gateway from the token.
+- `POST /api/v1/holds` takes an optional `Idempotency-Key`, per user. A repeat of a success returns the first response from
+  `hold_requests`, even after the hold ended. The key is written first in the same transaction: a concurrent repeat waits on it,
+  and a refused request rolls it back, so it can be tried again. The same key with another request gets 422.
 - `POST /internal/v1/holds/{hold_id}/extend` and `/confirm` are for booking. The gateway does not route `/internal`:
   a client must not confirm a hold without paying. Both are safe to repeat, and both answer 409 when the hold is gone.
 - A confirmed seat is sold: it never expires, cannot be released, and the cleanup leaves it alone.

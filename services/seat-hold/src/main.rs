@@ -16,7 +16,11 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     logging::init(&settings.logging)?;
 
     let db = build_pool(&settings);
-    let cleanup = CleanupExpiredHoldsUseCase::new(db.clone(), settings.holds.cleanup_batch_size);
+    let cleanup = CleanupExpiredHoldsUseCase::new(
+        db.clone(),
+        settings.holds.cleanup_batch_size,
+        settings.holds.idempotency_retention,
+    );
     let cleanup_job = tokio::spawn(cleanup_job::run(cleanup, settings.holds.cleanup_interval));
 
     let app = build_app(db, settings.holds);

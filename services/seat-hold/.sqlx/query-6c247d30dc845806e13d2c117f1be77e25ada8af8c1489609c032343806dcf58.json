@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM hold_requests\n            WHERE ctid IN (\n                SELECT ctid FROM hold_requests\n                WHERE created_at <= now() - make_interval(secs => $1)\n                LIMIT $2\n                FOR UPDATE SKIP LOCKED\n            )\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Float8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6c247d30dc845806e13d2c117f1be77e25ada8af8c1489609c032343806dcf58"
+}

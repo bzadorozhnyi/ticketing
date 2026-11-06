@@ -12,6 +12,8 @@ use seat_hold::holds::use_cases::cleanup_expired_holds::CleanupExpiredHoldsUseCa
 use sqlx::{Acquire, PgPool};
 use uuid::Uuid;
 
+const RETENTION: Duration = Duration::from_hours(24);
+
 async fn count_event(pool: &impl DbPool, event_id: Uuid) -> i64 {
     let mut conn = pool.get_conn().await.expect("a connection");
     sqlx::query_scalar("SELECT count(*) FROM holds WHERE event_id = $1")
@@ -54,7 +56,7 @@ async fn removes_expired_holds_and_keeps_active_ones() {
         .await;
     hold_factory().pool(&pool).event_id(event_id).call().await;
 
-    let deleted = CleanupExpiredHoldsUseCase::new(pool.clone(), 100)
+    let deleted = CleanupExpiredHoldsUseCase::new(pool.clone(), 100, RETENTION)
         .execute()
         .await
         .unwrap();
@@ -76,7 +78,7 @@ async fn removes_more_rows_than_one_batch() {
             .await;
     }
 
-    let deleted = CleanupExpiredHoldsUseCase::new(pool.clone(), 2)
+    let deleted = CleanupExpiredHoldsUseCase::new(pool.clone(), 2, RETENTION)
         .execute()
         .await
         .unwrap();
@@ -89,7 +91,7 @@ async fn removes_more_rows_than_one_batch() {
 async fn the_job_keeps_cleaning_on_a_schedule() {
     let pool = TestPool::new().await;
     let event_id = Uuid::now_v7();
-    let use_case = CleanupExpiredHoldsUseCase::new(pool.clone(), 100);
+    let use_case = CleanupExpiredHoldsUseCase::new(pool.clone(), 100, RETENTION);
     let job = tokio::spawn(cleanup_job::run(use_case, Duration::from_millis(20)));
 
     tokio::time::sleep(Duration::from_millis(60)).await;

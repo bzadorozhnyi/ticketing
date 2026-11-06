@@ -66,3 +66,4 @@
 - A retry without a pause turns a short outage into a full dead letter queue: the delivery limit is used up in milliseconds.
 - A concurrency test can pass without racing. A test with holds about to expire gave the same outcome 30 times out of 30, because the holds had already expired. Printing the outcomes showed it; a fixed order on two connections replaced it.
 - Routing by prefix exposes every new endpoint under it. Confirm on `/api/v1/holds` would have let a client take a seat without paying, so internal calls got their own path.
+- Writing the idempotency key first in the same transaction solves three cases at once: a concurrent repeat waits on the unique index, a refused request takes the key back with its rollback, and a success keeps a response that survives the hold.

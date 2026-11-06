@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO hold_requests\n                (owner_id, idempotency_key, hold_id, event_id, seat_ids, expires_at)\n            VALUES ($1, $2, $3, $4, $5, now() + make_interval(secs => $6))\n            ON CONFLICT (owner_id, idempotency_key) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Uuid",
+        "Uuid",
+        "UuidArray",
+        "Float8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6d8c90843a886e175c7885d021051aa1fe3ec1f3b39b1a91d3c2f13aaf9fac6b"
+}
