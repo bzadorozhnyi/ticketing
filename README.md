@@ -34,7 +34,7 @@ Solid lines work today; dotted lines are planned.
 |---|---|---|---|
 | gateway | Rust, Axum | The only entry point: routing, JWT auth, trace start, limits | Routes catalog and seat-hold |
 | catalog | Python, FastAPI | Events, venues, seat maps, prices | Read API |
-| booking | Python, FastAPI | Orders, idempotency keys, saga orchestrator | Accepts orders, the saga is next |
+| booking | Python, FastAPI | Orders, idempotency keys, saga orchestrator | Accepts orders, outbox relay publishes to RabbitMQ, the saga is next |
 | payment | Python, FastAPI | Mock provider with fault injection | Skeleton |
 | seat-hold | Rust, Axum | Authoritative seat holds with a TTL | Holds and releases seats |
 

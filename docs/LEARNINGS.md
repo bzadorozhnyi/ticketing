@@ -70,3 +70,7 @@
 - `ON CONFLICT DO NOTHING` without a target covers every unique index, so one statement handles both a repeated key and a second order on the hold; a read by key afterwards tells them apart.
 - A mutation that fails on a sequential repeat proves nothing about a race. Check-then-insert behaves correctly one request at a time, so only that variant shows the race test works: 14 x 500 out of 50.
 - The 14 was the same in every run because it is the pool, not chance: 15 connections (5 + 10 overflow) pass the check together, one wins, 14 fail, and the other 35 wait for a connection and see the row. The size of a race is bounded by the pool.
+- Rolling back a whole batch on a failed publish looks safe and is not: everything the broker already confirmed goes out again on every pass. Keeping what was confirmed turned a duplicate storm into at most one batch after a crash.
+- `FOR UPDATE` alone is enough for correctness between relays, `SKIP LOCKED` only stops them waiting for each other. Removing it broke no duplicate test; it needed a test of its own.
+- A test of order passed without `ORDER BY`, because a heap returns rows in insert order. Inserting ids in reverse order made the test mean something.
+- An experiment script can quietly do less than it says: three kills in a row printed the same number, because the restarted relay had not published yet. One kill per run happened, not three.
