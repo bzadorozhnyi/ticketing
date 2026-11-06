@@ -37,15 +37,24 @@ docker compose up -d --wait --build                     # db -> payment-migrate 
 
 ## Payments
 
-Charges and refunds are use cases for now; TIK-36 connects them to RabbitMQ.
+`payment-consumer` is the worker: the same image with `python -m scripts.consume`. It reads `payment.commands`, runs the
+use cases and answers in `payment.replies`. Order: process, commit, send the reply, then ack; a crash at any point redelivers.
+
+- A malformed command or a conflict goes straight to `payment.commands.dead`. A temporary failure retries with a growing
+  pause, and after `RABBITMQ__DELIVERY_LIMIT` it goes there too.
+- `core/rabbitmq.py` is the only place that knows the broker library: `RabbitMQClient` holds the connection, `Delivery` settles a message.
+  A class per queue (`payments/queues/`) is built on the client.
+- Retry with `reject(requeue=True)`, never `nack`: a `nack` requeue does not count towards the delivery limit.
+- `traceparent` travels in the message headers.
+- Settings: `RABBITMQ__HOST`, `RABBITMQ__PREFETCH_COUNT`, `RABBITMQ__DELIVERY_LIMIT`, `RABBITMQ__HANDLER_TIMEOUT_SECONDS`.
 
 `order_id` is the idempotency key: one charge per order, enforced by a unique constraint. The same order with another
 amount is refused. A refund that arrives first leaves a `cancelled` row, so a late charge takes no money.
 
 ```
-uv run pytest src/tests_e2e                      # real commits, testing_payment_e2e_db
+uv run pytest src/tests_e2e                      # needs rabbitmq; real commits, testing_payment_e2e_db
 ```
 
 Faults come from the payment token (`tok_declined`, `tok_slow`, `tok_crash_before_commit`, `tok_crash_after_commit`)
 or from random rates: `FAULTS__DECLINE_RATE`, `FAULTS__CRASH_BEFORE_COMMIT_RATE`, `FAULTS__CRASH_AFTER_COMMIT_RATE`,
-`FAULTS__SLOW_SECONDS`. A crash is `os._exit`, a real one.
+`FAULTS__SLOW_SECONDS`. A crash is `os._exit`, a real one. Delays and crashes fire on the first delivery only.

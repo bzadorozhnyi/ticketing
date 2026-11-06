@@ -62,3 +62,5 @@
 - An idempotency key does not need a column of its own when the business already has a natural one: one charge per order makes `order_id` the key.
 - Autogenerate turned `Mapped[int]` into a 32-bit `Integer`, which is too small for money in minor units: the type has to be stated.
 - A test comment claimed a refund could lose a race and do nothing, and the test ran refunds twice to compensate. The logic never needed it; removing the second round made the test stricter.
+- On RabbitMQ 4.4 a requeue through `basic.nack` does not count towards `x-delivery-limit`, while `basic.reject` and a closed channel do. With a limit of 3, `nack` was delivered without end, `reject` 4 times and then dead-lettered. A test caught what the docs and my explanation did not.
+- A retry without a pause turns a short outage into a full dead letter queue: the delivery limit is used up in milliseconds.
