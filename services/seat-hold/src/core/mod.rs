@@ -1,6 +1,7 @@
 pub mod db;
 pub mod errors;
 pub mod health;
+pub mod idempotency;
 pub mod logging;
 pub mod settings;
 pub mod shutdown;

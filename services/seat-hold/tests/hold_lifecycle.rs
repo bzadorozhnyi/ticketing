@@ -1,5 +1,7 @@
 mod common;
 
+use std::time::Duration;
+
 use axum::http::StatusCode;
 use chrono::{DateTime, Utc};
 use common::db::{TestPool, dead_pool};
@@ -172,7 +174,7 @@ async fn a_confirmed_seat_is_never_free_again() {
         .send()
         .await
         .unwrap();
-    let cleaned = CleanupExpiredHoldsUseCase::new(pool.clone(), 100)
+    let cleaned = CleanupExpiredHoldsUseCase::new(pool.clone(), 100, Duration::from_hours(24))
         .execute()
         .await
         .unwrap();

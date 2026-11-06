@@ -219,3 +219,38 @@ async fn a_takeover_waits_for_a_confirm_in_progress(pool: PgPool) {
     assert!(taker.await.unwrap().is_empty());
     assert_eq!(stored(&pool, event_id).await[&seat_id], "owner");
 }
+
+#[sqlx::test]
+async fn concurrent_repeats_with_one_key_hold_once(pool: PgPool) {
+    let (service, service_pool) = service_for(&pool).await;
+    let (event_id, seat_id) = (Uuid::now_v7(), Uuid::now_v7());
+
+    let mut tasks = JoinSet::new();
+    for _ in 0..CLIENTS {
+        let url = format!("{service}/api/v1/holds");
+        tasks.spawn(async move {
+            let response = client()
+                .post(url)
+                .header("x-user-id", "user-1")
+                .header("idempotency-key", "one-key")
+                .json(&json!({"event_id": event_id, "seat_ids": [seat_id]}))
+                .send()
+                .await
+                .expect("a service response");
+            let status = response.status();
+            let body: Value = response.json().await.expect("a JSON body");
+            (status, body["hold_id"].clone())
+        });
+    }
+    let results = tasks.join_all().await;
+    service_pool.close().await;
+
+    assert!(
+        results
+            .iter()
+            .all(|(status, _)| *status == StatusCode::CREATED)
+    );
+    let first = &results[0].1;
+    assert!(results.iter().all(|(_, hold_id)| hold_id == first));
+    assert_eq!(stored(&pool, event_id).await.len(), 1);
+}

@@ -70,6 +70,8 @@ pub struct HoldSettings {
     #[serde(rename = "cleanup_interval_seconds", deserialize_with = "seconds")]
     pub cleanup_interval: Duration,
     pub cleanup_batch_size: i64,
+    #[serde(rename = "idempotency_retention_seconds", deserialize_with = "seconds")]
+    pub idempotency_retention: Duration,
 }
 
 impl Default for HoldSettings {
@@ -80,6 +82,7 @@ impl Default for HoldSettings {
             max_seats: 10,
             cleanup_interval: Duration::from_mins(1),
             cleanup_batch_size: 1000,
+            idempotency_retention: Duration::from_hours(24),
         }
     }
 }

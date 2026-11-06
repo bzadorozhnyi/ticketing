@@ -1,17 +1,17 @@
 # Board
 
-Next ticket: TIK-37
+Next ticket: TIK-38
 
 ## In progress
 
 ## To do
-- [ ] TIK-29 Seat-hold: idempotency key on holds (M3)
 - [ ] TIK-30 Booking: orders and Idempotency-Key (M3)
 - [ ] TIK-31 Booking: transactional outbox and relay (M3)
 - [ ] TIK-32 Booking: saga orchestrator with persisted state (M3)
 - [ ] TIK-33 Booking: recovery of stuck sagas (M3)
 - [ ] TIK-34 Gateway: route booking (M3)
 - [ ] TIK-35 Saga crash experiment: kill after every step, exactly one charge (M3)
+- [ ] TIK-37 Seat-hold: limit active holds per user, one user cannot block a hall (M5)
 
 ## Done
 - [x] TIK-1 Catalog: service skeleton (M1)
@@ -43,3 +43,4 @@ Next ticket: TIK-37
 - [x] TIK-28 Payment: idempotent charges and refunds, fault injection (M3)
 - [x] TIK-36 Payment: command consumer on RabbitMQ (M3)
 - [x] TIK-26 Seat-hold: extend a hold before payment, confirm after it (M3)
+- [x] TIK-29 Seat-hold: idempotency key on holds (M3)

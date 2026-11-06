@@ -10,6 +10,7 @@ use crate::core::errors::ServiceError;
 use crate::core::settings::HoldSettings;
 use crate::holds::dto::hold::{Hold, NewHold};
 use crate::holds::repositories::hold::HoldRepository;
+use crate::holds::repositories::hold_request::HoldRequestRepository;
 
 #[derive(Clone)]
 pub struct HoldSeatsUseCase<D: DbPool> {
@@ -29,16 +30,34 @@ impl<D: DbPool> HoldSeatsUseCase<D> {
         Self { db, settings }
     }
 
-    /// All seats or none: if any seat is taken, the transaction is rolled back.
-    pub async fn execute(&self, hold: NewHold) -> Result<Hold, ServiceError> {
+    /// All seats or none: if any seat is taken, the transaction is rolled back, and the
+    /// key with it, so a refused request can be tried again. With a key, a repeat of a
+    /// successful request returns the first result, even after the hold has ended.
+    pub async fn execute(
+        &self,
+        hold: NewHold,
+        idempotency_key: Option<&str>,
+    ) -> Result<Hold, ServiceError> {
         self.validate(&hold.seat_ids)?;
 
         let hold_id = Uuid::now_v7();
+        let ttl = self.settings.ttl;
         let mut conn = self.db.get_conn().await?;
         let mut transaction = conn.begin().await?;
 
-        let taken =
-            HoldRepository::take_seats(&mut transaction, hold_id, &hold, self.settings.ttl).await?;
+        if let Some(key) = idempotency_key {
+            let reserved =
+                HoldRequestRepository::reserve(&mut transaction, key, hold_id, &hold, ttl).await?;
+            if !reserved {
+                let stored = HoldRequestRepository::get(&mut transaction, &hold.owner_id, key)
+                    .await?
+                    .ok_or(ServiceError::Internal)?;
+                transaction.rollback().await?;
+                return Self::replay(stored, &hold);
+            }
+        }
+
+        let taken = HoldRepository::take_seats(&mut transaction, hold_id, &hold, ttl).await?;
         if taken.len() != hold.seat_ids.len() {
             transaction.rollback().await?;
             let unavailable = hold
@@ -61,6 +80,17 @@ impl<D: DbPool> HoldSeatsUseCase<D> {
             seat_ids: hold.seat_ids,
             expires_at,
         })
+    }
+
+    fn replay(stored: Hold, hold: &NewHold) -> Result<Hold, ServiceError> {
+        let same_seats = stored.seat_ids.iter().collect::<HashSet<_>>()
+            == hold.seat_ids.iter().collect::<HashSet<_>>();
+        if stored.event_id != hold.event_id || !same_seats {
+            return Err(ServiceError::Validation(
+                "Idempotency-Key was used with another request".to_owned(),
+            ));
+        }
+        Ok(stored)
     }
 
     fn validate(&self, seat_ids: &[Uuid]) -> Result<(), ServiceError> {
