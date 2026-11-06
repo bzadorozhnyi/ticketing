@@ -59,7 +59,14 @@ class OrderRepository:
         result = await self.session.execute(
             select(Order)
             .where(
-                Order.saga_step.in_([SagaStep.STARTED, SagaStep.CHARGED]),
+                Order.saga_step.in_(
+                    [
+                        SagaStep.STARTED,
+                        SagaStep.AWAITING_CHARGE,
+                        SagaStep.CHARGED,
+                        SagaStep.AWAITING_REFUND,
+                    ]
+                ),
                 Order.next_attempt_at <= func.now(),
             )
             .order_by(Order.next_attempt_at)
@@ -76,7 +83,12 @@ class OrderRepository:
         return result.scalar_one_or_none()
 
     async def mark_awaiting_charge(
-        self, *, order_id: uuid.UUID, amount_minor: int, currency: str
+        self,
+        *,
+        order_id: uuid.UUID,
+        amount_minor: int,
+        currency: str,
+        reply_wait_seconds: float,
     ) -> None:
         await self.session.execute(
             update(Order)
@@ -86,6 +98,7 @@ class OrderRepository:
                 amount_minor=amount_minor,
                 currency=currency,
                 attempts=0,
+                next_attempt_at=func.now() + timedelta(seconds=reply_wait_seconds),
             )
         )
 
@@ -103,11 +116,30 @@ class OrderRepository:
             .values(status=OrderStatus.CONFIRMED, saga_step=SagaStep.DONE)
         )
 
-    async def mark_awaiting_refund(self, *, order_id: uuid.UUID) -> None:
+    async def mark_awaiting_refund(
+        self,
+        *,
+        order_id: uuid.UUID,
+        reason: FailureReason,
+        reply_wait_seconds: float,
+    ) -> None:
+        """The reason is stored now: the reply of payment does not carry it."""
         await self.session.execute(
             update(Order)
             .where(Order.id == order_id)
-            .values(saga_step=SagaStep.AWAITING_REFUND, attempts=0)
+            .values(
+                saga_step=SagaStep.AWAITING_REFUND,
+                failure_reason=reason,
+                attempts=0,
+                next_attempt_at=func.now() + timedelta(seconds=reply_wait_seconds),
+            )
+        )
+
+    async def mark_refund_finished(self, *, order_id: uuid.UUID) -> None:
+        await self.session.execute(
+            update(Order)
+            .where(Order.id == order_id)
+            .values(status=OrderStatus.FAILED, saga_step=SagaStep.DONE)
         )
 
     async def mark_failed(self, *, order_id: uuid.UUID, reason: FailureReason) -> None:

@@ -170,8 +170,11 @@ async def test_charge_result_for_another_step_is_ignored(step, charge_status):
 @pytest.mark.parametrize(
     "refund_status", [RefundStatus.REFUNDED, RefundStatus.NOTHING_TO_REFUND]
 )
-async def test_refund_result_ends_the_order(refund_status):
-    order_id = await create_order(saga_step=SagaStep.AWAITING_REFUND)
+async def test_refund_result_ends_the_order_with_the_stored_reason(refund_status):
+    order_id = await create_order(
+        saga_step=SagaStep.AWAITING_REFUND,
+        failure_reason=FailureReason.REFUNDED_HOLD_LOST,
+    )
 
     settled = await deliver(refund_result(order_id, refund_status))
 
@@ -316,9 +319,11 @@ async def test_confirm_finishes_the_order_as_its_owner(upstreams, http):
 async def test_lost_hold_stores_a_refund_with_the_charged_sum(upstreams, http):
     upstreams.confirm = Reply(status=status.HTTP_409_CONFLICT)
     order_id = await create_order(**CHARGED, attempts=2)
+    runner = make_runner(http)
 
-    await make_runner(http).process_next()
+    await runner.process_next()
 
+    assert await runner.process_next() is False
     order = await load(order_id)
     assert order.saga_step == SagaStep.AWAITING_REFUND
     assert order.status == OrderStatus.PENDING
@@ -417,11 +422,17 @@ async def test_charged_order_without_a_sum_is_postponed_not_refunded(upstreams, 
     assert await outbox() == []
 
 
-@pytest.mark.parametrize(
-    "step", [SagaStep.AWAITING_CHARGE, SagaStep.AWAITING_REFUND, SagaStep.DONE]
-)
-async def test_waiting_and_finished_orders_are_not_taken(http, step):
-    await create_order(saga_step=step)
+@pytest.mark.parametrize("step", [SagaStep.AWAITING_CHARGE, SagaStep.AWAITING_REFUND])
+async def test_order_is_left_alone_while_its_reply_may_still_come(http, step):
+    await create_order(
+        saga_step=step, next_attempt_at=datetime.now(UTC) + timedelta(hours=1)
+    )
+
+    assert await make_runner(http).process_next() is False
+
+
+async def test_finished_order_is_not_taken(http):
+    await create_order(saga_step=SagaStep.DONE)
 
     assert await make_runner(http).process_next() is False
 
@@ -455,6 +466,7 @@ async def test_whole_saga_with_a_lost_hold_ends_failed(upstreams, http):
     await runner.process_next()
     await deliver(charge_result(order_id, ChargeStatus.SUCCEEDED))
     await runner.process_next()
+    assert (await load(order_id)).status == OrderStatus.PENDING
     await deliver(refund_result(order_id, RefundStatus.REFUNDED))
 
     order = await load(order_id)

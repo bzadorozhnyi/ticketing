@@ -36,4 +36,5 @@ docker compose up -d --wait --build                     # db -> booking-migrate 
 - The outbox relay is a background job: `python -m scripts.relay`, the `booking-relay` service in compose.
   Payment declares its queues, so booking only publishes: a message for a queue that does not exist stays in the outbox.
 - The saga worker is a background job too: `python -m scripts.saga`, the `booking-saga` service in compose.
+  Recovery lives there as well: a step that waits for payment has a timer in `next_attempt_at`.
   Alembic autogenerate does not see a `CHECK` on an existing table: add it to the migration by hand.

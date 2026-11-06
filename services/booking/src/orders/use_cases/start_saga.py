@@ -1,11 +1,11 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.settings import SagaSettings
 from orders.clients.catalog import CatalogClient
 from orders.clients.seat_hold import SeatHoldClient
-from orders.dto.messages import ChargeCommand
 from orders.models.order import FailureReason, Order
 from orders.repositories.order import OrderRepository
-from outbox.repositories.message import OutboxRepository
+from orders.services.payment_commands import PaymentCommands
 
 
 class StartSagaUseCase:
@@ -14,17 +14,17 @@ class StartSagaUseCase:
         *,
         session: AsyncSession,
         order_repository: OrderRepository,
-        outbox_repository: OutboxRepository,
+        payment_commands: PaymentCommands,
         seat_hold: SeatHoldClient,
         catalog: CatalogClient,
-        commands_queue: str,
+        settings: SagaSettings,
     ):
         self.session = session
         self.order_repository = order_repository
-        self.outbox_repository = outbox_repository
+        self.payment_commands = payment_commands
         self.seat_hold = seat_hold
         self.catalog = catalog
-        self.commands_queue = commands_queue
+        self.settings = settings
 
     async def execute(self, *, order: Order) -> None:
         """Safe to repeat: reading and extending change nothing a second time. A crash
@@ -50,21 +50,17 @@ class StartSagaUseCase:
             await self._fail(order=order, reason=FailureReason.HOLD_EXPIRED)
             return
 
-        command = ChargeCommand(
-            order_id=order.id,
-            amount_minor=price.amount_minor,
-            currency=price.currency,
-            payment_token=order.payment_token,
-        )
         await self.order_repository.mark_awaiting_charge(
             order_id=order.id,
             amount_minor=price.amount_minor,
             currency=price.currency,
+            reply_wait_seconds=self.settings.REPLY_WAIT_SECONDS,
         )
-        await self.outbox_repository.add(
-            queue=self.commands_queue,
-            body=command.model_dump_json(),
-            traceparent=None,
+        await self.payment_commands.charge(
+            order_id=order.id,
+            amount_minor=price.amount_minor,
+            currency=price.currency,
+            payment_token=order.payment_token,
         )
         await self.session.commit()
 

@@ -1,5 +1,6 @@
 import asyncio
 from contextlib import suppress
+from datetime import UTC, datetime, timedelta
 
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -9,7 +10,9 @@ from orders.clients.catalog import CatalogClient
 from orders.clients.seat_hold import SeatHoldClient
 from orders.models.order import Order, SagaStep
 from orders.repositories.order import OrderRepository
+from orders.services.payment_commands import PaymentCommands
 from orders.use_cases.confirm_order import ConfirmOrderUseCase
+from orders.use_cases.recover_order import RecoverOrderUseCase
 from orders.use_cases.start_saga import StartSagaUseCase
 from outbox.repositories.message import OutboxRepository
 
@@ -57,11 +60,12 @@ class SagaRunner:
                 return False
 
             order_id, attempts = order.id, order.attempts
+            overdue = self._is_overdue(order=order)
             try:
-                await self._run_step(session=session, order=order)
+                await self._run_step(session=session, order=order, overdue=overdue)
             except Exception as exc:
-                logger.bind(error=repr(exc), order_id=str(order_id)).warning(
-                    "Saga step failed, will retry"
+                logger.bind(error=repr(exc), order_id=str(order_id)).log(
+                    "ERROR" if overdue else "WARNING", "Saga step failed, will retry"
                 )
                 await session.rollback()
                 await repository.postpone(
@@ -72,27 +76,44 @@ class SagaRunner:
                 await session.commit()
         return True
 
-    async def _run_step(self, *, session: AsyncSession, order: Order) -> None:
+    async def _run_step(
+        self, *, session: AsyncSession, order: Order, overdue: bool
+    ) -> None:
         order_repository = OrderRepository(session=session)
-        outbox_repository = OutboxRepository(session=session)
+        payment_commands = PaymentCommands(
+            outbox_repository=OutboxRepository(session=session),
+            queue=self.settings.PAYMENT_COMMANDS_QUEUE,
+        )
         if order.saga_step == SagaStep.CHARGED:
             await ConfirmOrderUseCase(
                 session=session,
                 order_repository=order_repository,
-                outbox_repository=outbox_repository,
+                payment_commands=payment_commands,
                 seat_hold=self.seat_hold,
-                commands_queue=self.settings.PAYMENT_COMMANDS_QUEUE,
+                settings=self.settings,
             ).execute(order=order)
-            return
+        elif order.saga_step == SagaStep.STARTED and not overdue:
+            await StartSagaUseCase(
+                session=session,
+                order_repository=order_repository,
+                payment_commands=payment_commands,
+                seat_hold=self.seat_hold,
+                catalog=self.catalog,
+                settings=self.settings,
+            ).execute(order=order)
+        else:
+            await RecoverOrderUseCase(
+                session=session,
+                order_repository=order_repository,
+                payment_commands=payment_commands,
+                settings=self.settings,
+            ).execute(order=order, overdue=overdue)
 
-        await StartSagaUseCase(
-            session=session,
-            order_repository=order_repository,
-            outbox_repository=outbox_repository,
-            seat_hold=self.seat_hold,
-            catalog=self.catalog,
-            commands_queue=self.settings.PAYMENT_COMMANDS_QUEUE,
-        ).execute(order=order)
+    def _is_overdue(self, *, order: Order) -> bool:
+        give_up_at = order.created_at + timedelta(
+            seconds=self.settings.GIVE_UP_AFTER_SECONDS
+        )
+        return datetime.now(UTC) >= give_up_at
 
     def _retry_delay(self, *, attempts: int) -> float:
         delay = self.settings.RETRY_BASE_DELAY_SECONDS * 2 ** min(
