@@ -46,6 +46,11 @@ Features are secondary; failure experiments and evidence are the point.
 - A periodic/background job (hold expiry, stuck-saga recovery) lives inside the owning service and must be flagged to the user.
 - No frontend. Simple auth at the gateway only.
 
+## Inter-service communication
+
+See ADR 0005. booking and payment talk through RabbitMQ, with a transactional outbox on the sending side.
+Calls to seat-hold are synchronous HTTP. Delivery is at least once, so every consumer is idempotent.
+
 ## Services
 
 | Service | Lang | Role |
@@ -185,7 +190,3 @@ a skipped job counts as success, a failed one fails it, so a new service needs n
   Example: `TIK-12 Added username field in patch profile endpoint`.
 - `TIK-0` marks small technical fixes that don't deserve their own ticket (not tracked on the board).
   They follow the same branch + pull request flow (`TIK-0-<short-slug>`); the only exception is the repository's root commit.
-
-## Open decisions
-
-- Inter-service communication: synchronous HTTP vs messaging (decide when we reach it).
