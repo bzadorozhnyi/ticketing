@@ -140,6 +140,13 @@ services:
       booking-migrate: { condition: service_completed_successfully }
       rabbitmq: { condition: service_healthy }
 
+  booking-saga:
+    <<: *booking
+    command: ["python", "-m", "scripts.saga"]
+    restart: on-failure
+    depends_on:
+      booking-migrate: { condition: service_completed_successfully }
+
   payment-consumer:
     <<: *payment
     command: ["python", "-m", "scripts.consume"]

@@ -74,3 +74,7 @@
 - `FOR UPDATE` alone is enough for correctness between relays, `SKIP LOCKED` only stops them waiting for each other. Removing it broke no duplicate test; it needed a test of its own.
 - A test of order passed without `ORDER BY`, because a heap returns rows in insert order. Inserting ids in reverse order made the test mean something.
 - An experiment script can quietly do less than it says: three kills in a row printed the same number, because the restarted relay had not published yet. One kill per run happened, not three.
+- `BackgroundTasks` is a `for` loop that awaits one task after another, after the response. Measured on Starlette 1.10.0: a task that raises does not block the event loop, but the next task never runs and the client already has 200. What really blocks is a blocking call inside `async def`: `time.sleep(2)` made `/ping` wait 2.0 s. 45 hung sync tasks took the thread pool, so async routes answered and sync ones hung. SIGKILL loses the task. Fine for a thank-you email, not for a step that moves money.
+- Alembic autogenerate adds columns and indexes but not a `CHECK` on an existing table. The model said there was a constraint and the database had none; only a test that writes a bad value shows it.
+- A partial index on `next_attempt_at` hides a missing `ORDER BY`: the plan returns rows in order by accident. The test had to switch index scans off to mean anything.
+- `rabbitmqctl list_queues` lags by a few seconds: it showed 0 replies and a moment later 2. Queue depth is not a measurement until it has settled.

@@ -11,6 +11,7 @@ class OrderOut(BaseModel):
     id: uuid.UUID
     hold_id: uuid.UUID
     status: str
+    failure_reason: str | None
     created_at: datetime
 
     @classmethod
@@ -19,5 +20,6 @@ class OrderOut(BaseModel):
             id=dto.id,
             hold_id=dto.hold_id,
             status=dto.status,
+            failure_reason=dto.failure_reason,
             created_at=dto.created_at,
         )
