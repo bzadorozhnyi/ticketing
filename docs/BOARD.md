@@ -5,7 +5,6 @@ Next ticket: TIK-37
 ## In progress
 
 ## To do
-- [ ] TIK-26 Seat-hold: extend a hold before payment, confirm after it (M3)
 - [ ] TIK-29 Seat-hold: idempotency key on holds (M3)
 - [ ] TIK-30 Booking: orders and Idempotency-Key (M3)
 - [ ] TIK-31 Booking: transactional outbox and relay (M3)
@@ -43,3 +42,4 @@ Next ticket: TIK-37
 - [x] TIK-27 Inter-service communication: ADR and RabbitMQ (M3)
 - [x] TIK-28 Payment: idempotent charges and refunds, fault injection (M3)
 - [x] TIK-36 Payment: command consumer on RabbitMQ (M3)
+- [x] TIK-26 Seat-hold: extend a hold before payment, confirm after it (M3)

@@ -3,9 +3,12 @@
 mod common;
 
 use std::collections::HashMap;
+use std::time::Duration;
 
 use axum::http::StatusCode;
 use common::service::{client, spawn_service};
+use seat_hold::holds::dto::hold::NewHold;
+use seat_hold::holds::repositories::hold::HoldRepository;
 use serde_json::{Value, json};
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
@@ -169,4 +172,50 @@ async fn overlapping_requests_never_split_or_deadlock(pool: PgPool) {
         }
     }
     assert_eq!(holds.len(), won_seats);
+}
+
+/// Two real connections, in a fixed order. The hold expires while the confirm is still
+/// open, so the new hold has to wait for it and must then see a confirmed seat.
+#[sqlx::test]
+async fn a_takeover_waits_for_a_confirm_in_progress(pool: PgPool) {
+    let (event_id, seat_id, hold_id) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
+    sqlx::query(
+        "INSERT INTO holds (event_id, seat_id, hold_id, owner_id, expires_at)
+         VALUES ($1, $2, $3, 'owner', now() + interval '200 milliseconds')",
+    )
+    .bind(event_id)
+    .bind(seat_id)
+    .bind(hold_id)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let mut confirm = pool.begin().await.unwrap();
+    let confirmed = HoldRepository::confirm(&mut confirm, hold_id, "owner")
+        .await
+        .unwrap();
+    assert_eq!(confirmed, 1);
+    tokio::time::sleep(Duration::from_millis(300)).await;
+
+    let taker_pool = pool.clone();
+    let taker = tokio::spawn(async move {
+        let mut conn = taker_pool.acquire().await.unwrap();
+        let hold = NewHold {
+            event_id,
+            seat_ids: vec![seat_id],
+            owner_id: "thief".to_owned(),
+        };
+        HoldRepository::take_seats(&mut conn, Uuid::now_v7(), &hold, Duration::from_mins(5))
+            .await
+            .unwrap()
+    });
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert!(
+        !taker.is_finished(),
+        "the takeover must wait for the row lock"
+    );
+    confirm.commit().await.unwrap();
+
+    assert!(taker.await.unwrap().is_empty());
+    assert_eq!(stored(&pool, event_id).await[&seat_id], "owner");
 }
