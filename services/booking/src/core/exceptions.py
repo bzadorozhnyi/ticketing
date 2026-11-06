@@ -4,6 +4,7 @@ from enum import StrEnum, auto
 class ErrorCode(StrEnum):
     INTERNAL_ERROR = auto()
     NOT_FOUND = auto()
+    UNAUTHORIZED = auto()
     CONFLICT = auto()
     SERVICE_UNAVAILABLE = auto()
     VALIDATION_ERROR = auto()
@@ -23,8 +24,16 @@ class NotFoundException(AppException):
     code = ErrorCode.NOT_FOUND
 
 
+class UnauthorizedException(AppException):
+    code = ErrorCode.UNAUTHORIZED
+
+
 class ConflictException(AppException):
     code = ErrorCode.CONFLICT
+
+
+class ValidationException(AppException):
+    code = ErrorCode.VALIDATION_ERROR
 
 
 class InternalServerException(AppException):

@@ -31,6 +31,5 @@ docker compose up -d --wait --build                     # db -> booking-migrate 
 - Code lives in `src/` and is imported without a package prefix (`from core.db import ...`);
   pytest and ty use `src` as the import root.
 - `core/` is copied from catalog, not shared: services stay independent. A fix there may need repeating in each service.
-- There are no API routes yet, so tests use the `probe_routes` fixture (`tests/helpers/probe_routes.py`).
-  Replace them with real routes as they appear.
-- `tests/factories/` and factory-boy come with the first entity; catalog shows the setup.
+- The `probe_routes` fixture (`tests/helpers/probe_routes.py`) gives tests failures a real route cannot produce on demand.
+- `src/tests_e2e/` has real commits and several connections: run it with `uv run pytest src/tests_e2e`.

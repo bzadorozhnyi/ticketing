@@ -1,4 +1,5 @@
 import asyncio
+import pkgutil
 from pathlib import Path
 
 import pytest
@@ -22,6 +23,13 @@ from core.settings import settings  # noqa: E402
 from main import app  # noqa: E402
 from tests.helpers.db import create_db, drop_db  # noqa: E402
 from tests.helpers.probe_routes import router as probe_router  # noqa: E402
+
+pytest_plugins = [
+    f"tests.factories.{modname}"
+    for _, modname, _ in pkgutil.iter_modules(
+        [str(Path(__file__).resolve().parent / "factories")]
+    )
+]
 
 
 @pytest.fixture(scope="session")
@@ -106,7 +114,7 @@ async def real_session_client(async_engine):
 
 @pytest.fixture
 def probe_routes():
-    """Booking has no API routes yet, so these stand in for them."""
+    """Failures a real route cannot produce on demand: bad SQL, an unexpected error."""
     routes = list(app.router.routes)
     app.include_router(probe_router)
     yield
