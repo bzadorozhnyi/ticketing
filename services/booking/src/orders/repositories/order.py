@@ -1,13 +1,14 @@
 import uuid
+from datetime import timedelta
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import SessionDep
-from orders.models.order import Order, OrderStatus
+from orders.models.order import FailureReason, Order, OrderStatus, SagaStep
 
 
 class OrderRepository:
@@ -49,6 +50,59 @@ class OrderRepository:
                 status=OrderStatus.PENDING,
             )
             .on_conflict_do_nothing()
+        )
+
+    async def lock_next_due(self) -> Order | None:
+        """An order another worker is on is skipped. The lock ends with the transaction,
+        so a crash frees the order at once.
+        """
+        result = await self.session.execute(
+            select(Order)
+            .where(
+                Order.saga_step == SagaStep.STARTED,
+                Order.next_attempt_at <= func.now(),
+            )
+            .order_by(Order.next_attempt_at)
+            .limit(1)
+            .with_for_update(skip_locked=True)
+        )
+        return result.scalar_one_or_none()
+
+    async def mark_awaiting_charge(
+        self, *, order_id: uuid.UUID, amount_minor: int, currency: str
+    ) -> None:
+        await self.session.execute(
+            update(Order)
+            .where(Order.id == order_id)
+            .values(
+                saga_step=SagaStep.AWAITING_CHARGE,
+                amount_minor=amount_minor,
+                currency=currency,
+                attempts=0,
+            )
+        )
+
+    async def mark_failed(self, *, order_id: uuid.UUID, reason: FailureReason) -> None:
+        await self.session.execute(
+            update(Order)
+            .where(Order.id == order_id)
+            .values(
+                status=OrderStatus.FAILED,
+                saga_step=SagaStep.DONE,
+                failure_reason=reason,
+            )
+        )
+
+    async def postpone(
+        self, *, order_id: uuid.UUID, attempts: int, delay_seconds: float
+    ) -> None:
+        await self.session.execute(
+            update(Order)
+            .where(Order.id == order_id)
+            .values(
+                attempts=attempts,
+                next_attempt_at=func.now() + timedelta(seconds=delay_seconds),
+            )
         )
 
 

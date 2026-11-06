@@ -317,6 +317,17 @@
             "type": "string",
             "title": "Status"
           },
+          "failure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Reason"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -328,6 +339,7 @@
           "id",
           "hold_id",
           "status",
+          "failure_reason",
           "created_at"
         ],
         "title": "OrderOut"

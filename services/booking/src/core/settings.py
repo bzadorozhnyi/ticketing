@@ -46,12 +46,28 @@ class OutboxSettings(BaseModel):
     PUBLISH_TIMEOUT_SECONDS: float = 5
 
 
+class UpstreamSettings(BaseModel):
+    SEAT_HOLD_URL: str = "http://seat-hold:8000"
+    CATALOG_URL: str = "http://catalog:8000"
+    CONNECT_TIMEOUT_SECONDS: float = 1
+    TIMEOUT_SECONDS: float = 3
+
+
+class SagaSettings(BaseModel):
+    POLL_INTERVAL_SECONDS: float = 0.5
+    RETRY_BASE_DELAY_SECONDS: float = 1
+    MAX_RETRY_DELAY_SECONDS: float = 30
+    PAYMENT_COMMANDS_QUEUE: str = "payment.commands"
+
+
 class Settings(BaseSettings):
     SERVICE_NAME: str = "booking"
     DB: DBSettings
     LOGGING: LoggingSettings = LoggingSettings()
     RABBITMQ: RabbitMQSettings = RabbitMQSettings()
     OUTBOX: OutboxSettings = OutboxSettings()
+    UPSTREAMS: UpstreamSettings = UpstreamSettings()
+    SAGA: SagaSettings = SagaSettings()
 
     # No env_file: this reads only os.environ. Docker compose sets the values
     # directly; tests/conftest.py loads .env.test before anything is imported.

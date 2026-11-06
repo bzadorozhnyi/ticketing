@@ -3,6 +3,7 @@ import uuid
 import pytest
 from fastapi import status
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 
 from orders.models.order import Order, OrderStatus
 
@@ -34,7 +35,7 @@ async def test_create_stores_a_pending_order(async_client, db_session):
 
     assert response.status_code == status.HTTP_202_ACCEPTED
     body = response.json()
-    assert set(body) == {"id", "hold_id", "status", "created_at"}
+    assert set(body) == {"id", "hold_id", "status", "failure_reason", "created_at"}
     assert body["hold_id"] == str(hold_id)
     assert body["status"] == OrderStatus.PENDING
 
@@ -182,7 +183,7 @@ async def test_get_returns_the_order(async_client, order_factory):
 
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
-    assert set(body) == {"id", "hold_id", "status", "created_at"}
+    assert set(body) == {"id", "hold_id", "status", "failure_reason", "created_at"}
     assert body["id"] == str(order.id)
     assert body["hold_id"] == str(order.hold_id)
     assert body["status"] == OrderStatus.CONFIRMED
@@ -213,3 +214,8 @@ async def test_get_without_a_user_is_refused(async_client, order_factory):
     response = await async_client.get(f"{ORDERS_URL}/{order.id}")
 
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+async def test_database_refuses_an_unknown_saga_step(db_session, order_factory):
+    with pytest.raises(IntegrityError, match="ck_orders_saga_step_known"):
+        await order_factory(saga_step="lost")
