@@ -35,11 +35,29 @@ class FaultSettings(BaseModel):
     CRASH_AFTER_COMMIT_RATE: float = 0
 
 
+class RabbitMQSettings(BaseModel):
+    HOST: str = "localhost"
+    PORT: int = 5672
+    USER: str = "ticketing"
+    PASS: str = "password"
+    QUEUE_PREFIX: str = "payment"
+    PREFETCH_COUNT: int = 10
+    DELIVERY_LIMIT: int = 10
+    HANDLER_TIMEOUT_SECONDS: float = 30
+    RETRY_BASE_DELAY_SECONDS: float = 1
+    MAX_RETRY_DELAY_SECONDS: float = 30
+
+    @property
+    def url(self) -> str:
+        return f"amqp://{self.USER}:{self.PASS}@{self.HOST}:{self.PORT}/"
+
+
 class Settings(BaseSettings):
     SERVICE_NAME: str = "payment"
     DB: DBSettings
     LOGGING: LoggingSettings = LoggingSettings()
     FAULTS: FaultSettings = FaultSettings()
+    RABBITMQ: RabbitMQSettings = RabbitMQSettings()
 
     # No env_file: this reads only os.environ. Docker compose sets the values
     # directly; tests/conftest.py loads .env.test before anything is imported.

@@ -127,6 +127,19 @@ services:
     depends_on:
       booking-migrate: { condition: service_completed_successfully }
 
+  payment-consumer:
+    <<: *payment
+    command: ["python", "-m", "scripts.consume"]
+    environment:
+      <<: *service-db-env
+      DB__NAME: payment_db
+      DB__HOST: payment-db
+      RABBITMQ__HOST: rabbitmq
+    restart: on-failure
+    depends_on:
+      payment-migrate: { condition: service_completed_successfully }
+      rabbitmq: { condition: service_healthy }
+
   payment-db:
     <<: *postgres
     environment:
