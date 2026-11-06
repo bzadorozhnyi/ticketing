@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM holds\n            WHERE ctid IN (\n                SELECT ctid FROM holds\n                WHERE expires_at <= now() AND status = 'held'\n                LIMIT $1\n                FOR UPDATE SKIP LOCKED\n            )\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "385e7523150944402c20abbc7733e4fb5b8af6e7abdd107c304cf1d4774d5ba4"
+}

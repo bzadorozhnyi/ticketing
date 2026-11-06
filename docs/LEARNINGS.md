@@ -64,3 +64,5 @@
 - A test comment claimed a refund could lose a race and do nothing, and the test ran refunds twice to compensate. The logic never needed it; removing the second round made the test stricter.
 - On RabbitMQ 4.4 a requeue through `basic.nack` does not count towards `x-delivery-limit`, while `basic.reject` and a closed channel do. With a limit of 3, `nack` was delivered without end, `reject` 4 times and then dead-lettered. A test caught what the docs and my explanation did not.
 - A retry without a pause turns a short outage into a full dead letter queue: the delivery limit is used up in milliseconds.
+- A concurrency test can pass without racing. A test with holds about to expire gave the same outcome 30 times out of 30, because the holds had already expired. Printing the outcomes showed it; a fixed order on two connections replaced it.
+- Routing by prefix exposes every new endpoint under it. Confirm on `/api/v1/holds` would have let a client take a seat without paying, so internal calls got their own path.

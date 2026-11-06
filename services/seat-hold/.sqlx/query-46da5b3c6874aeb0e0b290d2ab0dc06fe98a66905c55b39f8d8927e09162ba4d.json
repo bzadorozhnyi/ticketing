@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO holds (event_id, seat_id, hold_id, owner_id, expires_at)\n            SELECT $1, requested.seat_id, $2, $3, now() + make_interval(secs => $4)\n            FROM unnest($5::uuid[]) AS requested (seat_id)\n            ORDER BY requested.seat_id\n            ON CONFLICT (event_id, seat_id) DO UPDATE\n            SET hold_id = EXCLUDED.hold_id,\n                owner_id = EXCLUDED.owner_id,\n                expires_at = EXCLUDED.expires_at\n            WHERE holds.expires_at <= now()\n            RETURNING seat_id, expires_at\n            ",
+  "query": "\n            INSERT INTO holds (event_id, seat_id, hold_id, owner_id, expires_at)\n            SELECT $1, requested.seat_id, $2, $3, now() + make_interval(secs => $4)\n            FROM unnest($5::uuid[]) AS requested (seat_id)\n            ORDER BY requested.seat_id\n            ON CONFLICT (event_id, seat_id) DO UPDATE\n            SET hold_id = EXCLUDED.hold_id,\n                owner_id = EXCLUDED.owner_id,\n                expires_at = EXCLUDED.expires_at\n            WHERE holds.expires_at <= now() AND holds.status = 'held'\n            RETURNING seat_id, expires_at\n            ",
   "describe": {
     "columns": [
       {
@@ -40,5 +40,5 @@
       false
     ]
   },
-  "hash": "58ac9c4d95a7633a8c78d1a8fc5bdc6d704bdbd41d6cb51b74a9e6744fcc774f"
+  "hash": "46da5b3c6874aeb0e0b290d2ab0dc06fe98a66905c55b39f8d8927e09162ba4d"
 }

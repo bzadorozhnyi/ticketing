@@ -34,6 +34,8 @@ pub enum ServiceError {
     Validation(String),
     #[error("Some seats are taken")]
     SeatsTaken(Vec<Uuid>),
+    #[error("The hold has expired")]
+    HoldExpired,
     #[error("Database is unavailable")]
     Unavailable,
     #[error("Internal server error")]
@@ -46,7 +48,7 @@ impl ServiceError {
             Self::NotFound => (StatusCode::NOT_FOUND, ErrorCode::NotFound),
             Self::Unauthorized => (StatusCode::UNAUTHORIZED, ErrorCode::Unauthorized),
             Self::Validation(_) => (StatusCode::UNPROCESSABLE_ENTITY, ErrorCode::ValidationError),
-            Self::SeatsTaken(_) => (StatusCode::CONFLICT, ErrorCode::Conflict),
+            Self::SeatsTaken(_) | Self::HoldExpired => (StatusCode::CONFLICT, ErrorCode::Conflict),
             Self::Unavailable => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 ErrorCode::ServiceUnavailable,
@@ -61,6 +63,7 @@ impl ServiceError {
             Self::NotFound
             | Self::Unauthorized
             | Self::Validation(_)
+            | Self::HoldExpired
             | Self::Unavailable
             | Self::Internal => Vec::new(),
         }

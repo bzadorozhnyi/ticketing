@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use chrono::{DateTime, Utc};
 use sqlx::PgConnection;
 use uuid::Uuid;
 
@@ -28,7 +29,7 @@ impl HoldRepository {
             SET hold_id = EXCLUDED.hold_id,
                 owner_id = EXCLUDED.owner_id,
                 expires_at = EXCLUDED.expires_at
-            WHERE holds.expires_at <= now()
+            WHERE holds.expires_at <= now() AND holds.status = 'held'
             RETURNING seat_id, expires_at
             "#,
             hold.event_id,
@@ -41,13 +42,58 @@ impl HoldRepository {
         .await
     }
 
+    /// A confirmed hold counts as extended, so a repeat after a crash still succeeds.
+    pub async fn extend(
+        conn: &mut PgConnection,
+        hold_id: Uuid,
+        owner_id: &str,
+        ttl: Duration,
+    ) -> Result<Vec<DateTime<Utc>>, sqlx::Error> {
+        sqlx::query_scalar!(
+            r#"
+            UPDATE holds
+            SET expires_at = GREATEST(expires_at, now() + make_interval(secs => $3))
+            WHERE hold_id = $1
+              AND owner_id = $2
+              AND (status = 'confirmed' OR expires_at > now())
+            RETURNING expires_at
+            "#,
+            hold_id,
+            owner_id,
+            ttl.as_secs_f64(),
+        )
+        .fetch_all(conn)
+        .await
+    }
+
+    pub async fn confirm(
+        conn: &mut PgConnection,
+        hold_id: Uuid,
+        owner_id: &str,
+    ) -> Result<u64, sqlx::Error> {
+        let result = sqlx::query!(
+            r#"
+            UPDATE holds
+            SET status = 'confirmed'
+            WHERE hold_id = $1
+              AND owner_id = $2
+              AND (status = 'confirmed' OR expires_at > now())
+            "#,
+            hold_id,
+            owner_id,
+        )
+        .execute(conn)
+        .await?;
+        Ok(result.rows_affected())
+    }
+
     pub async fn release(
         conn: &mut PgConnection,
         hold_id: Uuid,
         owner_id: &str,
     ) -> Result<u64, sqlx::Error> {
         let result = sqlx::query!(
-            "DELETE FROM holds WHERE hold_id = $1 AND owner_id = $2",
+            "DELETE FROM holds WHERE hold_id = $1 AND owner_id = $2 AND status = 'held'",
             hold_id,
             owner_id,
         )
@@ -67,7 +113,7 @@ impl HoldRepository {
             DELETE FROM holds
             WHERE ctid IN (
                 SELECT ctid FROM holds
-                WHERE expires_at <= now()
+                WHERE expires_at <= now() AND status = 'held'
                 LIMIT $1
                 FOR UPDATE SKIP LOCKED
             )

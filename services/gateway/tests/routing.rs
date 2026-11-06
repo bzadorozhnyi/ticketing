@@ -377,3 +377,17 @@ async fn each_route_goes_to_its_own_upstream() {
     assert_eq!(catalog.received().len(), 1);
     assert_eq!(catalog.received()[0].uri, "/api/v1/events");
 }
+
+#[tokio::test]
+async fn internal_routes_are_not_reachable_from_outside() {
+    let (gateway, upstream) = gateway_with_echo().await;
+
+    let response = client()
+        .post(format!("{gateway}/internal/v1/holds/7/confirm"))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    assert!(upstream.received().is_empty());
+}

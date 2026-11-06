@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM holds WHERE hold_id = $1 AND owner_id = $2",
+  "query": "DELETE FROM holds WHERE hold_id = $1 AND owner_id = $2 AND status = 'held'",
   "describe": {
     "columns": [],
     "parameters": {
@@ -11,5 +11,5 @@
     },
     "nullable": []
   },
-  "hash": "7a94e19013b57ed09c8aa13046b9a5581ad79c92d09f2e65de5bc95facab5fac"
+  "hash": "5f3a29418660cf4ad54672e607163c2e8160e1d227b4443e3e1470b1e34920ca"
 }

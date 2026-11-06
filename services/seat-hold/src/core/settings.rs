@@ -64,6 +64,8 @@ impl Default for PoolSettings {
 pub struct HoldSettings {
     #[serde(rename = "ttl_seconds", deserialize_with = "seconds")]
     pub ttl: Duration,
+    #[serde(rename = "payment_ttl_seconds", deserialize_with = "seconds")]
+    pub payment_ttl: Duration,
     pub max_seats: usize,
     #[serde(rename = "cleanup_interval_seconds", deserialize_with = "seconds")]
     pub cleanup_interval: Duration,
@@ -74,6 +76,7 @@ impl Default for HoldSettings {
     fn default() -> Self {
         Self {
             ttl: Duration::from_mins(5),
+            payment_ttl: Duration::from_mins(15),
             max_seats: 10,
             cleanup_interval: Duration::from_mins(1),
             cleanup_batch_size: 1000,
