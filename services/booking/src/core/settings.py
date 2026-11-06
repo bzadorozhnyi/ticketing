@@ -60,6 +60,9 @@ class SagaSettings(BaseModel):
     PAYMENT_COMMANDS_QUEUE: str = "payment.commands"
     PAYMENT_REPLIES_QUEUE: str = "payment.replies"
     REPLY_TIMEOUT_SECONDS: float = 30
+    REPLY_WAIT_SECONDS: float = 30
+    MAX_REPLY_WAIT_SECONDS: float = 120
+    GIVE_UP_AFTER_SECONDS: float = 600
 
 
 class Settings(BaseSettings):

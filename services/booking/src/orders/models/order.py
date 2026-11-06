@@ -35,6 +35,8 @@ class FailureReason(StrEnum):
     PRICE_NOT_FOUND = "price_not_found"
     CARD_DECLINED = "card_declined"
     REFUNDED_HOLD_LOST = "refunded_hold_lost"
+    SAGA_TIMED_OUT = "saga_timed_out"
+    CHARGE_TIMED_OUT = "charge_timed_out"
 
 
 class Order(BaseModel):
@@ -54,7 +56,10 @@ class Order(BaseModel):
         Index(
             "ix_orders_saga_due",
             "next_attempt_at",
-            postgresql_where=text("saga_step IN ('started', 'charged')"),
+            postgresql_where=text(
+                "saga_step IN "
+                "('started', 'awaiting_charge', 'charged', 'awaiting_refund')"
+            ),
         ),
         CheckConstraint(
             "status IN ('pending', 'confirmed', 'failed')", name="status_known"

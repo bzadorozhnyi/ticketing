@@ -202,6 +202,21 @@ async def test_get_explains_a_failed_order(async_client, order_factory):
     assert response.json()["failure_reason"] == FailureReason.CARD_DECLINED
 
 
+async def test_get_shows_why_a_pending_order_is_being_refunded(
+    async_client, order_factory
+):
+    order = await order_factory(
+        saga_step="awaiting_refund", failure_reason=FailureReason.CHARGE_TIMED_OUT
+    )
+
+    response = await async_client.get(
+        f"{ORDERS_URL}/{order.id}", headers={"X-User-Id": USER}
+    )
+
+    assert response.json()["status"] == OrderStatus.PENDING
+    assert response.json()["failure_reason"] == FailureReason.CHARGE_TIMED_OUT
+
+
 async def test_another_users_order_looks_missing(async_client, order_factory):
     order = await order_factory(user_id="user-2")
 

@@ -1,11 +1,11 @@
 # Board
 
-Next ticket: TIK-39
+Next ticket: TIK-40
 
 ## In progress
 
 ## To do
-- [ ] TIK-33 Booking: recovery of stuck sagas (M3)
+- [ ] TIK-39 Payment: idempotency key on the provider call, reserve the charge before it, provider ledger in the mock (M3)
 - [ ] TIK-34 Gateway: route booking (M3)
 - [ ] TIK-35 Saga crash experiment: kill after every step, exactly one charge (M3)
 - [ ] TIK-37 Seat-hold: limit active holds per user, one user cannot block a hall (M5)
@@ -45,3 +45,4 @@ Next ticket: TIK-39
 - [x] TIK-30 Booking: orders and Idempotency-Key (M3)
 - [x] TIK-31 Booking: transactional outbox and relay (M3)
 - [x] TIK-32 Booking: saga orchestrator with persisted state (M3)
+- [x] TIK-33 Booking: recovery of stuck sagas (M3)

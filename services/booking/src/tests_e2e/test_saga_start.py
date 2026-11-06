@@ -43,6 +43,7 @@ async def test_step_prices_the_hold_and_stores_the_charge_command(upstreams, htt
     assert order.status == OrderStatus.PENDING
     assert order.amount_minor == 150_000
     assert order.currency == "UAH"
+    assert order.next_attempt_at > order.created_at + timedelta(seconds=25)
 
     [message] = await outbox()
     assert message.queue == COMMANDS_QUEUE
