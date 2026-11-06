@@ -67,3 +67,6 @@
 - A concurrency test can pass without racing. A test with holds about to expire gave the same outcome 30 times out of 30, because the holds had already expired. Printing the outcomes showed it; a fixed order on two connections replaced it.
 - Routing by prefix exposes every new endpoint under it. Confirm on `/api/v1/holds` would have let a client take a seat without paying, so internal calls got their own path.
 - Writing the idempotency key first in the same transaction solves three cases at once: a concurrent repeat waits on the unique index, a refused request takes the key back with its rollback, and a success keeps a response that survives the hold.
+- `ON CONFLICT DO NOTHING` without a target covers every unique index, so one statement handles both a repeated key and a second order on the hold; a read by key afterwards tells them apart.
+- A mutation that fails on a sequential repeat proves nothing about a race. Check-then-insert behaves correctly one request at a time, so only that variant shows the race test works: 14 x 500 out of 50.
+- The 14 was the same in every run because it is the pool, not chance: 15 connections (5 + 10 overflow) pass the check together, one wins, 14 fail, and the other 35 wait for a connection and see the row. The size of a race is bounded by the pool.

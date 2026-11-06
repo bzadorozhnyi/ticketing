@@ -11,7 +11,9 @@ from core.exceptions import AppException, ErrorCode
 _STATUS_CODES: dict[ErrorCode, int] = {
     ErrorCode.INTERNAL_ERROR: status.HTTP_500_INTERNAL_SERVER_ERROR,
     ErrorCode.NOT_FOUND: status.HTTP_404_NOT_FOUND,
+    ErrorCode.UNAUTHORIZED: status.HTTP_401_UNAUTHORIZED,
     ErrorCode.CONFLICT: status.HTTP_409_CONFLICT,
+    ErrorCode.VALIDATION_ERROR: status.HTTP_422_UNPROCESSABLE_CONTENT,
     ErrorCode.SERVICE_UNAVAILABLE: status.HTTP_503_SERVICE_UNAVAILABLE,
 }
 

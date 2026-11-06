@@ -24,6 +24,38 @@ def test_documented_statuses(path, expected):
     assert set(responses) == {str(code) for code in expected}
 
 
+@pytest.mark.parametrize(
+    ("path", "method", "expected"),
+    [
+        (
+            "/api/v1/orders",
+            "post",
+            {
+                status.HTTP_202_ACCEPTED,
+                status.HTTP_401_UNAUTHORIZED,
+                status.HTTP_409_CONFLICT,
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+            },
+        ),
+        (
+            "/api/v1/orders/{order_id}",
+            "get",
+            {
+                status.HTTP_200_OK,
+                status.HTTP_401_UNAUTHORIZED,
+                status.HTTP_404_NOT_FOUND,
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+            },
+        ),
+    ],
+)
+def test_documented_order_statuses(path, method, expected):
+    responses = app.openapi()["paths"][path][method]["responses"]
+    assert set(responses) == {str(code) for code in expected}
+
+
 @pytest.mark.anyio
 async def test_error_response_matches_documented_schema(async_client):
     response = await async_client.get("/no-such-route")
