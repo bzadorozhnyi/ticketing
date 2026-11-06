@@ -29,6 +29,11 @@ docker compose up -d --wait --build                     # db -> catalog-migrate 
 docker compose run --rm catalog python -m scripts.seed  # demo data
 ```
 
+## Internal API
+
+`POST /internal/v1/events/{event_id}/price` is for booking: the amount of an order comes from here, never from a client.
+The gateway does not route `/internal`.
+
 ## Layout notes
 
 - Code lives in `src/` and is imported without a package prefix (`from core.db import ...`);
