@@ -3,7 +3,19 @@ import uuid
 from dataclasses import dataclass, field
 
 from aiohttp import web
+from sqlalchemy import select, update
 
+from core.db import async_session
+from core.http import HttpClient
+from core.settings import SagaSettings
+from orders.clients.catalog import CatalogClient
+from orders.clients.seat_hold import SeatHoldClient
+from orders.models.order import Order, OrderStatus
+from orders.saga_runner import SagaRunner
+from outbox.models.message import OutboxMessage
+
+USER = "user-1"
+COMMANDS_QUEUE = "commands-under-test"
 EVENT_ID = uuid.uuid4()
 SEAT_IDS = [uuid.uuid4(), uuid.uuid4()]
 
@@ -23,6 +35,7 @@ class Upstreams:
     hold: Reply = field(default_factory=Reply)
     price: Reply = field(default_factory=Reply)
     extend: Reply = field(default_factory=Reply)
+    confirm: Reply = field(default_factory=Reply)
     amount_minor: int = 150_000
     calls: list[tuple[str, str, str | None]] = field(default_factory=list)
     price_bodies: list[dict] = field(default_factory=list)
@@ -65,6 +78,14 @@ class Upstreams:
             },
         )
 
+    async def confirm_hold(self, request: web.Request) -> web.Response:
+        return await self.answer(
+            name="confirm",
+            reply=self.confirm,
+            request=request,
+            body={"hold_id": request.match_info["hold_id"]},
+        )
+
     async def price_seats(self, request: web.Request) -> web.Response:
         self.price_bodies.append(await request.json())
         return await self.answer(
@@ -78,5 +99,57 @@ class Upstreams:
         app = web.Application()
         app.router.add_get("/internal/v1/holds/{hold_id}", self.get_hold)
         app.router.add_post("/internal/v1/holds/{hold_id}/extend", self.extend_hold)
+        app.router.add_post("/internal/v1/holds/{hold_id}/confirm", self.confirm_hold)
         app.router.add_post("/internal/v1/events/{event_id}/price", self.price_seats)
         return app
+
+
+def make_runner(http: HttpClient, **overrides) -> SagaRunner:
+    defaults = {
+        "PAYMENT_COMMANDS_QUEUE": COMMANDS_QUEUE,
+        "RETRY_BASE_DELAY_SECONDS": 60,
+    }
+    return SagaRunner(
+        session_maker=async_session,
+        seat_hold=SeatHoldClient(http=http),
+        catalog=CatalogClient(http=http),
+        settings=SagaSettings().model_copy(update=defaults | overrides),
+    )
+
+
+async def create_order(*, token: str = "tok_ok", **fields) -> uuid.UUID:
+    async with async_session() as session:
+        order = Order(
+            user_id=USER,
+            idempotency_key=str(uuid.uuid4()),
+            hold_id=uuid.uuid4(),
+            payment_token=token,
+            status=OrderStatus.PENDING,
+            **fields,
+        )
+        session.add(order)
+        await session.commit()
+        return order.id
+
+
+async def load(order_id: uuid.UUID) -> Order:
+    async with async_session() as session:
+        order = await session.get(Order, order_id)
+        assert order is not None
+        return order
+
+
+async def outbox() -> list[OutboxMessage]:
+    async with async_session() as session:
+        result = await session.execute(select(OutboxMessage))
+        return list(result.scalars())
+
+
+async def make_due(order_id: uuid.UUID) -> None:
+    async with async_session() as session:
+        await session.execute(
+            update(Order)
+            .where(Order.id == order_id)
+            .values(next_attempt_at=Order.created_at)
+        )
+        await session.commit()

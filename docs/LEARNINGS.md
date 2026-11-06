@@ -78,3 +78,6 @@
 - Alembic autogenerate adds columns and indexes but not a `CHECK` on an existing table. The model said there was a constraint and the database had none; only a test that writes a bad value shows it.
 - A partial index on `next_attempt_at` hides a missing `ORDER BY`: the plan returns rows in order by accident. The test had to switch index scans off to mean anything.
 - `rabbitmqctl list_queues` lags by a few seconds: it showed 0 replies and a moment later 2. Queue depth is not a measurement until it has settled.
+- The charge is the point of no return of the saga. Before it the saga may give up; after it a timeout proves nothing, because confirm may have worked and only its answer was lost. A refund then gives the seat away for free, so the step repeats until a definite 200 or 409.
+- A mutation result is only as good as the test that killed it: `no retry pause` was reported killed by a test that never touches the pause, right after a run that ended in a timeout. Repeated alone, the right test killed it. The name of the killing test is part of the result.
+- Some surviving mutations are not weak tests: removing the `None` check before `RefundCommand` changes nothing, because pydantic refuses the value too and the step is postponed the same way.

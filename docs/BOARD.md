@@ -3,7 +3,6 @@
 Next ticket: TIK-39
 
 ## In progress
-- [ ] TIK-32 Booking: saga orchestrator with persisted state (M3)
 
 ## To do
 - [ ] TIK-33 Booking: recovery of stuck sagas (M3)
@@ -45,3 +44,4 @@ Next ticket: TIK-39
 - [x] TIK-38 Internal endpoints for the saga: hold details, pricing seats (M3)
 - [x] TIK-30 Booking: orders and Idempotency-Key (M3)
 - [x] TIK-31 Booking: transactional outbox and relay (M3)
+- [x] TIK-32 Booking: saga orchestrator with persisted state (M3)

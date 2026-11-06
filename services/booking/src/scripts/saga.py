@@ -8,9 +8,12 @@ from loguru import logger
 from core.db import async_session, engine
 from core.http import HttpClient
 from core.logging import configure_logging
+from core.rabbitmq import RabbitMQClient
 from core.settings import settings
 from orders.clients.catalog import CatalogClient
 from orders.clients.seat_hold import SeatHoldClient
+from orders.payment_reply_consumer import PaymentReplyConsumer
+from orders.queues.replies import PaymentRepliesQueue
 from orders.saga_runner import SagaRunner
 
 
@@ -24,6 +27,15 @@ async def main() -> None:
     )
     await seat_hold_http.connect()
     await catalog_http.connect()
+    rabbitmq = RabbitMQClient(settings=settings.RABBITMQ)
+    await rabbitmq.connect()
+
+    replies = PaymentRepliesQueue(
+        client=rabbitmq, name=settings.SAGA.PAYMENT_REPLIES_QUEUE
+    )
+    await replies.declare()
+    consumer = PaymentReplyConsumer(session_maker=async_session, settings=settings.SAGA)
+    subscription = await replies.consume(handler=consumer.handle)
 
     runner = SagaRunner(
         session_maker=async_session,
@@ -39,6 +51,8 @@ async def main() -> None:
         loop.add_signal_handler(signal_number, stop.set)
     await runner.run(stop=stop)
 
+    await subscription.stop()
+    await rabbitmq.close()
     await seat_hold_http.close()
     await catalog_http.close()
     await engine.dispose()

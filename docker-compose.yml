@@ -143,9 +143,15 @@ services:
   booking-saga:
     <<: *booking
     command: ["python", "-m", "scripts.saga"]
+    environment:
+      <<: *service-db-env
+      DB__NAME: booking_db
+      DB__HOST: booking-db
+      RABBITMQ__HOST: rabbitmq
     restart: on-failure
     depends_on:
       booking-migrate: { condition: service_completed_successfully }
+      rabbitmq: { condition: service_healthy }
 
   payment-consumer:
     <<: *payment

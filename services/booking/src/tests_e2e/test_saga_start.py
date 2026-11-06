@@ -1,115 +1,36 @@
 import asyncio
 import json
-import uuid
 from datetime import timedelta
 
 import pytest
-from aiohttp import web
 from fastapi import status
-from sqlalchemy import delete, select, text, update
+from sqlalchemy import text, update
 
 from core.db import async_session
 from core.http import HttpClient
-from core.settings import SagaSettings, UpstreamSettings
-from orders.clients.catalog import CatalogClient
-from orders.clients.seat_hold import SeatHoldClient
+from core.settings import UpstreamSettings
 from orders.models.order import FailureReason, Order, OrderStatus, SagaStep
 from orders.repositories.order import OrderRepository
 from orders.saga_runner import SagaRunner
-from outbox.models.message import OutboxMessage
 from outbox.repositories.message import OutboxRepository
-from tests_e2e.helpers import EVENT_ID, SEAT_IDS, Reply, Upstreams
+from tests_e2e.helpers import (
+    COMMANDS_QUEUE,
+    EVENT_ID,
+    SEAT_IDS,
+    USER,
+    Reply,
+    create_order,
+    load,
+    make_due,
+    make_runner,
+    outbox,
+)
 
-pytestmark = pytest.mark.anyio
-
-USER = "user-1"
-COMMANDS_QUEUE = "commands-under-test"
+pytestmark = [pytest.mark.anyio, pytest.mark.usefixtures("empty_tables")]
 
 
 class SimulatedCrash(Exception):
     pass
-
-
-@pytest.fixture(autouse=True)
-async def empty_tables():
-    async with async_session() as session:
-        await session.execute(delete(Order))
-        await session.execute(delete(OutboxMessage))
-        await session.commit()
-
-
-@pytest.fixture
-async def upstreams():
-    stub = Upstreams()
-    runner = web.AppRunner(stub.application())
-    await runner.setup()
-    site = web.TCPSite(runner, "127.0.0.1", 0)
-    await site.start()
-    host, port = runner.addresses[0][:2]
-    stub.url = f"http://{host}:{port}"
-    yield stub
-    await runner.cleanup()
-
-
-@pytest.fixture
-async def http(upstreams):
-    client = HttpClient(
-        base_url=upstreams.url,
-        settings=UpstreamSettings(CONNECT_TIMEOUT_SECONDS=0.5, TIMEOUT_SECONDS=0.2),
-    )
-    await client.connect()
-    yield client
-    await client.close()
-
-
-def make_runner(http: HttpClient, **overrides) -> SagaRunner:
-    defaults = {
-        "PAYMENT_COMMANDS_QUEUE": COMMANDS_QUEUE,
-        "RETRY_BASE_DELAY_SECONDS": 60,
-    }
-    return SagaRunner(
-        session_maker=async_session,
-        seat_hold=SeatHoldClient(http=http),
-        catalog=CatalogClient(http=http),
-        settings=SagaSettings().model_copy(update=defaults | overrides),
-    )
-
-
-async def create_order(token: str = "tok_ok") -> uuid.UUID:
-    async with async_session() as session:
-        order = Order(
-            user_id=USER,
-            idempotency_key=str(uuid.uuid4()),
-            hold_id=uuid.uuid4(),
-            payment_token=token,
-            status=OrderStatus.PENDING,
-        )
-        session.add(order)
-        await session.commit()
-        return order.id
-
-
-async def load(order_id: uuid.UUID) -> Order:
-    async with async_session() as session:
-        order = await session.get(Order, order_id)
-        assert order is not None
-        return order
-
-
-async def outbox() -> list[OutboxMessage]:
-    async with async_session() as session:
-        result = await session.execute(select(OutboxMessage))
-        return list(result.scalars())
-
-
-async def make_due(order_id: uuid.UUID) -> None:
-    async with async_session() as session:
-        await session.execute(
-            update(Order)
-            .where(Order.id == order_id)
-            .values(next_attempt_at=Order.created_at)
-        )
-        await session.commit()
 
 
 async def test_step_prices_the_hold_and_stores_the_charge_command(upstreams, http):
