@@ -121,7 +121,8 @@ src/
 - Per test: one connection-level transaction rolled back at the end; the app's session dependency is overridden to use it.
 - API tests go through `httpx.AsyncClient` + `ASGITransport` against the real app.
 - Test data via factory fixtures in `tests/factories/`, auto-registered with `pytest_plugins`.
-- A separate e2e suite (own `.env.test.e2e` and DB) uses real commits, no rollback isolation.
+- A separate e2e suite in `src/tests_e2e/` uses real commits, no rollback isolation. It loads `.env.test`, overrides `DB__NAME`
+  with its own database, and runs in its own process (`pytest src/tests_e2e`), because settings are read once.
   Tests that need several concurrent connections (concurrency, saga, recovery) belong there,
   because a rolled-back transaction is invisible to other connections.
 

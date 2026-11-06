@@ -45,6 +45,8 @@ jobs:
       - run: uv run --frozen ruff format --check
       - run: uv run --frozen ty check
       - run: uv run --frozen pytest
+      - if: hashFiles(format('services/{0}/src/tests_e2e/**', matrix.service)) != ''
+        run: uv run --frozen pytest src/tests_e2e
 
   rust:
     needs: changes
