@@ -5,7 +5,7 @@ from fastapi import status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
-from orders.models.order import Order, OrderStatus
+from orders.models.order import FailureReason, Order, OrderStatus
 
 pytestmark = pytest.mark.anyio
 
@@ -187,6 +187,19 @@ async def test_get_returns_the_order(async_client, order_factory):
     assert body["id"] == str(order.id)
     assert body["hold_id"] == str(order.hold_id)
     assert body["status"] == OrderStatus.CONFIRMED
+
+
+async def test_get_explains_a_failed_order(async_client, order_factory):
+    order = await order_factory(
+        status=OrderStatus.FAILED, failure_reason=FailureReason.CARD_DECLINED
+    )
+
+    response = await async_client.get(
+        f"{ORDERS_URL}/{order.id}", headers={"X-User-Id": USER}
+    )
+
+    assert response.json()["status"] == OrderStatus.FAILED
+    assert response.json()["failure_reason"] == FailureReason.CARD_DECLINED
 
 
 async def test_another_users_order_looks_missing(async_client, order_factory):

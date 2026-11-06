@@ -31,3 +31,13 @@ class SeatHoldClient:
             headers={"X-User-Id": user_id},
         )
         return code == status.HTTP_200_OK
+
+    async def confirm(self, *, hold_id: uuid.UUID, user_id: str) -> bool:
+        """False means the hold is gone after the money was taken: refund it."""
+        code, _ = await self.http.request(
+            method="POST",
+            path=f"/internal/v1/holds/{hold_id}/confirm",
+            expected={status.HTTP_200_OK, status.HTTP_409_CONFLICT},
+            headers={"X-User-Id": user_id},
+        )
+        return code == status.HTTP_200_OK

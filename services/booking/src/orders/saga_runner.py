@@ -7,8 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from core.settings import SagaSettings
 from orders.clients.catalog import CatalogClient
 from orders.clients.seat_hold import SeatHoldClient
-from orders.models.order import Order
+from orders.models.order import Order, SagaStep
 from orders.repositories.order import OrderRepository
+from orders.use_cases.confirm_order import ConfirmOrderUseCase
 from orders.use_cases.start_saga import StartSagaUseCase
 from outbox.repositories.message import OutboxRepository
 
@@ -72,10 +73,22 @@ class SagaRunner:
         return True
 
     async def _run_step(self, *, session: AsyncSession, order: Order) -> None:
+        order_repository = OrderRepository(session=session)
+        outbox_repository = OutboxRepository(session=session)
+        if order.saga_step == SagaStep.CHARGED:
+            await ConfirmOrderUseCase(
+                session=session,
+                order_repository=order_repository,
+                outbox_repository=outbox_repository,
+                seat_hold=self.seat_hold,
+                commands_queue=self.settings.PAYMENT_COMMANDS_QUEUE,
+            ).execute(order=order)
+            return
+
         await StartSagaUseCase(
             session=session,
-            order_repository=OrderRepository(session=session),
-            outbox_repository=OutboxRepository(session=session),
+            order_repository=order_repository,
+            outbox_repository=outbox_repository,
             seat_hold=self.seat_hold,
             catalog=self.catalog,
             commands_queue=self.settings.PAYMENT_COMMANDS_QUEUE,

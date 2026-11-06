@@ -58,6 +58,8 @@ class SagaSettings(BaseModel):
     RETRY_BASE_DELAY_SECONDS: float = 1
     MAX_RETRY_DELAY_SECONDS: float = 30
     PAYMENT_COMMANDS_QUEUE: str = "payment.commands"
+    PAYMENT_REPLIES_QUEUE: str = "payment.replies"
+    REPLY_TIMEOUT_SECONDS: float = 30
 
 
 class Settings(BaseSettings):
