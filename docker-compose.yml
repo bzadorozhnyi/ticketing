@@ -64,6 +64,19 @@ x-seat-hold: &seat-hold
     DB__HOST: seat-hold-db
 
 services:
+  rabbitmq:
+    image: rabbitmq:4.4.0-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ticketing
+      RABBITMQ_DEFAULT_PASS: password
+    ports: ["127.0.0.1:5672:5672", "127.0.0.1:15672:15672"]
+    volumes: ["rabbitmq-data:/var/lib/rabbitmq"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   gateway:
     build: ./services/gateway
     image: ticketing/gateway
@@ -155,6 +168,7 @@ services:
       seat-hold-migrate: { condition: service_completed_successfully }
 
 volumes:
+  rabbitmq-data:
   catalog-db-data:
   booking-db-data:
   payment-db-data:
