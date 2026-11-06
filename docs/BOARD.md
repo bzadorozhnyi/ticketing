@@ -1,6 +1,6 @@
 # Board
 
-Next ticket: TIK-38
+Next ticket: TIK-39
 
 ## In progress
 
@@ -44,3 +44,4 @@ Next ticket: TIK-38
 - [x] TIK-36 Payment: command consumer on RabbitMQ (M3)
 - [x] TIK-26 Seat-hold: extend a hold before payment, confirm after it (M3)
 - [x] TIK-29 Seat-hold: idempotency key on holds (M3)
+- [x] TIK-38 Internal endpoints for the saga: hold details, pricing seats (M3)

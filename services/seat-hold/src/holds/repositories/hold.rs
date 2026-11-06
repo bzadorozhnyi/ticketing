@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use sqlx::PgConnection;
 use uuid::Uuid;
 
-use crate::holds::dto::hold::{NewHold, TakenSeat};
+use crate::holds::dto::hold::{Hold, NewHold, TakenSeat};
 
 pub struct HoldRepository;
 
@@ -39,6 +39,30 @@ impl HoldRepository {
             &hold.seat_ids,
         )
         .fetch_all(conn)
+        .await
+    }
+
+    pub async fn get(
+        conn: &mut PgConnection,
+        hold_id: Uuid,
+        owner_id: &str,
+    ) -> Result<Option<Hold>, sqlx::Error> {
+        sqlx::query_as!(
+            Hold,
+            r#"
+            SELECT
+                $1::uuid AS "hold_id!",
+                event_id,
+                array_agg(seat_id ORDER BY seat_id) AS "seat_ids!",
+                min(expires_at) AS "expires_at!"
+            FROM holds
+            WHERE hold_id = $1 AND owner_id = $2
+            GROUP BY event_id
+            "#,
+            hold_id,
+            owner_id,
+        )
+        .fetch_optional(conn)
         .await
     }
 

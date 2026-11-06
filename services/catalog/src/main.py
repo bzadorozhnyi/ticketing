@@ -12,7 +12,7 @@ from core.middlewares.exception_handler import (
     validation_exception_handler,
 )
 from core.middlewares.trace_context import TraceContextMiddleware
-from routes import router
+from routes import internal_router, router
 
 configure_logging()
 
@@ -20,6 +20,7 @@ app = FastAPI(title="catalog")
 
 app.add_middleware(TraceContextMiddleware)
 app.include_router(router)
+app.include_router(internal_router)
 app.include_router(health_router)
 app.add_exception_handler(AppException, app_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)

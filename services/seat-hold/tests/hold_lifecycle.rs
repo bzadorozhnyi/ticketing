@@ -205,3 +205,52 @@ async fn internal_routes_return_503_when_the_database_is_down() {
 
     assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
 }
+
+async fn get_hold(service: &str, hold_id: Uuid, user: &str) -> Response {
+    client()
+        .get(format!("{service}/internal/v1/holds/{hold_id}"))
+        .header("x-user-id", user)
+        .send()
+        .await
+        .expect("a service response")
+}
+
+#[tokio::test]
+async fn reading_a_hold_returns_all_its_seats() {
+    let pool = TestPool::new().await;
+    let service = spawn_service(pool.clone()).await;
+    let (event_id, hold_id) = (Uuid::now_v7(), Uuid::now_v7());
+    let mut seats = Vec::new();
+    for _ in 0..3 {
+        let row = hold_factory()
+            .pool(&pool)
+            .event_id(event_id)
+            .hold_id(hold_id)
+            .owner_id(USER.to_owned())
+            .call()
+            .await;
+        seats.push(row.seat_id);
+    }
+    seats.sort();
+
+    let response = get_hold(&service, hold_id, USER).await;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body: Value = response.json().await.unwrap();
+    assert_eq!(body["hold_id"], json!(hold_id));
+    assert_eq!(body["event_id"], json!(event_id));
+    assert_eq!(body["seat_ids"], json!(seats));
+}
+
+#[tokio::test]
+async fn the_hold_of_another_user_cannot_be_read() {
+    let pool = TestPool::new().await;
+    let service = spawn_service(pool.clone()).await;
+    let foreign = hold_factory().pool(&pool).call().await;
+
+    for hold_id in [foreign.hold_id, Uuid::now_v7()] {
+        let response = get_hold(&service, hold_id, USER).await;
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+}
