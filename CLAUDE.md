@@ -99,6 +99,7 @@ src/
 ```
 
 - Dependencies point inward: endpoints -> use_cases -> services/repositories -> models. Never the other way.
+- Requests, responses and DTOs are pydantic models, not dataclasses.
 - Endpoints are thin: parse input, call `use_case.execute(...)`, map the result to a response schema.
 - The use case owns the transaction: it calls `commit()`/`rollback()`. Services and repositories never commit.
 - Each injectable class (use case, service, repository) is defined in the same file as its FastAPI wiring:
