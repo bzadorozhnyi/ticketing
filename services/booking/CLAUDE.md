@@ -37,6 +37,9 @@ docker compose up -d --wait --build                     # db -> booking-migrate 
   Payment declares its queues, so booking only publishes: a message for a queue that does not exist stays in the outbox.
 - The saga worker is a background job too: `python -m scripts.saga`, the `booking-saga` service in compose.
   Recovery lives there as well: a step that waits for payment has a timer in `next_attempt_at`.
+- Calls to seat-hold and catalog go through a circuit breaker per upstream (`core/breaker.py`, `BREAKER__*`).
+  While it is open, `HttpClient` raises `CircuitOpenError` without a call, and the saga postpones the order until
+  the breaker may probe. It mirrors the gateway's breaker; a shared library or a service mesh comes if services multiply.
 - `crash_point(name)` (`core/faults.py`) kills the process with the probability in `FAULTS__CRASH_RATE`, 0 by default.
   It is for crash experiments only; the points are `after_extend`, `after_publish`, `after_reply_commit`, `after_confirm`.
   Alembic autogenerate does not see a `CHECK` on an existing table: add it to the migration by hand.

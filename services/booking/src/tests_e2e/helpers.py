@@ -5,9 +5,10 @@ from dataclasses import dataclass, field
 from aiohttp import web
 from sqlalchemy import select, update
 
+from core.breaker import CircuitBreaker
 from core.db import async_session
 from core.http import HttpClient
-from core.settings import SagaSettings
+from core.settings import BreakerSettings, SagaSettings
 from orders.clients.catalog import CatalogClient
 from orders.clients.seat_hold import SeatHoldClient
 from orders.models.order import Order, OrderStatus
@@ -153,3 +154,10 @@ async def make_due(order_id: uuid.UUID) -> None:
             .values(next_attempt_at=Order.created_at)
         )
         await session.commit()
+
+
+def breaker_off() -> CircuitBreaker:
+    """More calls are needed than the window holds, so it never opens."""
+    return CircuitBreaker(
+        upstream="test", settings=BreakerSettings(WINDOW=10, MIN_CALLS=1000)
+    )

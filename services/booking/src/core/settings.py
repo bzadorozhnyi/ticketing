@@ -65,6 +65,13 @@ class SagaSettings(BaseModel):
     GIVE_UP_AFTER_SECONDS: float = 600
 
 
+class BreakerSettings(BaseModel):
+    WINDOW: int = 10
+    MIN_CALLS: int = 5
+    FAILURE_PERCENT: int = 50
+    OPEN_SECONDS: float = 10
+
+
 class FaultSettings(BaseModel):
     CRASH_RATE: float = 0
 
@@ -77,6 +84,7 @@ class Settings(BaseSettings):
     OUTBOX: OutboxSettings = OutboxSettings()
     UPSTREAMS: UpstreamSettings = UpstreamSettings()
     SAGA: SagaSettings = SagaSettings()
+    BREAKER: BreakerSettings = BreakerSettings()
     FAULTS: FaultSettings = FaultSettings()
 
     # No env_file: this reads only os.environ. Docker compose sets the values

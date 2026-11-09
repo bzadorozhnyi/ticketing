@@ -3,7 +3,10 @@ from typing import Any
 
 import aiohttp
 
+from core.breaker import CircuitBreaker
 from core.settings import UpstreamSettings
+
+UPSTREAM_FAILURES = {502, 503, 504}
 
 
 class UpstreamError(Exception):
@@ -11,11 +14,16 @@ class UpstreamError(Exception):
 
 
 class HttpClient:
-    """Calls one upstream. Only this class knows the HTTP library."""
+    """Calls one upstream through its circuit breaker. Only this class knows the HTTP
+    library.
+    """
 
-    def __init__(self, *, base_url: str, settings: UpstreamSettings):
+    def __init__(
+        self, *, base_url: str, settings: UpstreamSettings, breaker: CircuitBreaker
+    ):
         self.base_url = base_url
         self.settings = settings
+        self.breaker = breaker
         self._session: aiohttp.ClientSession | None = None
 
     @property
@@ -47,14 +55,22 @@ class HttpClient:
         json: Any = None,
     ) -> tuple[int, Any]:
         """A status outside `expected` raises UpstreamError, so a 503 is never read
-        as an answer.
+        as an answer. The breaker counts no answer and 502, 503, 504 as failures;
+        a 404 or 409 is a definite answer from a working upstream.
+
+        Raises CircuitOpenError without a call while the breaker is open.
         """
+        call = self.breaker.acquire()
         try:
             async with self.session.request(
                 method, path, headers=headers, json=json
             ) as response:
+                call.finish(failed=response.status in UPSTREAM_FAILURES)
                 if response.status not in expected:
                     raise UpstreamError(f"{method} {path}: {response.status}")
                 return response.status, await response.json()
         except (aiohttp.ClientError, TimeoutError) as exc:
+            call.finish(failed=True)
             raise UpstreamError(f"{method} {path}: {exc!r}") from exc
+        finally:
+            call.release()

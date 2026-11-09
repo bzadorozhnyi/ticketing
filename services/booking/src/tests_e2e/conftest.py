@@ -22,7 +22,7 @@ from main import app  # noqa: E402
 from orders.models.order import Order  # noqa: E402
 from outbox.models.message import OutboxMessage  # noqa: E402
 from tests.helpers.db import create_db, drop_db  # noqa: E402
-from tests_e2e.helpers import Upstreams  # noqa: E402
+from tests_e2e.helpers import Upstreams, breaker_off  # noqa: E402
 
 ALEMBIC_INI_PATH = Path(__file__).resolve().parent.parent / "alembic.ini"
 
@@ -76,6 +76,7 @@ async def http(upstreams):
     client = HttpClient(
         base_url=upstreams.url,
         settings=UpstreamSettings(CONNECT_TIMEOUT_SECONDS=0.5, TIMEOUT_SECONDS=0.2),
+        breaker=breaker_off(),
     )
     await client.connect()
     yield client
