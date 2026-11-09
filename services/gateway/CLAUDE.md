@@ -11,6 +11,7 @@ docker compose run --rm -d -p 8001:8000 catalog  # from the repo root; publishes
 export AUTH__JWT_SECRET=local-dev-secret-with-at-least-32-bytes UPSTREAMS__CATALOG_URL=http://localhost:8001 UPSTREAMS__SEAT_HOLD_URL=http://localhost:8004 UPSTREAMS__BOOKING_URL=http://localhost:8002
 cargo run --bin gateway
 cargo run --bin issue-token -- user-1            # prints a token valid for 15 minutes
+docker compose up -d --wait valkey                # from the repo root; the rate limit tests need it on localhost:6379
 cargo test
 cargo fmt && cargo clippy --all-targets -- -D warnings
 ```
@@ -49,6 +50,10 @@ Read from the environment with the `config` crate; a wrong value stops the start
 | `BREAKER__FAILURE_PERCENT` | 50 | share of failed calls in the window that opens it |
 | `BREAKER__OPEN_SECONDS` | 5 | how long it stays open before one probe goes through |
 | `BULKHEAD__MAX_CONCURRENT` | 200 | requests in flight to one upstream, retries included; more get 503 at once |
+| `RATE_LIMIT__VALKEY_URL` | none | Valkey for the limit shared by replicas, e.g. `redis://valkey:6379`; without it there is no rate limit |
+| `RATE_LIMIT__PER_SECOND` | 10 | requests per second per user, on average |
+| `RATE_LIMIT__BURST` | 20 | requests a user may send at once after a quiet moment |
+| `RATE_LIMIT__TIMEOUT_SECONDS` | 0.05 | connecting to Valkey and each answer; a slower one skips the shared limit |
 | `LIMITS__MAX_BODY_BYTES` | 1048576 | larger request bodies get 413 |
 | `PORT` | 8000 | listening port |
 | `LOGGING__FORMAT` | `JSON` | `JSON` or `PRETTY` |
@@ -66,6 +71,12 @@ Read from the environment with the `config` crate; a wrong value stops the start
 - `GET` and `HEAD` are repeated when no answer came (refused, reset or closed connection) or the upstream answered 503,
   within the request timeout and the retry budget. The client sees only the last answer. A timeout, a 500,
   a 502 or 504 from the upstream and every other method are never repeated: `POST /orders` relies on the client's `Idempotency-Key`.
+- Each user has a token bucket (`RATE_LIMIT__*`), checked after the token and before retries, breakers and bulkheads.
+  It has two tiers: a bucket in the replica's memory first, then one in Valkey shared by every replica.
+  A user over the limit gets 429 `rate_limited` with `Retry-After`; a refusal by the first tier costs no network call.
+  When Valkey is down or slower than the timeout, only the replica's own limit applies: a user gets at most
+  the limit times the number of replicas. A breaker with the `BREAKER__*` settings stops asking a failing Valkey.
+  The replica keeps at most 100,000 users; a full map drops idle users, and a new user beyond it is left to Valkey.
 - `/health` and `/ready` do not check upstreams: the gateway stays in rotation and answers 503 for the broken route.
 - Every `/api` route needs a token (HS256, `exp` and `sub` required). A public route is an explicit exception:
   it is added in `app.rs` outside the `protected` router. `/health` and `/ready` are public.

@@ -18,6 +18,7 @@ pub enum ErrorCode {
     HttpError,
     NotFound,
     PayloadTooLarge,
+    RateLimited,
     ServiceUnavailable,
     Unauthorized,
 }
@@ -49,6 +50,8 @@ pub enum GatewayError {
     CircuitOpen { retry_after: Duration },
     #[error("Too many requests to this upstream are in flight")]
     BulkheadFull,
+    #[error("Too many requests from this user")]
+    RateLimited { retry_after: Duration },
 }
 
 impl GatewayError {
@@ -66,6 +69,7 @@ impl GatewayError {
             Self::UpstreamFailed => (StatusCode::BAD_GATEWAY, ErrorCode::BadGateway),
             Self::CircuitOpen { .. } => (StatusCode::SERVICE_UNAVAILABLE, ErrorCode::CircuitOpen),
             Self::BulkheadFull => (StatusCode::SERVICE_UNAVAILABLE, ErrorCode::BulkheadFull),
+            Self::RateLimited { .. } => (StatusCode::TOO_MANY_REQUESTS, ErrorCode::RateLimited),
         }
     }
 }
@@ -107,7 +111,7 @@ impl IntoResponse for GatewayError {
             let challenge = HeaderValue::from_static("Bearer");
             response.headers_mut().insert(WWW_AUTHENTICATE, challenge);
         }
-        if let Self::CircuitOpen { retry_after } = self {
+        if let Self::CircuitOpen { retry_after } | Self::RateLimited { retry_after } = self {
             let seconds = retry_after.as_secs() + u64::from(retry_after.subsec_nanos() > 0);
             response
                 .headers_mut()

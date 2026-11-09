@@ -5,7 +5,7 @@ use axum::Router;
 use gateway::app::build_app;
 use gateway::settings::{
     AuthSettings, BreakerSettings, BulkheadSettings, ClientSettings, LimitSettings, LogFormat,
-    LoggingSettings, RetrySettings, Settings, UpstreamSettings,
+    LoggingSettings, RateLimitSettings, RetrySettings, Settings, UpstreamSettings,
 };
 use tokio::net::TcpListener;
 use tracing::Level;
@@ -60,6 +60,7 @@ pub fn test_settings(catalog_url: &str) -> Settings {
         bulkhead: BulkheadSettings {
             max_concurrent: 1000,
         },
+        rate_limit: RateLimitSettings::default(),
         client: ClientSettings {
             connect_timeout: Duration::from_secs(1),
             request_timeout: Duration::from_secs(2),

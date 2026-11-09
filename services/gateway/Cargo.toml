@@ -10,6 +10,7 @@ axum = "0.8.9"
 config = { version = "0.15.27", default-features = false }
 jsonwebtoken = { version = "11.1.0", default-features = false, features = ["aws_lc_rs"] }
 rand = "0.10.3"
+redis = { version = "1.8.1", default-features = false, features = ["tokio-comp", "connection-manager", "script"] }
 reqwest = { version = "0.13.5", default-features = false, features = ["stream"] }
 serde = { version = "1.0.229", features = ["derive"] }
 thiserror = "2.0.21"
