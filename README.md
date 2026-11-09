@@ -32,7 +32,7 @@ Solid lines work today; dotted lines are planned.
 
 | Service | Language | Role | State |
 |---|---|---|---|
-| gateway | Rust, Axum | The only entry point: routing, JWT auth, trace start, limits | Routes catalog and seat-hold |
+| gateway | Rust, Axum | The only entry point: routing, JWT auth, trace start, limits | Routes catalog, seat-hold and booking |
 | catalog | Python, FastAPI | Events, venues, seat maps, prices | Read API |
 | booking | Python, FastAPI | Orders, idempotency keys, saga orchestrator | Runs the purchase saga and recovers stuck ones |
 | payment | Python, FastAPI | Mock provider with fault injection | Idempotent charges and refunds from RabbitMQ |
@@ -57,6 +57,17 @@ curl localhost:8000/api/v1/events                 # 401
 
 TOKEN=$(docker compose exec -T gateway issue-token user-1)
 curl -H "Authorization: Bearer $TOKEN" localhost:8000/api/v1/events
+```
+
+A purchase holds seats, places an order and polls it. `tok_ok` pays, `tok_declined` is refused:
+
+```
+AUTH="Authorization: Bearer $TOKEN"
+curl -H "$AUTH" -H "Content-Type: application/json" localhost:8000/api/v1/holds \
+  -d '{"event_id": "<event id>", "seat_ids": ["<seat id>"]}'                       # 201, hold_id
+curl -H "$AUTH" -H "Content-Type: application/json" -H "Idempotency-Key: $(uuidgen)" \
+  localhost:8000/api/v1/orders -d '{"hold_id": "<hold id>", "payment_token": "tok_ok"}'  # 202, id
+curl -H "$AUTH" localhost:8000/api/v1/orders/<order id>                                # pending, then confirmed
 ```
 
 ## Evidence

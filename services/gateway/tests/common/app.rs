@@ -34,6 +34,7 @@ pub fn test_settings(catalog_url: &str) -> Settings {
         upstreams: UpstreamSettings {
             catalog_url: catalog_url.parse().expect("a valid upstream url"),
             seat_hold_url: catalog_url.parse().expect("a valid upstream url"),
+            booking_url: catalog_url.parse().expect("a valid upstream url"),
         },
         client: ClientSettings {
             connect_timeout: Duration::from_secs(1),

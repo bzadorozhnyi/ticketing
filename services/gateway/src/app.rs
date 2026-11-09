@@ -36,6 +36,7 @@ pub fn build_app(settings: &Settings) -> Result<Router, reqwest::Error> {
     let upstreams = &settings.upstreams;
     let protected = upstream_routes("/api/v1/events", &upstreams.catalog_url)
         .merge(upstream_routes("/api/v1/holds", &upstreams.seat_hold_url))
+        .merge(upstream_routes("/api/v1/orders", &upstreams.booking_url))
         .route_layer(from_fn_with_state(verifier, authenticate));
 
     Ok(Router::new()
