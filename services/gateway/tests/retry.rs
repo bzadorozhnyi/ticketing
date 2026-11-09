@@ -8,10 +8,9 @@ use axum::Router;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::routing::any;
-use common::app::{spawn_gateway, test_settings};
-use common::client::client;
-use common::upstream::{Upstream, dead_upstream_url, spawn_upstream};
-use gateway::settings::Settings;
+use common::app::{gateway_for, spawn_gateway, test_settings};
+use common::client::{client, get};
+use common::upstream::{answering, dead_upstream_url, spawn_upstream};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
@@ -33,16 +32,6 @@ fn flaky_routes(prefix: &str, failures: usize) -> Router {
         .route(&format!("{prefix}/{{*rest}}"), any(reply))
 }
 
-fn answering(status: StatusCode, delay: Duration) -> Router {
-    let reply = move || async move {
-        tokio::time::sleep(delay).await;
-        status
-    };
-    Router::new()
-        .route("/api/v1/events", any(reply))
-        .route("/api/v1/events/{*rest}", any(reply))
-}
-
 type Switch = (Arc<AtomicBool>, Arc<AtomicUsize>);
 
 /// Counts calls and answers 503 while the switch is down.
@@ -53,22 +42,6 @@ async fn switchable(State((down, calls)): State<Switch>) -> StatusCode {
     } else {
         StatusCode::OK
     }
-}
-
-async fn gateway_for(routes: Router, adjust: impl FnOnce(&mut Settings)) -> (String, Upstream) {
-    let upstream = spawn_upstream(routes).await;
-    let mut settings = test_settings(&upstream.url);
-    adjust(&mut settings);
-    (spawn_gateway(&settings).await, upstream)
-}
-
-async fn get(gateway: &str) -> StatusCode {
-    client()
-        .get(format!("{gateway}/api/v1/events"))
-        .send()
-        .await
-        .expect("a response from the gateway")
-        .status()
 }
 
 #[tokio::test]

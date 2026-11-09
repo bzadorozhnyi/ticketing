@@ -1,11 +1,13 @@
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use axum::Router;
 use axum::body::Bytes;
 use axum::extract::{Request, State};
-use axum::http::{HeaderMap, Method};
+use axum::http::{HeaderMap, Method, StatusCode};
 use axum::middleware::{Next, from_fn_with_state};
 use axum::response::Response;
+use axum::routing::any;
 use tokio::net::TcpListener;
 
 use super::app::serve;
@@ -64,4 +66,15 @@ pub async fn dead_upstream_url() -> String {
     let addr = listener.local_addr().expect("a bound address");
     drop(listener);
     format!("http://{addr}")
+}
+
+/// Answers every events route with `status` after `delay`.
+pub fn answering(status: StatusCode, delay: Duration) -> Router {
+    let reply = move || async move {
+        tokio::time::sleep(delay).await;
+        status
+    };
+    Router::new()
+        .route("/api/v1/events", any(reply))
+        .route("/api/v1/events/{*rest}", any(reply))
 }

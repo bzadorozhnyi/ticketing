@@ -35,13 +35,18 @@ Read from the environment with the `config` crate; a wrong value stops the start
 | `UPSTREAMS__CATALOG_URL` | required | catalog base URL |
 | `UPSTREAMS__SEAT_HOLD_URL` | required | seat-hold base URL |
 | `UPSTREAMS__BOOKING_URL` | required | booking base URL |
+| `UPSTREAMS__CATALOG_TIMEOUT_SECONDS` | `CLIENT__REQUEST_TIMEOUT_SECONDS` | all attempts to catalog together; the same for `SEAT_HOLD` and `BOOKING` |
 | `CLIENT__CONNECT_TIMEOUT_SECONDS` | 2 | TCP connect to an upstream |
-| `CLIENT__REQUEST_TIMEOUT_SECONDS` | 10 | whole upstream call; must exceed catalog's DB timeout (5s), or the gateway answers 504 before catalog answers 503 |
+| `CLIENT__REQUEST_TIMEOUT_SECONDS` | 10 | default timeout of an upstream; above catalog's DB timeout (5s), or the gateway answers 504 before catalog answers 503 |
 | `CLIENT__POOL_IDLE_TIMEOUT_SECONDS` | 3 | must stay below uvicorn's keep-alive (5s) |
 | `RETRY__MAX_ATTEMPTS` | 3 | attempts per `GET` or `HEAD`, the first included; 1 turns retries off |
 | `RETRY__BASE_DELAY_SECONDS` | 0.05 | the pause before attempt n is random, up to this times 2^(n-2) |
 | `RETRY__BUDGET_RATIO` | 0.2 | retries allowed per request, per upstream: the most retries add to an upstream's load |
 | `RETRY__BUDGET_CAPACITY` | 10 | retries allowed in a row while traffic is low; every gateway replica has its own |
+| `BREAKER__WINDOW` | 20 | the last calls to an upstream the breaker looks at |
+| `BREAKER__MIN_CALLS` | 10 | fewer calls never open it; above `WINDOW` turns the breaker off |
+| `BREAKER__FAILURE_PERCENT` | 50 | share of failed calls in the window that opens it |
+| `BREAKER__OPEN_SECONDS` | 5 | how long it stays open before one probe goes through |
 | `LIMITS__MAX_BODY_BYTES` | 1048576 | larger request bodies get 413 |
 | `PORT` | 8000 | listening port |
 | `LOGGING__FORMAT` | `JSON` | `JSON` or `PRETTY` |
@@ -51,6 +56,9 @@ Read from the environment with the `config` crate; a wrong value stops the start
 
 - Errors produced by the gateway use `{"code", "message", "details"}`. Upstream responses pass through unchanged.
 - 503: connection to the upstream failed. 504: no complete response in time. 502: any other upstream failure.
+- Each upstream has a circuit breaker. A failure is no answer, a timeout, or a 502, 503 or 504 from the upstream;
+  404 and 500 are not. While it is open, the gateway answers 503 `circuit_open` with `Retry-After` at once and does
+  not call the upstream. Every gateway replica has its own breaker.
 - `GET` and `HEAD` are repeated when no answer came (refused, reset or closed connection) or the upstream answered 503,
   within the request timeout and the retry budget. The client sees only the last answer. A timeout, a 500,
   a 502 or 504 from the upstream and every other method are never repeated: `POST /orders` relies on the client's `Idempotency-Key`.

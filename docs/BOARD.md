@@ -5,7 +5,6 @@ Next ticket: TIK-44
 ## In progress
 
 ## To do
-- [ ] TIK-41 Gateway: circuit breaker per upstream (M4)
 - [ ] TIK-42 Gateway: bulkhead, a concurrency limit per upstream (M4)
 - [ ] TIK-43 Booking: circuit breaker for seat-hold and catalog (M4)
 - [ ] TIK-37 Seat-hold: limit active holds per user, one user cannot block a hall (M5)
@@ -50,3 +49,4 @@ Next ticket: TIK-44
 - [x] TIK-34 Gateway: route booking (M3)
 - [x] TIK-35 Saga crash experiment: kill after every step, exactly one charge (M3)
 - [x] TIK-40 Gateway: retries for idempotent requests with a retry budget (M4)
+- [x] TIK-41 Gateway: circuit breaker per upstream (M4)

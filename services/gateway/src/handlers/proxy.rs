@@ -35,7 +35,7 @@ const HOP_BY_HOP: [HeaderName; 9] = [
 
 /// The request body is buffered, so `DefaultBodyLimit` applies to it and a retry can
 /// send it again. The response is streamed, so its size does not cost the gateway memory.
-/// All attempts together fit into the request timeout.
+/// All attempts together fit into the upstream's timeout.
 pub async fn forward(
     State(state): State<AppState>,
     Extension(upstream): Extension<Upstream>,
@@ -48,10 +48,11 @@ pub async fn forward(
     let headers = request_headers(parts.headers, &trace, user.map(|user| user.0))?;
     let body = body?;
     let method = parts.method;
-    let deadline = Instant::now() + state.request_timeout;
+    let deadline = Instant::now() + upstream.timeout;
     let response = retry::send(
         &state.retry,
         &upstream.budget,
+        &upstream.breaker,
         &method,
         deadline,
         |remaining| {

@@ -1,7 +1,9 @@
 use axum::Json;
 use axum::extract::rejection::BytesRejection;
 use axum::http::StatusCode;
-use axum::http::header::{HeaderValue, WWW_AUTHENTICATE};
+use std::time::Duration;
+
+use axum::http::header::{HeaderValue, RETRY_AFTER, WWW_AUTHENTICATE};
 use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 use thiserror::Error;
@@ -10,6 +12,7 @@ use thiserror::Error;
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCode {
     BadGateway,
+    CircuitOpen,
     GatewayTimeout,
     HttpError,
     NotFound,
@@ -41,6 +44,8 @@ pub enum GatewayError {
     UpstreamTimeout,
     #[error("Upstream request failed")]
     UpstreamFailed,
+    #[error("Upstream keeps failing and was not called")]
+    CircuitOpen { retry_after: Duration },
 }
 
 impl GatewayError {
@@ -56,6 +61,7 @@ impl GatewayError {
             ),
             Self::UpstreamTimeout => (StatusCode::GATEWAY_TIMEOUT, ErrorCode::GatewayTimeout),
             Self::UpstreamFailed => (StatusCode::BAD_GATEWAY, ErrorCode::BadGateway),
+            Self::CircuitOpen { .. } => (StatusCode::SERVICE_UNAVAILABLE, ErrorCode::CircuitOpen),
         }
     }
 }
@@ -96,6 +102,12 @@ impl IntoResponse for GatewayError {
         if matches!(self, Self::Unauthorized) {
             let challenge = HeaderValue::from_static("Bearer");
             response.headers_mut().insert(WWW_AUTHENTICATE, challenge);
+        }
+        if let Self::CircuitOpen { retry_after } = self {
+            let seconds = retry_after.as_secs() + u64::from(retry_after.subsec_nanos() > 0);
+            response
+                .headers_mut()
+                .insert(RETRY_AFTER, HeaderValue::from(seconds.max(1)));
         }
         response
     }
