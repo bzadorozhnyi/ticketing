@@ -22,6 +22,7 @@ from payments.dto.payment import ChargeRequest
 from payments.queues.replies import PaymentRepliesQueue
 from payments.repositories.charge import ChargeRepository
 from payments.repositories.refund import RefundRepository
+from payments.services.pending_charge import PendingChargeFinisher
 from payments.services.provider import MockProvider, kill_process
 from payments.use_cases.charge import ChargeUseCase
 from payments.use_cases.refund import RefundUseCase
@@ -82,12 +83,21 @@ class CommandConsumer:
     ) -> ChargeResult | RefundResult:
         async with self.session_maker() as session:
             charges = ChargeRepository(session=session)
+            provider = MockProvider(
+                session_maker=self.session_maker,
+                faults=self.faults,
+                crash=self.crash,
+                armed=first_delivery,
+            )
+            finisher = PendingChargeFinisher(
+                session=session, charge_repository=charges, provider=provider
+            )
             if isinstance(command, ChargeCommand):
-                provider = MockProvider(
-                    faults=self.faults, crash=self.crash, armed=first_delivery
-                )
                 use_case = ChargeUseCase(
-                    session=session, charge_repository=charges, provider=provider
+                    session=session,
+                    charge_repository=charges,
+                    finisher=finisher,
+                    provider=provider,
                 )
                 charge = await use_case.execute(
                     request=ChargeRequest(
@@ -105,7 +115,11 @@ class CommandConsumer:
 
             refunds = RefundRepository(session=session)
             status = await RefundUseCase(
-                session=session, charge_repository=charges, refund_repository=refunds
+                session=session,
+                charge_repository=charges,
+                refund_repository=refunds,
+                finisher=finisher,
+                provider=provider,
             ).execute(
                 order_id=command.order_id,
                 amount_minor=command.amount_minor,

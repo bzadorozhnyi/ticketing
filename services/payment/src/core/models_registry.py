@@ -5,4 +5,5 @@ schema changes. Add a line here whenever a new models module appears.
 """
 
 import payments.models.charge  # noqa: F401
+import payments.models.provider_operation  # noqa: F401
 import payments.models.refund  # noqa: F401

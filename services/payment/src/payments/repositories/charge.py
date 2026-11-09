@@ -2,7 +2,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,7 +21,13 @@ class ChargeRepository:
         return result.scalar_one_or_none()
 
     async def insert_if_absent(
-        self, *, order_id: uuid.UUID, amount_minor: int, currency: str, status: str
+        self,
+        *,
+        order_id: uuid.UUID,
+        amount_minor: int,
+        currency: str,
+        status: str,
+        payment_token: str | None = None,
     ) -> bool:
         """The unique `order_id` decides the race: of two concurrent calls one inserts,
         the other waits for it and gets False.
@@ -33,11 +39,17 @@ class ChargeRepository:
                 amount_minor=amount_minor,
                 currency=currency,
                 status=status,
+                payment_token=payment_token,
             )
             .on_conflict_do_nothing(index_elements=[Charge.order_id])
             .returning(Charge.id)
         )
         return result.scalar_one_or_none() is not None
+
+    async def finish(self, *, order_id: uuid.UUID, status: str) -> None:
+        await self.session.execute(
+            update(Charge).where(Charge.order_id == order_id).values(status=status)
+        )
 
 
 def get_charge_repository(session: SessionDep) -> ChargeRepository:
