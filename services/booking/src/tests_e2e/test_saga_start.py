@@ -19,6 +19,7 @@ from tests_e2e.helpers import (
     SEAT_IDS,
     USER,
     Reply,
+    breaker_off,
     create_order,
     load,
     make_due,
@@ -170,6 +171,7 @@ async def test_unreachable_upstream_postpones_the_order(http, upstreams):
     closed = HttpClient(
         base_url="http://127.0.0.1:1",
         settings=UpstreamSettings(CONNECT_TIMEOUT_SECONDS=0.5, TIMEOUT_SECONDS=1),
+        breaker=breaker_off(),
     )
     await closed.connect()
     order_id = await create_order()

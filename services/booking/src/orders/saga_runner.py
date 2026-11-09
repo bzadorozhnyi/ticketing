@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from core.breaker import CircuitOpenError
 from core.settings import SagaSettings
 from orders.clients.catalog import CatalogClient
 from orders.clients.seat_hold import SeatHoldClient
@@ -51,7 +52,8 @@ class SagaRunner:
 
     async def process_next(self) -> bool:
         """Returns False when nothing is due. A failed step is postponed, so one broken
-        order does not stop the orders behind it.
+        order does not stop the orders behind it. While a breaker is open, the order
+        waits until the breaker lets a probe through, not on its own schedule.
         """
         async with self.session_maker() as session:
             repository = OrderRepository(session=session)
@@ -63,6 +65,15 @@ class SagaRunner:
             overdue = self._is_overdue(order=order)
             try:
                 await self._run_step(session=session, order=order, overdue=overdue)
+            except CircuitOpenError as exc:
+                logger.bind(order_id=str(order_id), upstream=exc.upstream).info(
+                    "Saga step postponed, the circuit is open"
+                )
+                await session.rollback()
+                await repository.postpone(
+                    order_id=order_id, attempts=attempts, delay_seconds=exc.retry_after
+                )
+                await session.commit()
             except Exception as exc:
                 logger.bind(error=repr(exc), order_id=str(order_id)).log(
                     "ERROR" if overdue else "WARNING", "Saga step failed, will retry"

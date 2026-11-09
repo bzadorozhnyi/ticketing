@@ -5,6 +5,7 @@ import signal
 
 from loguru import logger
 
+from core.breaker import CircuitBreaker
 from core.db import async_session, engine
 from core.http import HttpClient
 from core.logging import configure_logging
@@ -20,10 +21,14 @@ from orders.saga_runner import SagaRunner
 async def main() -> None:
     configure_logging()
     seat_hold_http = HttpClient(
-        base_url=settings.UPSTREAMS.SEAT_HOLD_URL, settings=settings.UPSTREAMS
+        base_url=settings.UPSTREAMS.SEAT_HOLD_URL,
+        settings=settings.UPSTREAMS,
+        breaker=CircuitBreaker(upstream="seat-hold", settings=settings.BREAKER),
     )
     catalog_http = HttpClient(
-        base_url=settings.UPSTREAMS.CATALOG_URL, settings=settings.UPSTREAMS
+        base_url=settings.UPSTREAMS.CATALOG_URL,
+        settings=settings.UPSTREAMS,
+        breaker=CircuitBreaker(upstream="catalog", settings=settings.BREAKER),
     )
     await seat_hold_http.connect()
     await catalog_http.connect()
