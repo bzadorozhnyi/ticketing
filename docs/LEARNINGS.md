@@ -94,3 +94,9 @@
 - Crashes in one process spread to another. Each death of the relay published its batch again, payment answered every duplicate, and the crash point in the reply consumer fired on replies that were only ignored: the saga and the relay ended up with the same number of restarts, 23 and 23.
 - A count from logs can be double: every JSON line carries the message twice, in `text` and in `record.message`. Halved, the counts matched the restarts exactly; without that check the crash points would have looked twice as often hit.
 - A crash point at 10 % per message is far more than 10 % per order: the relay sees every message, including the duplicates its own crashes create. Rates have to be set per event, not per order.
+
+## M4
+
+- The first retry rule repeated only refused connections, and in the very case it was meant for it repeated nothing: a killed replica does not refuse connections, Docker's DNS stops naming it at once. It drops the requests it was serving, and those are resets. For `GET` a repeat is safe whatever the upstream did, which is what idempotent means.
+- A closed-loop load test hides retry amplification: with 20 connections, unbudgeted retries sent fewer requests to catalog in absolute numbers (5,936 against 11,765), because every pause slowed the next request. Per client request it was 3.01. Real users do not wait for each other, so the ratio is the number that matters.
+- Not repeating a timeout needed no code: each attempt gets the rest of the deadline, so a timeout leaves no time for another. The mutation that repeated every error survived for that reason and was equivalent.

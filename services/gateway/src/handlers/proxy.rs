@@ -10,10 +10,12 @@ use axum::http::header::{
 use axum::http::request::Parts;
 use axum::response::Response;
 use reqwest::Url;
+use tokio::time::Instant;
 
 use crate::app::{AppState, Upstream};
 use crate::auth::AuthenticatedUser;
 use crate::errors::GatewayError;
+use crate::retry;
 use crate::trace_context::TraceContext;
 
 const TRACEPARENT: HeaderName = HeaderName::from_static("traceparent");
@@ -31,29 +33,38 @@ const HOP_BY_HOP: [HeaderName; 9] = [
     UPGRADE,
 ];
 
-/// The request body is buffered, so `DefaultBodyLimit` applies to it.
-/// The response is streamed, so its size does not cost the gateway memory.
+/// The request body is buffered, so `DefaultBodyLimit` applies to it and a retry can
+/// send it again. The response is streamed, so its size does not cost the gateway memory.
+/// All attempts together fit into the request timeout.
 pub async fn forward(
     State(state): State<AppState>,
-    Extension(Upstream(base)): Extension<Upstream>,
+    Extension(upstream): Extension<Upstream>,
     Extension(trace): Extension<TraceContext>,
     user: Option<Extension<AuthenticatedUser>>,
     parts: Parts,
     body: Result<Bytes, BytesRejection>,
 ) -> Result<Response, GatewayError> {
-    let url = upstream_url(&base, &parts.uri)?;
-    let upstream = state
-        .client
-        .request(parts.method, url)
-        .headers(request_headers(
-            parts.headers,
-            &trace,
-            user.map(|user| user.0),
-        )?)
-        .body(body?)
-        .send()
-        .await?;
-    Ok(into_response(upstream))
+    let url = upstream_url(&upstream.url, &parts.uri)?;
+    let headers = request_headers(parts.headers, &trace, user.map(|user| user.0))?;
+    let body = body?;
+    let method = parts.method;
+    let deadline = Instant::now() + state.request_timeout;
+    let response = retry::send(
+        &state.retry,
+        &upstream.budget,
+        &method,
+        deadline,
+        |remaining| {
+            state
+                .client
+                .request(method.clone(), url.clone())
+                .headers(headers.clone())
+                .body(body.clone())
+                .timeout(remaining)
+        },
+    )
+    .await?;
+    Ok(into_response(response))
 }
 
 /// `Url` resolves `..` and `%2e%2e`, so `/api/v1/events/../../internal` would match the

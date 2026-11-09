@@ -113,8 +113,8 @@ docs/               board, ADRs, claims, learnings
 |---|---|---|
 | M1 | Service skeletons, gateway, contracts | Done |
 | M2 | Concurrency and seat holds | Done |
-| M3 | Saga and idempotency | Planned |
-| M4 | Resilience: timeouts, retries, circuit breaker | Planned |
+| M3 | Saga and idempotency | Done |
+| M4 | Resilience: timeouts, retries, circuit breaker | In progress |
 | M5 | Load spike: rate limiting, load shedding, p95 and p99 | Planned |
 | M6 | Observability | Planned |
 | M7 | Replica lag, expand/migrate/contract migrations | Planned |
