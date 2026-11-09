@@ -110,3 +110,9 @@
 - A dead dependency was the mild case for the saga, a hung one the bad one. A refused connection fails in milliseconds and only wastes calls; a hanging one held the single runner for 3 s per order, and refunds that never touch seat-hold waited behind it for a whole minute.
 - Where resilience code lives is an architecture choice, not a detail: in every service (duplicated, no extra hop), in a gateway for internal traffic too (one copy, but a critical hop and two roles in one process) or in a service mesh (configuration, no code, but Kubernetes and its complexity). We chose every service for now: two languages, two copies.
 - Experiments use up their data: demo seats ran out after earlier runs had confirmed 620 holds, and the script died half way and left the saga stopped. A run has to check its preconditions and restore what it changed in a `finally`.
+
+## M5
+
+- A baseline has to explain every error before it counts. The first run sold only 220 of 300 seats; the 503 turned out to be the gateway's own bulkhead, and the missing seats my client, which gave up on an order after one 503 instead of repeating it with the same key.
+- Under a spike the entry spends its effort on refusals: at 5,000 users the gateway used 2 cores, and 17,700 of 24,000 hold requests were refusals that clients repeated at once. A refusal without `Retry-After` invites the next request; that is what a rate limit and load shedding have to fix, not more capacity.
+- The slowest part under the spike was not where the contention is: seat-hold stayed near 40 % CPU while booking's single Python process sat at a full core.
