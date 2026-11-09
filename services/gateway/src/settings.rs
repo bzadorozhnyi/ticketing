@@ -42,6 +42,8 @@ pub struct UpstreamSettings {
     pub catalog_url: Url,
     #[serde(deserialize_with = "from_str")]
     pub seat_hold_url: Url,
+    #[serde(deserialize_with = "from_str")]
+    pub booking_url: Url,
 }
 
 #[derive(Clone, Debug, Deserialize)]

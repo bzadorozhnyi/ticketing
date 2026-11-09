@@ -192,6 +192,26 @@ async fn hold_routes_need_a_token() {
 }
 
 #[tokio::test]
+async fn order_routes_need_a_token() {
+    let (gateway, upstream) = gateway().await;
+
+    let created = anonymous_client()
+        .post(format!("{gateway}/api/v1/orders"))
+        .send()
+        .await
+        .unwrap();
+    let read = anonymous_client()
+        .get(format!("{gateway}/api/v1/orders/7"))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(created.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(read.status(), StatusCode::UNAUTHORIZED);
+    assert!(upstream.received().is_empty());
+}
+
+#[tokio::test]
 async fn does_not_forward_the_token_upstream() {
     let (gateway, upstream) = gateway().await;
 

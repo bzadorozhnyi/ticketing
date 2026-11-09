@@ -379,6 +379,43 @@ async fn each_route_goes_to_its_own_upstream() {
 }
 
 #[tokio::test]
+async fn orders_go_to_booking_as_the_token_user_with_their_idempotency_key() {
+    let catalog = spawn_upstream(echo_routes()).await;
+    let booking_routes = Router::new()
+        .route("/api/v1/orders", any(async || StatusCode::ACCEPTED))
+        .route("/api/v1/orders/{*rest}", any(async || StatusCode::OK));
+    let booking = spawn_upstream(booking_routes).await;
+    let mut settings = test_settings(&catalog.url);
+    settings.upstreams.booking_url = booking.url.parse().unwrap();
+    let gateway = spawn_gateway(&settings).await;
+
+    let created = client()
+        .post(format!("{gateway}/api/v1/orders"))
+        .header("idempotency-key", "key-1")
+        .header("x-user-id", "admin")
+        .body("{}")
+        .send()
+        .await
+        .unwrap();
+    let read = client()
+        .get(format!("{gateway}/api/v1/orders/7"))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(created.status(), StatusCode::ACCEPTED);
+    assert_eq!(read.status(), StatusCode::OK);
+    let orders = booking.received();
+    assert_eq!(orders.len(), 2);
+    assert_eq!(orders[0].method, Method::POST);
+    assert_eq!(orders[0].uri, "/api/v1/orders");
+    assert_eq!(orders[0].headers["idempotency-key"], "key-1");
+    assert_eq!(orders[0].headers["x-user-id"], "user-1");
+    assert_eq!(orders[1].uri, "/api/v1/orders/7");
+    assert!(catalog.received().is_empty());
+}
+
+#[tokio::test]
 async fn internal_routes_are_not_reachable_from_outside() {
     let (gateway, upstream) = gateway_with_echo().await;
 
