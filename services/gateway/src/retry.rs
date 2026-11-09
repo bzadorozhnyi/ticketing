@@ -4,7 +4,29 @@ use std::time::Duration;
 use reqwest::{Method, RequestBuilder, Response, StatusCode};
 use tokio::time::{Instant, sleep};
 
+use crate::breaker::CircuitBreaker;
+use crate::errors::GatewayError;
 use crate::settings::RetrySettings;
+
+const UPSTREAM_FAILURES: [StatusCode; 3] = [
+    StatusCode::BAD_GATEWAY,
+    StatusCode::SERVICE_UNAVAILABLE,
+    StatusCode::GATEWAY_TIMEOUT,
+];
+
+pub enum SendError {
+    Upstream(reqwest::Error),
+    CircuitOpen { retry_after: Duration },
+}
+
+impl From<SendError> for GatewayError {
+    fn from(error: SendError) -> Self {
+        match error {
+            SendError::Upstream(error) => error.into(),
+            SendError::CircuitOpen { retry_after } => Self::CircuitOpen { retry_after },
+        }
+    }
+}
 
 /// Keeps retries to a share of the requests to one upstream: each request adds
 /// `budget_ratio` of a token, each retry takes a whole one. When the upstream is down,
@@ -49,31 +71,56 @@ impl RetryBudget {
 /// `HEAD`, only when no answer came (refused, reset or closed connection) or the upstream
 /// answered 503, only while the budget has a token and the deadline leaves time.
 /// The client sees the last answer.
+///
+/// The breaker is asked before every attempt and told the result after it. When it is
+/// open, the first attempt is not made at all, and a retry returns the last answer.
+///
+/// # Errors
+/// The last error of the upstream, or `CircuitOpen` when no attempt was allowed.
 pub async fn send(
     settings: &RetrySettings,
     budget: &RetryBudget,
+    breaker: &CircuitBreaker,
     method: &Method,
     deadline: Instant,
     request: impl Fn(Duration) -> RequestBuilder,
-) -> Result<Response, reqwest::Error> {
+) -> Result<Response, SendError> {
     budget.deposit();
+    let mut call = breaker
+        .try_call()
+        .map_err(|retry_after| SendError::CircuitOpen { retry_after })?;
     let mut attempt = 1;
     loop {
         let remaining = deadline.saturating_duration_since(Instant::now());
         let result = request(remaining).send().await;
+        call.finish(is_failure(&result));
         let (status, no_answer) = match &result {
             Ok(response) => (Some(response.status()), false),
             Err(error) => (None, !error.is_timeout()),
         };
         if attempt >= settings.max_attempts || !worth_retrying(method, status, no_answer) {
-            return result;
+            return result.map_err(SendError::Upstream);
         }
         let pause = pause_before(attempt, settings.base_delay);
         if Instant::now() + pause >= deadline || !budget.withdraw() {
-            return result;
+            return result.map_err(SendError::Upstream);
         }
         sleep(pause).await;
+        match breaker.try_call() {
+            Ok(next) => call = next,
+            Err(_) => return result.map_err(SendError::Upstream),
+        }
         attempt += 1;
+    }
+}
+
+/// What makes the breaker count a failure: no answer, or an answer that says the
+/// upstream cannot serve now. A 404 means the upstream works, and a 500 is a bug that
+/// a pause does not fix.
+fn is_failure(result: &Result<Response, reqwest::Error>) -> bool {
+    match result {
+        Ok(response) => UPSTREAM_FAILURES.contains(&response.status()),
+        Err(_) => true,
     }
 }
 

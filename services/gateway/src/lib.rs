@@ -1,5 +1,6 @@
 pub mod app;
 pub mod auth;
+pub mod breaker;
 pub mod errors;
 pub mod handlers;
 pub mod logging;

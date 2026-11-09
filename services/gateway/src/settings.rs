@@ -44,6 +44,24 @@ pub struct UpstreamSettings {
     pub seat_hold_url: Url,
     #[serde(deserialize_with = "from_str")]
     pub booking_url: Url,
+    #[serde(
+        default,
+        rename = "catalog_timeout_seconds",
+        deserialize_with = "optional_seconds"
+    )]
+    pub catalog_timeout: Option<Duration>,
+    #[serde(
+        default,
+        rename = "seat_hold_timeout_seconds",
+        deserialize_with = "optional_seconds"
+    )]
+    pub seat_hold_timeout: Option<Duration>,
+    #[serde(
+        default,
+        rename = "booking_timeout_seconds",
+        deserialize_with = "optional_seconds"
+    )]
+    pub booking_timeout: Option<Duration>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -90,6 +108,27 @@ impl Default for RetrySettings {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(default)]
+pub struct BreakerSettings {
+    pub window: usize,
+    pub min_calls: usize,
+    pub failure_percent: usize,
+    #[serde(rename = "open_seconds", deserialize_with = "seconds")]
+    pub open_duration: Duration,
+}
+
+impl Default for BreakerSettings {
+    fn default() -> Self {
+        Self {
+            window: 20,
+            min_calls: 10,
+            failure_percent: 50,
+            open_duration: Duration::from_secs(5),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(default)]
 pub struct LimitSettings {
     pub max_body_bytes: usize,
 }
@@ -119,6 +158,8 @@ pub struct Settings {
     pub client: ClientSettings,
     #[serde(default)]
     pub retry: RetrySettings,
+    #[serde(default)]
+    pub breaker: BreakerSettings,
     #[serde(default)]
     pub limits: LimitSettings,
     #[serde(default)]
@@ -161,4 +202,13 @@ fn jwt_secret<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::E
 
 fn seconds<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Duration, D::Error> {
     Duration::try_from_secs_f64(f64::deserialize(deserializer)?).map_err(D::Error::custom)
+}
+
+fn optional_seconds<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<Duration>, D::Error> {
+    Option::<f64>::deserialize(deserializer)?
+        .map(Duration::try_from_secs_f64)
+        .transpose()
+        .map_err(D::Error::custom)
 }

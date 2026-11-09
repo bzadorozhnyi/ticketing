@@ -1,0 +1,14 @@
+# Puts Toxiproxy between the gateway and catalog, for resilience experiments only.
+# From the repo root: docker compose -f docker-compose.yml -f infra/toxiproxy/compose.yml up -d
+# Faults are added through its API on localhost:8474, see infra/toxiproxy/README.md.
+services:
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.13.0
+    command: ["-host=0.0.0.0", "-config=/config/proxies.json"]
+    volumes: ["./infra/toxiproxy/proxies.json:/config/proxies.json:ro"]
+    ports: ["127.0.0.1:8474:8474"]
+
+  gateway:
+    environment:
+      UPSTREAMS__CATALOG_URL: http://toxiproxy:8666
+    depends_on: [toxiproxy]

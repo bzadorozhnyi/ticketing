@@ -4,11 +4,13 @@ use std::time::Duration;
 use axum::Router;
 use gateway::app::build_app;
 use gateway::settings::{
-    AuthSettings, ClientSettings, LimitSettings, LogFormat, LoggingSettings, RetrySettings,
-    Settings, UpstreamSettings,
+    AuthSettings, BreakerSettings, ClientSettings, LimitSettings, LogFormat, LoggingSettings,
+    RetrySettings, Settings, UpstreamSettings,
 };
 use tokio::net::TcpListener;
 use tracing::Level;
+
+use super::upstream::{Upstream, spawn_upstream};
 
 pub const MAX_BODY_BYTES: usize = 64;
 pub const JWT_SECRET: &str = "test-secret-with-at-least-32-bytes";
@@ -35,12 +37,22 @@ pub fn test_settings(catalog_url: &str) -> Settings {
             catalog_url: catalog_url.parse().expect("a valid upstream url"),
             seat_hold_url: catalog_url.parse().expect("a valid upstream url"),
             booking_url: catalog_url.parse().expect("a valid upstream url"),
+            catalog_timeout: None,
+            seat_hold_timeout: None,
+            booking_timeout: None,
         },
         retry: RetrySettings {
             max_attempts: 3,
             base_delay: Duration::from_millis(10),
             budget_ratio: 0.2,
             budget_capacity: 10.0,
+        },
+        // Off unless a test turns it on: more calls are needed than the window holds.
+        breaker: BreakerSettings {
+            window: 20,
+            min_calls: usize::MAX,
+            failure_percent: 50,
+            open_duration: Duration::from_secs(5),
         },
         client: ClientSettings {
             connect_timeout: Duration::from_secs(1),
@@ -57,4 +69,12 @@ pub fn test_settings(catalog_url: &str) -> Settings {
 pub async fn spawn_gateway(settings: &Settings) -> String {
     let app = build_app(settings).expect("a valid gateway client");
     format!("http://{}", serve(app).await)
+}
+
+/// A gateway in front of `routes`, with settings changed by `adjust`.
+pub async fn gateway_for(routes: Router, adjust: impl FnOnce(&mut Settings)) -> (String, Upstream) {
+    let upstream = spawn_upstream(routes).await;
+    let mut settings = test_settings(&upstream.url);
+    adjust(&mut settings);
+    (spawn_gateway(&settings).await, upstream)
 }

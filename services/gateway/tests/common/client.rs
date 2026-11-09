@@ -49,3 +49,13 @@ pub async fn send_raw(gateway_url: &str, request: &str) -> StatusCode {
     let status = std::str::from_utf8(&head[9..12]).expect("an ASCII status code");
     status.parse().expect("a valid status code")
 }
+
+/// The status of an authorized `GET /api/v1/events`.
+pub async fn get(gateway: &str) -> StatusCode {
+    client()
+        .get(format!("{gateway}/api/v1/events"))
+        .send()
+        .await
+        .expect("a response from the gateway")
+        .status()
+}
