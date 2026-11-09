@@ -6,6 +6,7 @@ from contextlib import suppress
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from core.faults import crash_point
 from core.rabbitmq import RabbitMQClient
 from core.settings import OutboxSettings
 from outbox.models.message import OutboxMessage
@@ -73,5 +74,6 @@ class Relay:
                     "Publish failed, the message stays in the outbox"
                 )
                 break
+            crash_point("after_publish")
             published.append(message.id)
         return published

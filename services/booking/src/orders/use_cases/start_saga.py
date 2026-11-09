@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.faults import crash_point
 from core.settings import SagaSettings
 from orders.clients.catalog import CatalogClient
 from orders.clients.seat_hold import SeatHoldClient
@@ -49,6 +50,7 @@ class StartSagaUseCase:
         if not extended:
             await self._fail(order=order, reason=FailureReason.HOLD_EXPIRED)
             return
+        crash_point("after_extend")
 
         await self.order_repository.mark_awaiting_charge(
             order_id=order.id,
