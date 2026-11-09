@@ -69,6 +69,27 @@ impl Default for ClientSettings {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(default)]
+pub struct RetrySettings {
+    pub max_attempts: u32,
+    #[serde(rename = "base_delay_seconds", deserialize_with = "seconds")]
+    pub base_delay: Duration,
+    pub budget_ratio: f64,
+    pub budget_capacity: f64,
+}
+
+impl Default for RetrySettings {
+    fn default() -> Self {
+        Self {
+            max_attempts: 3,
+            base_delay: Duration::from_millis(50),
+            budget_ratio: 0.2,
+            budget_capacity: 10.0,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(default)]
 pub struct LimitSettings {
     pub max_body_bytes: usize,
 }
@@ -96,6 +117,8 @@ pub struct Settings {
     pub upstreams: UpstreamSettings,
     #[serde(default)]
     pub client: ClientSettings,
+    #[serde(default)]
+    pub retry: RetrySettings,
     #[serde(default)]
     pub limits: LimitSettings,
     #[serde(default)]

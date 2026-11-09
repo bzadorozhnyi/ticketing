@@ -38,6 +38,10 @@ Read from the environment with the `config` crate; a wrong value stops the start
 | `CLIENT__CONNECT_TIMEOUT_SECONDS` | 2 | TCP connect to an upstream |
 | `CLIENT__REQUEST_TIMEOUT_SECONDS` | 10 | whole upstream call; must exceed catalog's DB timeout (5s), or the gateway answers 504 before catalog answers 503 |
 | `CLIENT__POOL_IDLE_TIMEOUT_SECONDS` | 3 | must stay below uvicorn's keep-alive (5s) |
+| `RETRY__MAX_ATTEMPTS` | 3 | attempts per `GET` or `HEAD`, the first included; 1 turns retries off |
+| `RETRY__BASE_DELAY_SECONDS` | 0.05 | the pause before attempt n is random, up to this times 2^(n-2) |
+| `RETRY__BUDGET_RATIO` | 0.2 | retries allowed per request, per upstream: the most retries add to an upstream's load |
+| `RETRY__BUDGET_CAPACITY` | 10 | retries allowed in a row while traffic is low; every gateway replica has its own |
 | `LIMITS__MAX_BODY_BYTES` | 1048576 | larger request bodies get 413 |
 | `PORT` | 8000 | listening port |
 | `LOGGING__FORMAT` | `JSON` | `JSON` or `PRETTY` |
@@ -47,6 +51,9 @@ Read from the environment with the `config` crate; a wrong value stops the start
 
 - Errors produced by the gateway use `{"code", "message", "details"}`. Upstream responses pass through unchanged.
 - 503: connection to the upstream failed. 504: no complete response in time. 502: any other upstream failure.
+- `GET` and `HEAD` are repeated when no answer came (refused, reset or closed connection) or the upstream answered 503,
+  within the request timeout and the retry budget. The client sees only the last answer. A timeout, a 500,
+  a 502 or 504 from the upstream and every other method are never repeated: `POST /orders` relies on the client's `Idempotency-Key`.
 - `/health` and `/ready` do not check upstreams: the gateway stays in rotation and answers 503 for the broken route.
 - Every `/api` route needs a token (HS256, `exp` and `sub` required). A public route is an explicit exception:
   it is added in `app.rs` outside the `protected` router. `/health` and `/ready` are public.

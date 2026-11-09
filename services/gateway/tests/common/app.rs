@@ -4,8 +4,8 @@ use std::time::Duration;
 use axum::Router;
 use gateway::app::build_app;
 use gateway::settings::{
-    AuthSettings, ClientSettings, LimitSettings, LogFormat, LoggingSettings, Settings,
-    UpstreamSettings,
+    AuthSettings, ClientSettings, LimitSettings, LogFormat, LoggingSettings, RetrySettings,
+    Settings, UpstreamSettings,
 };
 use tokio::net::TcpListener;
 use tracing::Level;
@@ -35,6 +35,12 @@ pub fn test_settings(catalog_url: &str) -> Settings {
             catalog_url: catalog_url.parse().expect("a valid upstream url"),
             seat_hold_url: catalog_url.parse().expect("a valid upstream url"),
             booking_url: catalog_url.parse().expect("a valid upstream url"),
+        },
+        retry: RetrySettings {
+            max_attempts: 3,
+            base_delay: Duration::from_millis(10),
+            budget_ratio: 0.2,
+            budget_capacity: 10.0,
         },
         client: ClientSettings {
             connect_timeout: Duration::from_secs(1),

@@ -1,3 +1,6 @@
+use std::sync::Arc;
+use std::time::Duration;
+
 use axum::extract::DefaultBodyLimit;
 use axum::middleware::{from_fn, from_fn_with_state};
 use axum::routing::{any, get};
@@ -8,35 +11,57 @@ use reqwest::{Client, Url};
 use crate::auth::{TokenVerifier, authenticate};
 use crate::errors::GatewayError;
 use crate::handlers::{health, proxy};
-use crate::settings::{ClientSettings, Settings};
+use crate::retry::RetryBudget;
+use crate::settings::{ClientSettings, RetrySettings, Settings};
 use crate::trace_context::trace_request;
 
 #[derive(Clone)]
 pub struct AppState {
     pub client: Client,
+    pub retry: RetrySettings,
+    pub request_timeout: Duration,
 }
 
+/// One upstream and its own retry budget: a failing catalog spends nothing of seat-hold's.
 #[derive(Clone)]
-pub struct Upstream(pub Url);
+pub struct Upstream {
+    pub url: Url,
+    pub budget: Arc<RetryBudget>,
+}
 
-fn upstream_routes(prefix: &str, url: &Url) -> Router<AppState> {
+fn upstream_routes(prefix: &str, url: &Url, retry: &RetrySettings) -> Router<AppState> {
+    let upstream = Upstream {
+        url: url.clone(),
+        budget: Arc::new(RetryBudget::new(retry)),
+    };
     Router::new()
         .route(prefix, any(proxy::forward))
         .route(&format!("{prefix}/{{*rest}}"), any(proxy::forward))
-        .route_layer(Extension(Upstream(url.clone())))
+        .route_layer(Extension(upstream))
 }
 
 pub fn build_app(settings: &Settings) -> Result<Router, reqwest::Error> {
     let state = AppState {
         client: build_client(&settings.client)?,
+        retry: settings.retry.clone(),
+        request_timeout: settings.client.request_timeout,
     };
     let verifier = TokenVerifier::new(&settings.auth.jwt_secret);
 
     // A token is the default: a public route is an explicit exception next to /health.
     let upstreams = &settings.upstreams;
-    let protected = upstream_routes("/api/v1/events", &upstreams.catalog_url)
-        .merge(upstream_routes("/api/v1/holds", &upstreams.seat_hold_url))
-        .merge(upstream_routes("/api/v1/orders", &upstreams.booking_url))
+    let retry = &settings.retry;
+    let protected = upstream_routes("/api/v1/events", &upstreams.catalog_url, retry)
+        .merge(upstream_routes(
+            "/api/v1/holds",
+            &upstreams.seat_hold_url,
+            retry,
+        ))
+        .merge(upstream_routes(
+            "/api/v1/orders",
+            &upstreams.booking_url,
+            retry,
+        ))
         .route_layer(from_fn_with_state(verifier, authenticate));
 
     Ok(Router::new()
