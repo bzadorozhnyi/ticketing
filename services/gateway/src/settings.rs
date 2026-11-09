@@ -172,12 +172,19 @@ impl Default for RateLimitSettings {
 #[serde(default)]
 pub struct LimitSettings {
     pub max_body_bytes: usize,
+    pub max_in_flight: usize,
+    pub max_connections: usize,
+    #[serde(rename = "header_timeout_seconds", deserialize_with = "seconds")]
+    pub header_timeout: Duration,
 }
 
 impl Default for LimitSettings {
     fn default() -> Self {
         Self {
             max_body_bytes: 1024 * 1024,
+            max_in_flight: 1000,
+            max_connections: 10_000,
+            header_timeout: Duration::from_secs(30),
         }
     }
 }

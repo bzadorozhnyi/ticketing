@@ -8,6 +8,10 @@ use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 use thiserror::Error;
 
+/// A full limit frees up as requests finish, usually well within a second. Without a
+/// hint a refused client comes straight back and is refused again.
+const BUSY_RETRY_AFTER: Duration = Duration::from_secs(1);
+
 #[derive(Clone, Copy, Debug, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCode {
@@ -17,6 +21,7 @@ pub enum ErrorCode {
     GatewayTimeout,
     HttpError,
     NotFound,
+    Overloaded,
     PayloadTooLarge,
     RateLimited,
     ServiceUnavailable,
@@ -50,11 +55,29 @@ pub enum GatewayError {
     CircuitOpen { retry_after: Duration },
     #[error("Too many requests to this upstream are in flight")]
     BulkheadFull,
+    #[error("The gateway has too many requests in flight")]
+    Overloaded,
     #[error("Too many requests from this user")]
     RateLimited { retry_after: Duration },
 }
 
 impl GatewayError {
+    fn retry_after(&self) -> Option<Duration> {
+        match self {
+            Self::CircuitOpen { retry_after } | Self::RateLimited { retry_after } => {
+                Some(*retry_after)
+            }
+            Self::BulkheadFull | Self::Overloaded => Some(BUSY_RETRY_AFTER),
+            Self::Unauthorized
+            | Self::NotFound
+            | Self::PayloadTooLarge
+            | Self::UnreadableBody
+            | Self::UpstreamUnavailable
+            | Self::UpstreamTimeout
+            | Self::UpstreamFailed => None,
+        }
+    }
+
     fn status_and_code(&self) -> (StatusCode, ErrorCode) {
         match self {
             Self::Unauthorized => (StatusCode::UNAUTHORIZED, ErrorCode::Unauthorized),
@@ -69,6 +92,7 @@ impl GatewayError {
             Self::UpstreamFailed => (StatusCode::BAD_GATEWAY, ErrorCode::BadGateway),
             Self::CircuitOpen { .. } => (StatusCode::SERVICE_UNAVAILABLE, ErrorCode::CircuitOpen),
             Self::BulkheadFull => (StatusCode::SERVICE_UNAVAILABLE, ErrorCode::BulkheadFull),
+            Self::Overloaded => (StatusCode::SERVICE_UNAVAILABLE, ErrorCode::Overloaded),
             Self::RateLimited { .. } => (StatusCode::TOO_MANY_REQUESTS, ErrorCode::RateLimited),
         }
     }
@@ -111,7 +135,7 @@ impl IntoResponse for GatewayError {
             let challenge = HeaderValue::from_static("Bearer");
             response.headers_mut().insert(WWW_AUTHENTICATE, challenge);
         }
-        if let Self::CircuitOpen { retry_after } | Self::RateLimited { retry_after } = self {
+        if let Some(retry_after) = self.retry_after() {
             let seconds = retry_after.as_secs() + u64::from(retry_after.subsec_nanos() > 0);
             response
                 .headers_mut()

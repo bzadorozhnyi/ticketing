@@ -8,8 +8,11 @@ The only public entry point: routing, trace start, limits. Project-wide rules: s
 src/
   app.rs           builds the router: which layers, in which order
   upstream.rs      one upstream with its timeout, retry budget, breaker and bulkhead
+  server/          accepts connections: their limit, the header timeout, graceful shutdown
   handlers/        health and the proxy handler
   limits/          decided before any work starts; protects the gateway itself
+    concurrency.rs ConcurrencyLimit: one limit of work at once (bulkheads, requests in flight, connections)
+    shedding.rs    the limit of requests in flight
     rate_limit/    per user: replica buckets (local.rs), then Valkey (shared.rs), joined in limiter.rs
   resilience/      calls to upstreams: breaker.rs, retry.rs
   auth.rs  trace_context.rs  errors.rs  settings.rs  logging.rs  shutdown.rs
@@ -68,6 +71,9 @@ Read from the environment with the `config` crate; a wrong value stops the start
 | `RATE_LIMIT__BURST` | 20 | requests a user may send at once after a quiet moment |
 | `RATE_LIMIT__TIMEOUT_SECONDS` | 0.05 | connecting to Valkey and each answer; a slower one skips the shared limit |
 | `LIMITS__MAX_BODY_BYTES` | 1048576 | larger request bodies get 413 |
+| `LIMITS__MAX_IN_FLIGHT` | 1000 | requests in work in this replica; more get 503 `overloaded` at once. Bodies are buffered, so this times `MAX_BODY_BYTES` bounds their memory |
+| `LIMITS__MAX_CONNECTIONS` | 10000 | open client connections; more are closed at once. Keep it below the open-file limit minus the sum of the bulkheads (sockets to upstreams). An idle connection costs about 32 KB |
+| `LIMITS__HEADER_TIMEOUT_SECONDS` | 30 | time to send the headers of a request; also the longest a keep-alive connection may stay idle |
 | `PORT` | 8000 | listening port |
 | `LOGGING__FORMAT` | `JSON` | `JSON` or `PRETTY` |
 | `LOGGING__LEVEL` | `INFO` | `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE` |
@@ -80,10 +86,17 @@ Read from the environment with the `config` crate; a wrong value stops the start
   404 and 500 are not. While it is open, the gateway answers 503 `circuit_open` with `Retry-After` at once and does
   not call the upstream. Every gateway replica has its own breaker.
 - Each upstream has a bulkhead: at most `MAX_CONCURRENT` requests in flight, from the first attempt until the response
-  headers arrive. One more gets 503 `bulkhead_full` at once. It does not limit incoming connections: that is M5.
+  headers arrive. One more gets 503 `bulkhead_full` with `Retry-After: 1` at once.
 - `GET` and `HEAD` are repeated when no answer came (refused, reset or closed connection) or the upstream answered 503,
   within the request timeout and the retry budget. The client sees only the last answer. A timeout, a 500,
   a 502 or 504 from the upstream and every other method are never repeated: `POST /orders` relies on the client's `Idempotency-Key`.
+- Load shedding, checked before anything else: at most `MAX_IN_FLIGHT` requests in work, from arrival until the
+  response headers are sent; one more gets 503 `overloaded` with `Retry-After: 1`. `/health` and `/ready` are never
+  shed: a busy replica is alive, and failing its probes would move its load to the others.
+- The gateway serves connections itself (`server/serve.rs`), not with `axum::serve`, which has no timeout and no limit.
+  A connection over `MAX_CONNECTIONS` is closed at once, so a flood cannot use up the open files: without the limit,
+  accepting stopped for a second at a time and requests already accepted failed for lack of a socket to the upstream.
+  The limit cannot tell a flood from a customer: during a flood a new client is refused too. HTTP/1.1 only.
 - Each user has a token bucket (`RATE_LIMIT__*`), checked after the token and before retries, breakers and bulkheads.
   It has two tiers: a bucket in the replica's memory first, then one in Valkey shared by every replica.
   A user over the limit gets 429 `rate_limited` with `Retry-After`; a refusal by the first tier costs no network call.
