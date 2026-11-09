@@ -1,6 +1,7 @@
 use std::time::Duration;
 
-use gateway::rate_limit::{Decision, LocalBuckets};
+use gateway::limits::rate_limit::decision::Decision;
+use gateway::limits::rate_limit::local::LocalBuckets;
 use tokio::time::Instant;
 
 const PER_SECOND: f64 = 2.0;
