@@ -2,8 +2,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use reqwest::Url;
-use tokio::sync::Semaphore;
 
+use crate::limits::concurrency::ConcurrencyLimit;
 use crate::resilience::breaker::CircuitBreaker;
 use crate::resilience::retry::RetryBudget;
 use crate::settings::Settings;
@@ -17,7 +17,7 @@ pub struct Upstream {
     pub budget: Arc<RetryBudget>,
     pub breaker: Arc<CircuitBreaker>,
     /// A permit per request in flight to this upstream, retries included.
-    pub bulkhead: Arc<Semaphore>,
+    pub bulkhead: ConcurrencyLimit,
 }
 
 pub struct UpstreamLimits {
@@ -41,7 +41,7 @@ impl Upstream {
             timeout: limits.timeout.unwrap_or(settings.client.request_timeout),
             budget: Arc::new(RetryBudget::new(&settings.retry)),
             breaker: Arc::new(CircuitBreaker::new(name, &settings.breaker)),
-            bulkhead: Arc::new(Semaphore::new(max_concurrent)),
+            bulkhead: ConcurrencyLimit::new(max_concurrent),
         }
     }
 }

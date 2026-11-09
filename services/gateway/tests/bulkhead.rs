@@ -41,6 +41,29 @@ fn rejected(answers: &[(StatusCode, String)]) -> usize {
 }
 
 #[tokio::test]
+async fn a_refusal_tells_the_client_when_to_come_back() {
+    let (gateway, _upstream) = gateway_for(answering(StatusCode::OK, SLOW), |s| {
+        s.bulkhead.max_concurrent = 1;
+    })
+    .await;
+    let first = {
+        let gateway = gateway.clone();
+        tokio::spawn(async move { get(&gateway).await })
+    };
+    tokio::time::sleep(SLOW / 3).await;
+
+    let refused = client()
+        .get(format!("{gateway}/api/v1/events"))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(refused.status(), StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(refused.headers()["retry-after"], "1");
+    assert_eq!(first.await.unwrap(), StatusCode::OK);
+}
+
+#[tokio::test]
 async fn a_request_over_the_limit_is_refused_at_once_without_reaching_the_upstream() {
     let (gateway, upstream) = gateway_for(answering(StatusCode::OK, SLOW), |s| {
         s.bulkhead.max_concurrent = 2;

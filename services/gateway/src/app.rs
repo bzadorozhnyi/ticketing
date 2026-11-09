@@ -10,7 +10,9 @@ use reqwest::redirect::Policy;
 use crate::auth::{TokenVerifier, authenticate};
 use crate::errors::GatewayError;
 use crate::handlers::{health, proxy};
+use crate::limits::concurrency::ConcurrencyLimit;
 use crate::limits::rate_limit::limiter::{self, RateLimiter};
+use crate::limits::shedding::shed;
 use crate::settings::{ClientSettings, RetrySettings, Settings};
 use crate::trace_context::trace_request;
 use crate::upstream::{Upstream, UpstreamLimits};
@@ -77,11 +79,14 @@ pub fn build_app(settings: &Settings) -> Result<Router, BuildError> {
     let mut protected = upstream_routes("/api/v1/events", catalog)
         .merge(upstream_routes("/api/v1/holds", seat_hold))
         .merge(upstream_routes("/api/v1/orders", booking));
-    // The last layer added runs first: the token is checked before the rate limit.
+    // The last layer added runs first: shedding, then the token, then the rate limit.
     if let Some(limiter) = RateLimiter::new(&settings.rate_limit, &settings.breaker)? {
         protected = protected.route_layer(from_fn_with_state(Arc::new(limiter), limiter::limit));
     }
-    let protected = protected.route_layer(from_fn_with_state(verifier, authenticate));
+    let in_flight = ConcurrencyLimit::new(settings.limits.max_in_flight);
+    let protected = protected
+        .route_layer(from_fn_with_state(verifier, authenticate))
+        .route_layer(from_fn_with_state(in_flight, shed));
 
     Ok(Router::new()
         .route("/health", get(health::health))

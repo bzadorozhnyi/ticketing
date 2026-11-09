@@ -50,8 +50,8 @@ pub async fn forward(
     let url = upstream_url(&upstream.url, &parts.uri)?;
     let _in_flight = upstream
         .bulkhead
-        .try_acquire()
-        .map_err(|_| GatewayError::BulkheadFull)?;
+        .try_enter()
+        .ok_or(GatewayError::BulkheadFull)?;
     let headers = request_headers(parts.headers, &trace, user.map(|user| user.0))?;
     let body = body?;
     let method = parts.method;

@@ -5,6 +5,7 @@ pub mod handlers;
 pub mod limits;
 pub mod logging;
 pub mod resilience;
+pub mod server;
 pub mod settings;
 pub mod shutdown;
 pub mod trace_context;

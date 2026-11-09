@@ -3,6 +3,7 @@ use std::time::Duration;
 
 use axum::Router;
 use gateway::app::build_app;
+use gateway::server::serve::serve as serve_gateway;
 use gateway::settings::{
     AuthSettings, BreakerSettings, BulkheadSettings, ClientSettings, LimitSettings, LogFormat,
     LoggingSettings, RateLimitSettings, RetrySettings, Settings, UpstreamSettings,
@@ -29,6 +30,9 @@ pub fn test_settings(catalog_url: &str) -> Settings {
         port: 0,
         limits: LimitSettings {
             max_body_bytes: MAX_BODY_BYTES,
+            max_in_flight: 1000,
+            max_connections: 1000,
+            header_timeout: Duration::from_secs(30),
         },
         auth: AuthSettings {
             jwt_secret: JWT_SECRET.to_owned(),
@@ -75,7 +79,15 @@ pub fn test_settings(catalog_url: &str) -> Settings {
 
 pub async fn spawn_gateway(settings: &Settings) -> String {
     let app = build_app(settings).expect("a valid gateway client");
-    format!("http://{}", serve(app).await)
+    let listener = TcpListener::bind(("127.0.0.1", 0))
+        .await
+        .expect("a free port");
+    let addr = listener.local_addr().expect("a bound address");
+    let limits = settings.limits.clone();
+    tokio::spawn(async move {
+        serve_gateway(listener, app, &limits, std::future::pending()).await;
+    });
+    format!("http://{addr}")
 }
 
 /// A gateway in front of `routes`, with settings changed by `adjust`.
