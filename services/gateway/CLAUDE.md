@@ -36,6 +36,7 @@ Read from the environment with the `config` crate; a wrong value stops the start
 | `UPSTREAMS__SEAT_HOLD_URL` | required | seat-hold base URL |
 | `UPSTREAMS__BOOKING_URL` | required | booking base URL |
 | `UPSTREAMS__CATALOG_TIMEOUT_SECONDS` | `CLIENT__REQUEST_TIMEOUT_SECONDS` | all attempts to catalog together; the same for `SEAT_HOLD` and `BOOKING` |
+| `UPSTREAMS__CATALOG_MAX_CONCURRENT` | `BULKHEAD__MAX_CONCURRENT` | requests in flight to catalog; the same for `SEAT_HOLD` and `BOOKING` |
 | `CLIENT__CONNECT_TIMEOUT_SECONDS` | 2 | TCP connect to an upstream |
 | `CLIENT__REQUEST_TIMEOUT_SECONDS` | 10 | default timeout of an upstream; above catalog's DB timeout (5s), or the gateway answers 504 before catalog answers 503 |
 | `CLIENT__POOL_IDLE_TIMEOUT_SECONDS` | 3 | must stay below uvicorn's keep-alive (5s) |
@@ -47,6 +48,7 @@ Read from the environment with the `config` crate; a wrong value stops the start
 | `BREAKER__MIN_CALLS` | 10 | fewer calls never open it; above `WINDOW` turns the breaker off |
 | `BREAKER__FAILURE_PERCENT` | 50 | share of failed calls in the window that opens it |
 | `BREAKER__OPEN_SECONDS` | 5 | how long it stays open before one probe goes through |
+| `BULKHEAD__MAX_CONCURRENT` | 200 | requests in flight to one upstream, retries included; more get 503 at once |
 | `LIMITS__MAX_BODY_BYTES` | 1048576 | larger request bodies get 413 |
 | `PORT` | 8000 | listening port |
 | `LOGGING__FORMAT` | `JSON` | `JSON` or `PRETTY` |
@@ -59,6 +61,8 @@ Read from the environment with the `config` crate; a wrong value stops the start
 - Each upstream has a circuit breaker. A failure is no answer, a timeout, or a 502, 503 or 504 from the upstream;
   404 and 500 are not. While it is open, the gateway answers 503 `circuit_open` with `Retry-After` at once and does
   not call the upstream. Every gateway replica has its own breaker.
+- Each upstream has a bulkhead: at most `MAX_CONCURRENT` requests in flight, from the first attempt until the response
+  headers arrive. One more gets 503 `bulkhead_full` at once. It does not limit incoming connections: that is M5.
 - `GET` and `HEAD` are repeated when no answer came (refused, reset or closed connection) or the upstream answered 503,
   within the request timeout and the retry budget. The client sees only the last answer. A timeout, a 500,
   a 502 or 504 from the upstream and every other method are never repeated: `POST /orders` relies on the client's `Idempotency-Key`.
