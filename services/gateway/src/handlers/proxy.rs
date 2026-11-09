@@ -12,11 +12,12 @@ use axum::response::Response;
 use reqwest::Url;
 use tokio::time::Instant;
 
-use crate::app::{AppState, Upstream};
+use crate::app::AppState;
 use crate::auth::AuthenticatedUser;
 use crate::errors::GatewayError;
-use crate::retry;
+use crate::resilience::retry;
 use crate::trace_context::TraceContext;
+use crate::upstream::Upstream;
 
 const TRACEPARENT: HeaderName = HeaderName::from_static("traceparent");
 const TRACESTATE: HeaderName = HeaderName::from_static("tracestate");

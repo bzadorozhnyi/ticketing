@@ -1,11 +1,11 @@
 pub mod app;
 pub mod auth;
-pub mod breaker;
 pub mod errors;
 pub mod handlers;
+pub mod limits;
 pub mod logging;
-pub mod rate_limit;
-pub mod retry;
+pub mod resilience;
 pub mod settings;
 pub mod shutdown;
 pub mod trace_context;
+pub mod upstream;

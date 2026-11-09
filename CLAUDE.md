@@ -141,7 +141,7 @@ src/
 - `mod.rs` only declares modules: no logic and no re-exports, the same as `__init__.py`. Import from the module that defines the name.
 - A service with entities follows the Python layout: `core/` for cross-cutting code, `routes.rs` mounts the versioned routers,
   and each entity has `endpoints/v1/routes/` (one endpoint per file + `router.rs`), `endpoints/v1/schemas/{request,response}/`,
-  `use_cases/`, `services/`, `repositories/`, `dto/`. The gateway has no entities, so its modules stay at the root.
+  `use_cases/`, `services/`, `repositories/`, `dto/`. The gateway has no entities: its modules are grouped by what they protect (see `services/gateway/CLAUDE.md`).
 - The layers mean the same as in Python. Endpoints are thin. A use case is a struct with `execute()`, one per file;
   it holds the business rules and owns the transaction. `services` appear only for logic reused by several use cases.
   A repository is a unit struct with associated functions: SQL only, no business decisions.

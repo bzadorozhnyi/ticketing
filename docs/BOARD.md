@@ -1,11 +1,11 @@
 # Board
 
-Next ticket: TIK-48
+Next ticket: TIK-49
 
 ## In progress
 
 ## To do
-- [ ] TIK-46 Gateway: load shedding, a global limit of requests in flight (M5)
+- [ ] TIK-46 Gateway: load shedding, limits of connections and requests in flight, header read timeout (M5)
 - [ ] TIK-47 Seat-hold: a hot seat, read before write (M5)
 - [ ] TIK-37 Seat-hold: limit active holds per user, one user cannot block a hall (M5)
 
@@ -54,3 +54,4 @@ Next ticket: TIK-48
 - [x] TIK-43 Booking: circuit breaker for seat-hold and catalog (M4)
 - [x] TIK-44 Load: baseline of a sales spike, what breaks first, p95 and p99 (M5)
 - [x] TIK-45 Gateway: rate limit per user, shared in Valkey (M5)
+- [x] TIK-48 Gateway: group modules by what they protect

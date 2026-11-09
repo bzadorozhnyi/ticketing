@@ -4,8 +4,8 @@ use std::time::Duration;
 use reqwest::{Method, RequestBuilder, Response, StatusCode};
 use tokio::time::{Instant, sleep};
 
-use crate::breaker::CircuitBreaker;
 use crate::errors::GatewayError;
+use crate::resilience::breaker::CircuitBreaker;
 use crate::settings::RetrySettings;
 
 const UPSTREAM_FAILURES: [StatusCode; 3] = [

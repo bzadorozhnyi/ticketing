@@ -1,59 +1,24 @@
 use std::sync::Arc;
-use std::time::Duration;
 
 use axum::extract::DefaultBodyLimit;
 use axum::middleware::{from_fn, from_fn_with_state};
 use axum::routing::{any, get};
 use axum::{Extension, Router};
+use reqwest::Client;
 use reqwest::redirect::Policy;
-use reqwest::{Client, Url};
-use tokio::sync::Semaphore;
 
 use crate::auth::{TokenVerifier, authenticate};
-use crate::breaker::CircuitBreaker;
 use crate::errors::GatewayError;
 use crate::handlers::{health, proxy};
-use crate::rate_limit::{self, RateLimiter};
-use crate::retry::RetryBudget;
+use crate::limits::rate_limit::limiter::{self, RateLimiter};
 use crate::settings::{ClientSettings, RetrySettings, Settings};
 use crate::trace_context::trace_request;
+use crate::upstream::{Upstream, UpstreamLimits};
 
 #[derive(Clone)]
 pub struct AppState {
     pub client: Client,
     pub retry: RetrySettings,
-}
-
-/// One upstream with its own timeout, retry budget, circuit breaker and bulkhead:
-/// a failing or slow catalog spends nothing of seat-hold's.
-#[derive(Clone)]
-pub struct Upstream {
-    pub url: Url,
-    pub timeout: Duration,
-    pub budget: Arc<RetryBudget>,
-    pub breaker: Arc<CircuitBreaker>,
-    /// A permit per request in flight to this upstream, retries included.
-    pub bulkhead: Arc<Semaphore>,
-}
-
-struct UpstreamLimits {
-    timeout: Option<Duration>,
-    max_concurrent: Option<usize>,
-}
-
-impl Upstream {
-    fn new(name: &'static str, url: &Url, limits: &UpstreamLimits, settings: &Settings) -> Self {
-        let max_concurrent = limits
-            .max_concurrent
-            .unwrap_or(settings.bulkhead.max_concurrent);
-        Self {
-            url: url.clone(),
-            timeout: limits.timeout.unwrap_or(settings.client.request_timeout),
-            budget: Arc::new(RetryBudget::new(&settings.retry)),
-            breaker: Arc::new(CircuitBreaker::new(name, &settings.breaker)),
-            bulkhead: Arc::new(Semaphore::new(max_concurrent)),
-        }
-    }
 }
 
 fn upstream_routes(prefix: &str, upstream: Upstream) -> Router<AppState> {
@@ -114,7 +79,7 @@ pub fn build_app(settings: &Settings) -> Result<Router, BuildError> {
         .merge(upstream_routes("/api/v1/orders", booking));
     // The last layer added runs first: the token is checked before the rate limit.
     if let Some(limiter) = RateLimiter::new(&settings.rate_limit, &settings.breaker)? {
-        protected = protected.route_layer(from_fn_with_state(Arc::new(limiter), rate_limit::limit));
+        protected = protected.route_layer(from_fn_with_state(Arc::new(limiter), limiter::limit));
     }
     let protected = protected.route_layer(from_fn_with_state(verifier, authenticate));
 

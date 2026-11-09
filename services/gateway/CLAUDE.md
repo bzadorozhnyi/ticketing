@@ -2,6 +2,19 @@
 
 The only public entry point: routing, trace start, limits. Project-wide rules: see the root CLAUDE.md.
 
+## Layout
+
+```
+src/
+  app.rs           builds the router: which layers, in which order
+  upstream.rs      one upstream with its timeout, retry budget, breaker and bulkhead
+  handlers/        health and the proxy handler
+  limits/          decided before any work starts; protects the gateway itself
+    rate_limit/    per user: replica buckets (local.rs), then Valkey (shared.rs), joined in limiter.rs
+  resilience/      calls to upstreams: breaker.rs, retry.rs
+  auth.rs  trace_context.rs  errors.rs  settings.rs  logging.rs  shutdown.rs
+```
+
 ## Run
 
 All commands from `services/gateway/`:
