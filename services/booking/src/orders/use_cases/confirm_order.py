@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.faults import crash_point
 from core.settings import SagaSettings
 from orders.clients.seat_hold import SeatHoldClient
 from orders.models.order import FailureReason, Order
@@ -32,6 +33,7 @@ class ConfirmOrderUseCase:
             hold_id=order.hold_id, user_id=order.user_id
         )
         if confirmed:
+            crash_point("after_confirm")
             await self.order_repository.mark_confirmed(order_id=order.id)
             await self.session.commit()
             return

@@ -4,6 +4,7 @@ from loguru import logger
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from core.faults import crash_point
 from core.rabbitmq import Delivery
 from core.settings import SagaSettings
 from orders.dto.messages import REPLY_ADAPTER, ChargeResult, Reply
@@ -47,6 +48,7 @@ class PaymentReplyConsumer:
             logger.bind(error=repr(exc)).warning("Reply failed, will retry")
             await self._retry_later(delivery=delivery)
         else:
+            crash_point("after_reply_commit")
             await delivery.ack()
 
     async def _process(self, *, reply: Reply) -> None:

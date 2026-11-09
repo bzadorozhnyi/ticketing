@@ -65,6 +65,10 @@ class SagaSettings(BaseModel):
     GIVE_UP_AFTER_SECONDS: float = 600
 
 
+class FaultSettings(BaseModel):
+    CRASH_RATE: float = 0
+
+
 class Settings(BaseSettings):
     SERVICE_NAME: str = "booking"
     DB: DBSettings
@@ -73,6 +77,7 @@ class Settings(BaseSettings):
     OUTBOX: OutboxSettings = OutboxSettings()
     UPSTREAMS: UpstreamSettings = UpstreamSettings()
     SAGA: SagaSettings = SagaSettings()
+    FAULTS: FaultSettings = FaultSettings()
 
     # No env_file: this reads only os.environ. Docker compose sets the values
     # directly; tests/conftest.py loads .env.test before anything is imported.
