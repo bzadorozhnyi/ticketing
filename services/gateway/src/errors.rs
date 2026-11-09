@@ -12,6 +12,7 @@ use thiserror::Error;
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCode {
     BadGateway,
+    BulkheadFull,
     CircuitOpen,
     GatewayTimeout,
     HttpError,
@@ -46,6 +47,8 @@ pub enum GatewayError {
     UpstreamFailed,
     #[error("Upstream keeps failing and was not called")]
     CircuitOpen { retry_after: Duration },
+    #[error("Too many requests to this upstream are in flight")]
+    BulkheadFull,
 }
 
 impl GatewayError {
@@ -62,6 +65,7 @@ impl GatewayError {
             Self::UpstreamTimeout => (StatusCode::GATEWAY_TIMEOUT, ErrorCode::GatewayTimeout),
             Self::UpstreamFailed => (StatusCode::BAD_GATEWAY, ErrorCode::BadGateway),
             Self::CircuitOpen { .. } => (StatusCode::SERVICE_UNAVAILABLE, ErrorCode::CircuitOpen),
+            Self::BulkheadFull => (StatusCode::SERVICE_UNAVAILABLE, ErrorCode::BulkheadFull),
         }
     }
 }

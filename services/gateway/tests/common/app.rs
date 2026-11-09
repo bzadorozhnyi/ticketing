@@ -4,8 +4,8 @@ use std::time::Duration;
 use axum::Router;
 use gateway::app::build_app;
 use gateway::settings::{
-    AuthSettings, BreakerSettings, ClientSettings, LimitSettings, LogFormat, LoggingSettings,
-    RetrySettings, Settings, UpstreamSettings,
+    AuthSettings, BreakerSettings, BulkheadSettings, ClientSettings, LimitSettings, LogFormat,
+    LoggingSettings, RetrySettings, Settings, UpstreamSettings,
 };
 use tokio::net::TcpListener;
 use tracing::Level;
@@ -40,6 +40,9 @@ pub fn test_settings(catalog_url: &str) -> Settings {
             catalog_timeout: None,
             seat_hold_timeout: None,
             booking_timeout: None,
+            catalog_max_concurrent: None,
+            seat_hold_max_concurrent: None,
+            booking_max_concurrent: None,
         },
         retry: RetrySettings {
             max_attempts: 3,
@@ -53,6 +56,9 @@ pub fn test_settings(catalog_url: &str) -> Settings {
             min_calls: usize::MAX,
             failure_percent: 50,
             open_duration: Duration::from_secs(5),
+        },
+        bulkhead: BulkheadSettings {
+            max_concurrent: 1000,
         },
         client: ClientSettings {
             connect_timeout: Duration::from_secs(1),

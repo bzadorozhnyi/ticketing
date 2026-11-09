@@ -35,7 +35,9 @@ const HOP_BY_HOP: [HeaderName; 9] = [
 
 /// The request body is buffered, so `DefaultBodyLimit` applies to it and a retry can
 /// send it again. The response is streamed, so its size does not cost the gateway memory.
-/// All attempts together fit into the upstream's timeout.
+/// All attempts together fit into the upstream's timeout. The bulkhead permit is held
+/// until the response headers arrive, so a slow upstream cannot take every connection;
+/// a body that streams slowly afterwards is not counted.
 pub async fn forward(
     State(state): State<AppState>,
     Extension(upstream): Extension<Upstream>,
@@ -45,6 +47,10 @@ pub async fn forward(
     body: Result<Bytes, BytesRejection>,
 ) -> Result<Response, GatewayError> {
     let url = upstream_url(&upstream.url, &parts.uri)?;
+    let _in_flight = upstream
+        .bulkhead
+        .try_acquire()
+        .map_err(|_| GatewayError::BulkheadFull)?;
     let headers = request_headers(parts.headers, &trace, user.map(|user| user.0))?;
     let body = body?;
     let method = parts.method;

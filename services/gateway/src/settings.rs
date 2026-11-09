@@ -62,6 +62,12 @@ pub struct UpstreamSettings {
         deserialize_with = "optional_seconds"
     )]
     pub booking_timeout: Option<Duration>,
+    #[serde(default)]
+    pub catalog_max_concurrent: Option<usize>,
+    #[serde(default)]
+    pub seat_hold_max_concurrent: Option<usize>,
+    #[serde(default)]
+    pub booking_max_concurrent: Option<usize>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -129,6 +135,20 @@ impl Default for BreakerSettings {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(default)]
+pub struct BulkheadSettings {
+    pub max_concurrent: usize,
+}
+
+impl Default for BulkheadSettings {
+    fn default() -> Self {
+        Self {
+            max_concurrent: 200,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(default)]
 pub struct LimitSettings {
     pub max_body_bytes: usize,
 }
@@ -160,6 +180,8 @@ pub struct Settings {
     pub retry: RetrySettings,
     #[serde(default)]
     pub breaker: BreakerSettings,
+    #[serde(default)]
+    pub bulkhead: BulkheadSettings,
     #[serde(default)]
     pub limits: LimitSettings,
     #[serde(default)]

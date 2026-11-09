@@ -7,6 +7,7 @@ use axum::routing::{any, get};
 use axum::{Extension, Router};
 use reqwest::redirect::Policy;
 use reqwest::{Client, Url};
+use tokio::sync::Semaphore;
 
 use crate::auth::{TokenVerifier, authenticate};
 use crate::breaker::CircuitBreaker;
@@ -22,23 +23,34 @@ pub struct AppState {
     pub retry: RetrySettings,
 }
 
-/// One upstream with its own timeout, retry budget and circuit breaker: a failing
-/// catalog spends nothing of seat-hold's and does not open seat-hold's breaker.
+/// One upstream with its own timeout, retry budget, circuit breaker and bulkhead:
+/// a failing or slow catalog spends nothing of seat-hold's.
 #[derive(Clone)]
 pub struct Upstream {
     pub url: Url,
     pub timeout: Duration,
     pub budget: Arc<RetryBudget>,
     pub breaker: Arc<CircuitBreaker>,
+    /// A permit per request in flight to this upstream, retries included.
+    pub bulkhead: Arc<Semaphore>,
+}
+
+struct UpstreamLimits {
+    timeout: Option<Duration>,
+    max_concurrent: Option<usize>,
 }
 
 impl Upstream {
-    fn new(name: &'static str, url: &Url, timeout: Option<Duration>, settings: &Settings) -> Self {
+    fn new(name: &'static str, url: &Url, limits: &UpstreamLimits, settings: &Settings) -> Self {
+        let max_concurrent = limits
+            .max_concurrent
+            .unwrap_or(settings.bulkhead.max_concurrent);
         Self {
             url: url.clone(),
-            timeout: timeout.unwrap_or(settings.client.request_timeout),
+            timeout: limits.timeout.unwrap_or(settings.client.request_timeout),
             budget: Arc::new(RetryBudget::new(&settings.retry)),
             breaker: Arc::new(CircuitBreaker::new(name, &settings.breaker)),
+            bulkhead: Arc::new(Semaphore::new(max_concurrent)),
         }
     }
 }
@@ -62,19 +74,28 @@ pub fn build_app(settings: &Settings) -> Result<Router, reqwest::Error> {
     let catalog = Upstream::new(
         "catalog",
         &upstreams.catalog_url,
-        upstreams.catalog_timeout,
+        &UpstreamLimits {
+            timeout: upstreams.catalog_timeout,
+            max_concurrent: upstreams.catalog_max_concurrent,
+        },
         settings,
     );
     let seat_hold = Upstream::new(
         "seat-hold",
         &upstreams.seat_hold_url,
-        upstreams.seat_hold_timeout,
+        &UpstreamLimits {
+            timeout: upstreams.seat_hold_timeout,
+            max_concurrent: upstreams.seat_hold_max_concurrent,
+        },
         settings,
     );
     let booking = Upstream::new(
         "booking",
         &upstreams.booking_url,
-        upstreams.booking_timeout,
+        &UpstreamLimits {
+            timeout: upstreams.booking_timeout,
+            max_concurrent: upstreams.booking_max_concurrent,
+        },
         settings,
     );
     let protected = upstream_routes("/api/v1/events", catalog)
