@@ -4,6 +4,7 @@ pub mod breaker;
 pub mod errors;
 pub mod handlers;
 pub mod logging;
+pub mod rate_limit;
 pub mod retry;
 pub mod settings;
 pub mod shutdown;

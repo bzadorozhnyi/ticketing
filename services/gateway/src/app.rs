@@ -13,6 +13,7 @@ use crate::auth::{TokenVerifier, authenticate};
 use crate::breaker::CircuitBreaker;
 use crate::errors::GatewayError;
 use crate::handlers::{health, proxy};
+use crate::rate_limit::{self, RateLimiter};
 use crate::retry::RetryBudget;
 use crate::settings::{ClientSettings, RetrySettings, Settings};
 use crate::trace_context::trace_request;
@@ -62,7 +63,17 @@ fn upstream_routes(prefix: &str, upstream: Upstream) -> Router<AppState> {
         .route_layer(Extension(upstream))
 }
 
-pub fn build_app(settings: &Settings) -> Result<Router, reqwest::Error> {
+#[derive(Debug, thiserror::Error)]
+pub enum BuildError {
+    #[error(transparent)]
+    Client(#[from] reqwest::Error),
+    #[error(transparent)]
+    RateLimit(#[from] redis::RedisError),
+}
+
+/// # Errors
+/// An HTTP client that cannot be built, or an invalid Valkey URL.
+pub fn build_app(settings: &Settings) -> Result<Router, BuildError> {
     let state = AppState {
         client: build_client(&settings.client)?,
         retry: settings.retry.clone(),
@@ -98,10 +109,14 @@ pub fn build_app(settings: &Settings) -> Result<Router, reqwest::Error> {
         },
         settings,
     );
-    let protected = upstream_routes("/api/v1/events", catalog)
+    let mut protected = upstream_routes("/api/v1/events", catalog)
         .merge(upstream_routes("/api/v1/holds", seat_hold))
-        .merge(upstream_routes("/api/v1/orders", booking))
-        .route_layer(from_fn_with_state(verifier, authenticate));
+        .merge(upstream_routes("/api/v1/orders", booking));
+    // The last layer added runs first: the token is checked before the rate limit.
+    if let Some(limiter) = RateLimiter::new(&settings.rate_limit, &settings.breaker)? {
+        protected = protected.route_layer(from_fn_with_state(Arc::new(limiter), rate_limit::limit));
+    }
+    let protected = protected.route_layer(from_fn_with_state(verifier, authenticate));
 
     Ok(Router::new()
         .route("/health", get(health::health))

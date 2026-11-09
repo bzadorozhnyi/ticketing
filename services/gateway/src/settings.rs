@@ -149,6 +149,27 @@ impl Default for BulkheadSettings {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(default)]
+pub struct RateLimitSettings {
+    pub valkey_url: Option<String>,
+    pub per_second: f64,
+    pub burst: u32,
+    #[serde(rename = "timeout_seconds", deserialize_with = "seconds")]
+    pub timeout: Duration,
+}
+
+impl Default for RateLimitSettings {
+    fn default() -> Self {
+        Self {
+            valkey_url: None,
+            per_second: 10.0,
+            burst: 20,
+            timeout: Duration::from_millis(50),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(default)]
 pub struct LimitSettings {
     pub max_body_bytes: usize,
 }
@@ -182,6 +203,8 @@ pub struct Settings {
     pub breaker: BreakerSettings,
     #[serde(default)]
     pub bulkhead: BulkheadSettings,
+    #[serde(default)]
+    pub rate_limit: RateLimitSettings,
     #[serde(default)]
     pub limits: LimitSettings,
     #[serde(default)]

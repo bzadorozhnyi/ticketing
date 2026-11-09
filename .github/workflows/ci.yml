@@ -65,6 +65,8 @@ jobs:
       - run: rustup component add clippy rustfmt
       - if: matrix.project == 'services/seat-hold'
         run: docker compose up -d --wait seat-hold-db
+      - if: matrix.project == 'services/gateway'
+        run: docker compose up -d --wait valkey
       - uses: Swatinem/rust-cache@v2.9.3
         with:
           workspaces: ${{ matrix.project }}
