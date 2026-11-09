@@ -21,6 +21,7 @@ from payments.services.provider import (
     TOKEN_DECLINED,
     TOKEN_SLOW,
 )
+from tests.helpers.ledger import money_held, operations
 from tests_e2e.helpers import (
     Broker,
     bodies,
@@ -114,6 +115,8 @@ async def test_a_duplicate_command_takes_money_once(broker, session_maker):
     assert len(replies) == 3
     assert len({reply["charge_id"] for reply in replies}) == 1
     assert await count_charges(session_maker, order_id) == 1
+    async with session_maker() as session:
+        assert await money_held(session, order_id) == 10_000
 
 
 async def test_a_refund_command_returns_money(broker, session_maker):
@@ -128,6 +131,8 @@ async def test_a_refund_command_returns_money(broker, session_maker):
     assert reply is not None
     assert json.loads(reply.body)["status"] == "refunded"
     assert await count_refunds_of_order(session_maker, order_id) == 1
+    async with session_maker() as session:
+        assert await money_held(session, order_id) == 0
 
 
 async def test_the_reply_keeps_the_trace(broker, session_maker):
@@ -244,6 +249,9 @@ async def test_a_killed_consumer_redelivers_and_charges_once(
         assert reply is not None
         assert json.loads(reply.body)["status"] == "succeeded"
         assert await count_charges(session_maker, order_id) == 1
+        async with session_maker() as session:
+            assert await money_held(session, order_id) == 10_000
+            assert await operations(session, order_id) == 1
     finally:
         second.send_signal(signal.SIGTERM)
     assert await_exit(second) == 0

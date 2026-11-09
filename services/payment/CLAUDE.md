@@ -34,6 +34,10 @@ docker compose up -d --wait --build                     # db -> payment-migrate 
 - There are no API routes yet, so tests use the `probe_routes` fixture (`tests/helpers/probe_routes.py`).
   Replace them with real routes as they appear.
 - `tests/factories/` and factory-boy come with the first entity; catalog shows the setup.
+- `MockProvider` keeps its own ledger, `provider_operations`, committed apart from our transaction like an external system.
+  Count money by it (`tests/helpers/ledger.py`), not by our `charges` table. Unit tests give the provider a second session
+  on the test's connection (`tests/helpers/provider.py`), so its commit is a savepoint; `tests_e2e` checks the real separate commit.
+- Never hold a database connection while the provider answers: commit before the call. The mock shares our pool, so a held connection deadlocks.
 
 ## Payments
 
