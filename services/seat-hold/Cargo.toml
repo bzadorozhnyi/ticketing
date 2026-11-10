@@ -9,6 +9,9 @@ publish = false
 axum = "0.8.9"
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "serde"] }
 config = { version = "0.15.27", default-features = false }
+opentelemetry = { version = "0.33.1", default-features = false, features = ["trace", "metrics", "futures"] }
+opentelemetry-otlp = { version = "0.33.1", default-features = false, features = ["http-proto", "reqwest-blocking-client", "trace", "metrics"] }
+opentelemetry_sdk = { version = "0.33.1", default-features = false, features = ["trace", "metrics"] }
 rand = "0.10.3"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1"
@@ -21,6 +24,7 @@ utoipa = { version = "6.0.0", features = ["chrono", "uuid"] }
 uuid = { version = "1.29.0", features = ["serde", "v7"] }
 
 [dev-dependencies]
+opentelemetry_sdk = { version = "0.33.1", default-features = false, features = ["trace", "metrics", "testing"] }
 bon = "3.10.3"
 reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
 tokio = { version = "1.54.1", features = ["sync"] }

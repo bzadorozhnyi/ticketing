@@ -5,7 +5,6 @@ Next ticket: TIK-58
 ## In progress
 
 ## To do
-- [ ] TIK-54 Seat-hold: OpenTelemetry traces and metrics (M6)
 - [ ] TIK-55 Dashboards and SLOs with burn-rate rules (M6)
 - [ ] TIK-56 Experiment: find the cause of a failure from dashboards and traces only (M6)
 - [ ] TIK-49 Ingress: TLS and HTTP/2 at the edge; measure HTTP/2 to the gateway and its effect on balancing (M8)
@@ -64,3 +63,4 @@ Next ticket: TIK-58
 - [x] TIK-52 Gateway: OpenTelemetry traces and metrics (M6)
 - [x] TIK-53 Catalog: OpenTelemetry traces and metrics, the template for the Python services (M6)
 - [x] TIK-57 Booking and payment: OpenTelemetry, one trace per order through the saga and RabbitMQ (M6)
+- [x] TIK-54 Seat-hold: OpenTelemetry traces and metrics (M6)

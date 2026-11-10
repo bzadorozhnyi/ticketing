@@ -45,6 +45,8 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
 | `HOLDS__CLEANUP_INTERVAL_SECONDS` | 60 | how often expired rows are removed |
 | `HOLDS__CLEANUP_BATCH_SIZE` | 1000 | rows removed in one statement |
 | `HOLDS__IDEMPOTENCY_RETENTION_SECONDS` | 86400 | how long a used `Idempotency-Key` is remembered |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | none | OTLP/HTTP collector; without it nothing is exported |
+| `OTEL_SERVICE_NAME` | `unknown_service` | `seat-hold` in compose |
 | `PORT` | 8000 | listening port |
 | `LOGGING__FORMAT` | `JSON` | `JSON` or `PRETTY` |
 | `LOGGING__LEVEL` | `INFO` | `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE` |
@@ -52,7 +54,12 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
 ## Notes
 
 - Migrations are SQL files in `migrations/`, embedded into the `migrate` binary.
-- The trace comes from the gateway: a valid `traceparent` is continued, an invalid one starts a new trace.
+- The trace comes from the gateway: a valid `traceparent` is continued, an invalid one starts a new trace that is not
+  recorded (ADR 0006: a trace starts only at the gateway). `core/telemetry/` mirrors the gateway's: a server span per
+  request named by route template, `http.server.request.duration` with `error.type` = the error code, and
+  `db.client.connection.count` for the pool. sqlx makes no spans, so each repository function opens one with
+  `let _span = db_span("INSERT", "holds");`; the context is attached to the task, so it needs no extra argument.
+  The per-user lock shows as `SELECT pg_advisory_xact_lock`. Histograms are exponential.
 - `POST /api/v1/holds` takes all seats or none, see ADR 0003. `X-User-Id` is the owner, set by the gateway from the token.
 - Before its transaction, `POST /api/v1/holds` reads who holds the seats and answers 409 at once when another user does:
   the insert's `ON CONFLICT` locks the row even to refuse, so refusals for a hot seat would queue on one lock and hold

@@ -65,6 +65,7 @@ x-seat-hold: &seat-hold
     <<: *service-db-env
     DB__NAME: seat_hold_db
     DB__HOST: seat-hold-db
+    OTEL_SERVICE_NAME: seat-hold
 
 services:
   rabbitmq:

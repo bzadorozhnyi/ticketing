@@ -155,3 +155,4 @@
 - The plan said booking calls its upstreams with httpx; it uses aiohttp. Reading the client before adding an instrumentation saved a dependency that would have done nothing; a client span by hand in the one class that knows the HTTP library was enough.
 - Storing the `traceparent` as a column default kept telemetry out of every use case: SQLAlchemy calls `current_traceparent()` in the same INSERT, and a test of the mutation that removed it failed at once.
 - Health checks and polls would have filled Tempo with empty traces; `ParentBased(root=ALWAYS_OFF)` behind the gateway keeps only traces that a client started. The gateway itself still traces Docker's `/ready` checks.
+- With seat-hold traced, the trace of a purchase shows every statement it ran: the saga's first call to seat-hold took 17 ms on its side and 1 ms in seat-hold, the gap most likely a new connection after a restart (assumed, not checked); later calls took under 2 ms.

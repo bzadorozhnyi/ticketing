@@ -3,6 +3,7 @@ use std::time::Duration;
 use sqlx::PgConnection;
 use uuid::Uuid;
 
+use crate::core::telemetry::db::db_span;
 use crate::holds::dto::hold::{Hold, NewHold};
 
 pub struct HoldRequestRepository;
@@ -18,6 +19,7 @@ impl HoldRequestRepository {
         hold: &NewHold,
         ttl: Duration,
     ) -> Result<bool, sqlx::Error> {
+        let _span = db_span("INSERT", "hold_requests");
         let result = sqlx::query!(
             r#"
             INSERT INTO hold_requests
@@ -42,6 +44,7 @@ impl HoldRequestRepository {
         owner_id: &str,
         idempotency_key: &str,
     ) -> Result<Option<Hold>, sqlx::Error> {
+        let _span = db_span("SELECT", "hold_requests");
         sqlx::query_as!(
             Hold,
             r#"
@@ -61,6 +64,7 @@ impl HoldRequestRepository {
         retention: Duration,
         batch_size: i64,
     ) -> Result<u64, sqlx::Error> {
+        let _span = db_span("DELETE", "hold_requests");
         let result = sqlx::query!(
             r#"
             DELETE FROM hold_requests

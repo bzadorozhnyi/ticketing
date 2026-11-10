@@ -4,3 +4,4 @@
 pub mod db;
 pub mod factories;
 pub mod service;
+pub mod telemetry;
