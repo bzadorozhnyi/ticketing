@@ -58,7 +58,7 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
   the insert's `ON CONFLICT` locks the row even to refuse, so refusals for a hot seat would queue on one lock and hold
   pooled connections. The read only refuses; the insert decides. A seat held by the same user goes the full way, so a repeat
   with an `Idempotency-Key` still replays.
-- A user holds at most `HOLDS__MAX_SEATS_PER_USER` seats of one event; more get 409 `conflict`. The requests of one user
+- A user holds at most `HOLDS__MAX_SEATS_PER_USER` seats of one event; more get 409 `hold_limit_reached`. The requests of one user
   for one event take turns on an advisory lock inside the transaction, so two of them cannot count the same free places;
   other users never wait for it.
 - `POST /api/v1/holds` takes an optional `Idempotency-Key`, per user. A repeat of a success returns the first response from

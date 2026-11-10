@@ -463,6 +463,7 @@
         "type": "string",
         "enum": [
           "conflict",
+          "hold_limit_reached",
           "internal_error",
           "not_found",
           "service_unavailable",

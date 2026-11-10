@@ -34,7 +34,7 @@ async fn hold(service: &str, user: &str, event_id: Uuid, count: usize) -> Respon
 async fn assert_limit_reached(response: Response) {
     assert_eq!(response.status(), StatusCode::CONFLICT);
     let body: Value = response.json().await.expect("a JSON body");
-    assert_eq!(body.get("code"), Some(&json!("conflict")));
+    assert_eq!(body.get("code"), Some(&json!("hold_limit_reached")));
     let message = format!("At most {LIMIT} seats can be held at once for one event");
     assert_eq!(body.get("message"), Some(&json!(message)));
 }

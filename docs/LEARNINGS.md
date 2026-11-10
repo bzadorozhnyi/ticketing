@@ -128,6 +128,9 @@
 - A read before the write fixes it only if it knows who holds the seat. Refusing every seat that looks taken would turn a client's repeat with the same `Idempotency-Key` into a 409 for a seat it holds.
 - The first hot-seat measurement measured the load tool: 220 Python clients at 7,400 requests/s gave 30 ms to everyone, which is just 220 / 7,400. Rust for the flood and a fixed-rate probe told the seat's cost apart from the client's queue.
 - `cargo test` stops at the first test binary that fails, so a mutation looks killed only by the tests that run first. Mutation runs need `--no-fail-fast` to see which tests catch it.
-- A new value in a response enum is a breaking change for oasdiff, and marking the enum `x-extensible-enum` is one too, once. Error codes are meant to grow, but making them so is a contract decision for every service at once (TIK-50), so the hold limit uses `conflict` for now.
+- A new value in a response enum is a breaking change for oasdiff, and marking the enum `x-extensible-enum` is one too, once. Strictly, a client generated with a closed enum may fail on an unknown code; only our own clients read these, and they look at the status.
 - In a test that runs in one transaction, `now()` stands still: a second `extend` gave exactly the same time with or without the rule, and both mutations that broke it survived. Time had to be moved in the data instead.
 - A count before an insert needs something that makes the two atomic. An advisory lock per user and event did it without a new table, and only that user's requests take turns.
+- `x-extensible-enum` would have let new error codes pass the contract check, but oasdiff then stops seeing removed codes too: a deleted `validation_error` gave "No breaking changes". We kept the strict enum and accept each new code explicitly instead.
+- oasdiff's `--err-ignore` matches a line only with the method, the path and the full text of the error, status included; a shorter line silently ignores nothing.
+- macOS ships bash 3.2, where an empty array under `set -u` is an unbound variable: the contract check crashed locally on a path CI's bash 5 never hits. `${a[@]+"${a[@]}"}` works in both.
