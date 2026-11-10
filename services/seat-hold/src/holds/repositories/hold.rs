@@ -9,6 +9,45 @@ use crate::holds::dto::hold::{Hold, NewHold, SeatHolder, TakenSeat};
 pub struct HoldRepository;
 
 impl HoldRepository {
+    /// Holds the requests of one user for one event back until the transaction ends, so
+    /// a count of their seats stays true until the insert. Other users never wait.
+    pub async fn lock_owner(
+        conn: &mut PgConnection,
+        event_id: Uuid,
+        owner_id: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query!(
+            r#"
+            SELECT 1 AS "locked!"
+            FROM pg_advisory_xact_lock(hashtextextended($1 || ':' || $2::uuid::text, 0))
+            "#,
+            owner_id,
+            event_id,
+        )
+        .fetch_one(conn)
+        .await?;
+        Ok(())
+    }
+
+    /// Seats the user holds for the event now; sold ones are not counted.
+    pub async fn count_held(
+        conn: &mut PgConnection,
+        event_id: Uuid,
+        owner_id: &str,
+    ) -> Result<i64, sqlx::Error> {
+        sqlx::query_scalar!(
+            r#"
+            SELECT count(*) AS "seats!"
+            FROM holds
+            WHERE event_id = $1 AND owner_id = $2 AND status = 'held' AND expires_at > now()
+            "#,
+            event_id,
+            owner_id,
+        )
+        .fetch_one(conn)
+        .await
+    }
+
     /// The seats among `seat_ids` that are held or sold, with their owners. A plain read
     /// without a lock, so it may be stale by the time the caller acts on it.
     pub async fn holders(
@@ -51,7 +90,8 @@ impl HoldRepository {
             ON CONFLICT (event_id, seat_id) DO UPDATE
             SET hold_id = EXCLUDED.hold_id,
                 owner_id = EXCLUDED.owner_id,
-                expires_at = EXCLUDED.expires_at
+                expires_at = EXCLUDED.expires_at,
+                extended_at = NULL
             WHERE holds.expires_at <= now() AND holds.status = 'held'
             RETURNING seat_id, expires_at
             "#,
@@ -89,7 +129,8 @@ impl HoldRepository {
         .await
     }
 
-    /// A confirmed hold counts as extended, so a repeat after a crash still succeeds.
+    /// A hold is extended once; later calls return its time unchanged. A confirmed hold
+    /// counts as extended, so a repeat after a crash still succeeds.
     pub async fn extend(
         conn: &mut PgConnection,
         hold_id: Uuid,
@@ -99,7 +140,12 @@ impl HoldRepository {
         sqlx::query_scalar!(
             r#"
             UPDATE holds
-            SET expires_at = GREATEST(expires_at, now() + make_interval(secs => $3))
+            SET expires_at = CASE
+                    WHEN extended_at IS NULL
+                    THEN GREATEST(expires_at, now() + make_interval(secs => $3))
+                    ELSE expires_at
+                END,
+                extended_at = COALESCE(extended_at, now())
             WHERE hold_id = $1
               AND owner_id = $2
               AND (status = 'confirmed' OR expires_at > now())

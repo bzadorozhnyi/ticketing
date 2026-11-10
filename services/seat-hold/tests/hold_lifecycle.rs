@@ -72,6 +72,78 @@ async fn extending_never_shortens_a_hold() {
     assert_eq!(hold_state(&pool, held.hold_id).await.unwrap().1, before);
 }
 
+async fn extended_until(service: &str, hold_id: Uuid) -> DateTime<Utc> {
+    let response = internal(service, hold_id, "extend", Some(USER)).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let body: Value = response.json().await.expect("a JSON body");
+    body.get("expires_at")
+        .and_then(Value::as_str)
+        .and_then(|at| at.parse().ok())
+        .expect("an expiry time")
+}
+
+#[tokio::test]
+async fn only_the_first_extend_adds_time() {
+    let pool = TestPool::new().await;
+    let service = spawn_service(pool.clone()).await;
+    let held = hold_factory()
+        .pool(&pool)
+        .owner_id(USER.to_owned())
+        .expires_in_seconds(10.0)
+        .call()
+        .await;
+    extended_until(&service, held.hold_id).await;
+    // A test runs in one transaction, where now() stands still: time passing is simulated.
+    let mut conn = pool.get_conn().await.unwrap();
+    let later: DateTime<Utc> = sqlx::query_scalar(
+        "UPDATE holds SET expires_at = now() + interval '1 minute' WHERE hold_id = $1
+         RETURNING expires_at",
+    )
+    .bind(held.hold_id)
+    .fetch_one(&mut *conn)
+    .await
+    .unwrap();
+    drop(conn);
+
+    let second = extended_until(&service, held.hold_id).await;
+
+    assert_eq!(second, later);
+}
+
+#[tokio::test]
+async fn a_seat_taken_over_after_an_extended_hold_can_be_extended_again() {
+    let pool = TestPool::new().await;
+    let service = spawn_service(pool.clone()).await;
+    let old = hold_factory()
+        .pool(&pool)
+        .expires_in_seconds(-1.0)
+        .call()
+        .await;
+    let mut conn = pool.get_conn().await.unwrap();
+    sqlx::query("UPDATE holds SET extended_at = now() - interval '20 minutes' WHERE hold_id = $1")
+        .bind(old.hold_id)
+        .execute(&mut *conn)
+        .await
+        .unwrap();
+    drop(conn);
+    let taken = client()
+        .post(format!("{service}/api/v1/holds"))
+        .header("x-user-id", USER)
+        .json(&json!({"event_id": old.event_id, "seat_ids": [old.seat_id]}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(taken.status(), StatusCode::CREATED);
+    let body: Value = taken.json().await.unwrap();
+    let hold_id: Uuid = body["hold_id"].as_str().unwrap().parse().unwrap();
+
+    let until = extended_until(&service, hold_id).await;
+
+    let left = (until - Utc::now()).num_seconds();
+    let expected = i64::try_from(HoldSettings::default().payment_ttl.as_secs()).unwrap();
+    assert!((expected - 10..=expected).contains(&left), "{left}");
+}
+
 #[tokio::test]
 async fn an_expired_hold_cannot_be_extended_or_confirmed() {
     let pool = TestPool::new().await;

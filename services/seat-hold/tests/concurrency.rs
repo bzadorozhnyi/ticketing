@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use axum::http::StatusCode;
 use common::service::{client, spawn_service};
+use seat_hold::core::settings::HoldSettings;
 use seat_hold::holds::dto::hold::NewHold;
 use seat_hold::holds::repositories::hold::HoldRepository;
 use serde_json::{Value, json};
@@ -288,4 +289,66 @@ async fn a_seat_held_by_another_is_refused_without_waiting_for_its_lock(pool: Pg
     let refused = refused.expect("the request waited for the row lock");
     assert_eq!(refused.status, StatusCode::CONFLICT);
     assert_eq!(refused.body["details"], json!([seat_id.to_string()]));
+}
+
+#[sqlx::test]
+async fn concurrent_requests_of_one_user_never_pass_the_limit(pool: PgPool) {
+    let (service, service_pool) = service_for(&pool).await;
+    let event_id = Uuid::now_v7();
+    let limit = usize::try_from(HoldSettings::default().max_seats_per_user).unwrap();
+    let mut requests = JoinSet::new();
+    for _ in 0..limit * 2 {
+        requests.spawn(attempt(
+            service.clone(),
+            event_id,
+            "greedy".to_owned(),
+            vec![Uuid::now_v7()],
+        ));
+    }
+
+    let attempts = requests.join_all().await;
+
+    service_pool.close().await;
+    assert_eq!(count_status(&attempts, StatusCode::CREATED), limit);
+    assert_eq!(count_status(&attempts, StatusCode::CONFLICT), limit);
+    assert_eq!(stored(&pool, event_id).await.len(), limit);
+}
+
+#[sqlx::test]
+async fn only_the_same_users_requests_for_the_event_wait_for_each_other(pool: PgPool) {
+    let event_id = Uuid::now_v7();
+    let mut busy = pool.begin().await.unwrap();
+    HoldRepository::lock_owner(&mut busy, event_id, "busy")
+        .await
+        .unwrap();
+    let (service, service_pool) = service_for(&pool).await;
+
+    let other = tokio::time::timeout(
+        Duration::from_millis(500),
+        attempt(
+            service.clone(),
+            event_id,
+            "other".to_owned(),
+            vec![Uuid::now_v7()],
+        ),
+    )
+    .await;
+    let same = tokio::spawn(attempt(
+        service,
+        event_id,
+        "busy".to_owned(),
+        vec![Uuid::now_v7()],
+    ));
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let same_waited = !same.is_finished();
+    busy.rollback().await.unwrap();
+
+    let same = same.await.unwrap();
+    service_pool.close().await;
+    assert_eq!(
+        other.expect("another user waited").status,
+        StatusCode::CREATED
+    );
+    assert!(same_waited, "the same user did not wait");
+    assert_eq!(same.status, StatusCode::CREATED);
 }

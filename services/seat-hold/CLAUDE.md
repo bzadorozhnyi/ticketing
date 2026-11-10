@@ -41,6 +41,7 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
 | `HOLDS__TTL_SECONDS` | 300 | how long a hold lasts |
 | `HOLDS__PAYMENT_TTL_SECONDS` | 900 | how long a hold lasts once extended for a payment |
 | `HOLDS__MAX_SEATS` | 10 | seats in one request |
+| `HOLDS__MAX_SEATS_PER_USER` | 10 | seats one user may hold at once for one event; sold seats do not count |
 | `HOLDS__CLEANUP_INTERVAL_SECONDS` | 60 | how often expired rows are removed |
 | `HOLDS__CLEANUP_BATCH_SIZE` | 1000 | rows removed in one statement |
 | `HOLDS__IDEMPOTENCY_RETENTION_SECONDS` | 86400 | how long a used `Idempotency-Key` is remembered |
@@ -57,11 +58,17 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
   the insert's `ON CONFLICT` locks the row even to refuse, so refusals for a hot seat would queue on one lock and hold
   pooled connections. The read only refuses; the insert decides. A seat held by the same user goes the full way, so a repeat
   with an `Idempotency-Key` still replays.
+- A user holds at most `HOLDS__MAX_SEATS_PER_USER` seats of one event; more get 409 `conflict`. The requests of one user
+  for one event take turns on an advisory lock inside the transaction, so two of them cannot count the same free places;
+  other users never wait for it.
 - `POST /api/v1/holds` takes an optional `Idempotency-Key`, per user. A repeat of a success returns the first response from
   `hold_requests`, even after the hold ended. The key is written first in the same transaction: a concurrent repeat waits on it,
   and a refused request rolls it back, so it can be tried again. The same key with another request gets 422.
 - `GET /internal/v1/holds/{hold_id}`, `POST .../extend` and `.../confirm` are for booking. The gateway does not route `/internal`:
   a client must not confirm a hold without paying. Both are safe to repeat, and both answer 409 when the hold is gone.
+- Only the first `extend` adds time (`extended_at`); later ones return the time left. A declined card keeps the hold, but new
+  orders cannot keep a seat for ever: a hold lasts at most `TTL_SECONDS` plus `PAYMENT_TTL_SECONDS`. Taking over an expired
+  seat clears the mark.
 - A confirmed seat is sold: it never expires, cannot be released, and the cleanup leaves it alone.
 - `DELETE /api/v1/holds/{hold_id}` always answers 204, so a retry is safe. Another user's hold stays untouched.
 - Background job: `holds/cleanup_job.rs` removes expired rows. Correctness does not depend on it, and replicas need no coordination.

@@ -28,6 +28,10 @@ impl<D: DbPool> ExtendHoldUseCase<D> {
     }
 
     /// Runs before a charge: if the hold is gone, no money is taken. Safe to repeat.
+    ///
+    /// Only the first call adds time. A declined card keeps the hold so the user can try
+    /// another, but new orders cannot keep a seat for ever: a hold lasts at most `ttl`
+    /// plus `payment_ttl`. A later order gets the time that is left.
     pub async fn execute(
         &self,
         hold_id: Uuid,

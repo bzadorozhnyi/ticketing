@@ -1,0 +1,1 @@
+ALTER TABLE holds ADD COLUMN extended_at TIMESTAMPTZ;

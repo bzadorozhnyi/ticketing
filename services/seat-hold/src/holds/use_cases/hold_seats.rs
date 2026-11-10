@@ -38,6 +38,10 @@ impl<D: DbPool> HoldSeatsUseCase<D> {
     /// seat every refusal would otherwise queue on its row lock and hold a pooled
     /// connection while it waits. The read only refuses; the insert below still decides.
     /// A seat held by the same user goes the full way, so a repeat with a key replays.
+    ///
+    /// A user holds at most `max_seats_per_user` seats of one event at once. The requests
+    /// of one user for one event take turns on a lock, so two of them cannot both count
+    /// the same free places.
     pub async fn execute(
         &self,
         hold: NewHold,
@@ -69,6 +73,15 @@ impl<D: DbPool> HoldSeatsUseCase<D> {
                 transaction.rollback().await?;
                 return Self::replay(stored, &hold);
             }
+        }
+
+        HoldRepository::lock_owner(&mut transaction, hold.event_id, &hold.owner_id).await?;
+        let seats_held =
+            HoldRepository::count_held(&mut transaction, hold.event_id, &hold.owner_id).await?;
+        let limit = self.settings.max_seats_per_user;
+        if seats_held + i64::try_from(hold.seat_ids.len()).unwrap_or(i64::MAX) > limit {
+            transaction.rollback().await?;
+            return Err(ServiceError::HoldLimitReached(limit));
         }
 
         let taken = HoldRepository::take_seats(&mut transaction, hold_id, &hold, ttl).await?;
