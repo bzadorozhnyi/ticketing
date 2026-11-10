@@ -14,6 +14,11 @@ pub struct Hold {
     pub expires_at: DateTime<Utc>,
 }
 
+pub struct SeatHolder {
+    pub seat_id: Uuid,
+    pub owner_id: String,
+}
+
 pub struct TakenSeat {
     pub seat_id: Uuid,
     pub expires_at: DateTime<Utc>,
