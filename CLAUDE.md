@@ -51,6 +51,12 @@ Features are secondary; failure experiments and evidence are the point.
 See ADR 0005. booking and payment talk through RabbitMQ, with a transactional outbox on the sending side.
 Calls to seat-hold are synchronous HTTP. Delivery is at least once, so every consumer is idempotent.
 
+## Observability
+
+See ADR 0006. OpenTelemetry traces and metrics over OTLP to an OpenTelemetry Collector, then Prometheus (metrics),
+Tempo (traces) and Grafana, all in the `infra/observability/` compose overlay. Telemetry is off without
+`OTEL_EXPORTER_OTLP_ENDPOINT`. Instrumentation stays at the edges, never in use cases; labels come from small fixed sets.
+
 ## Services
 
 | Service | Lang | Role |
