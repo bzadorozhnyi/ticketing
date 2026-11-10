@@ -2,9 +2,11 @@ use std::collections::VecDeque;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
+use opentelemetry::KeyValue;
 use tokio::time::Instant;
 
 use crate::settings::BreakerSettings;
+use crate::telemetry::metrics::metrics;
 
 /// Stops calling an upstream that keeps failing, so clients get an answer at once and
 /// the upstream gets time to recover. It opens when `failure_percent` of the last
@@ -70,6 +72,11 @@ impl CircuitBreaker {
     ///
     /// # Errors
     /// The time left while the breaker is open or a probe is under way.
+    #[must_use]
+    pub fn name(&self) -> &'static str {
+        self.name
+    }
+
     pub fn try_call(&self) -> Result<Call<'_>, Duration> {
         let mut state = self.lock();
         let now = Instant::now();
@@ -100,6 +107,7 @@ impl CircuitBreaker {
             } else {
                 state.mode = Mode::Closed;
                 tracing::info!(upstream = self.name, "Circuit closed");
+                self.count_transition("closed");
             }
             return;
         }
@@ -126,6 +134,15 @@ impl CircuitBreaker {
         };
         state.results.clear();
         tracing::warn!(upstream = self.name, "Circuit opened");
+        self.count_transition("open");
+    }
+
+    fn count_transition(&self, state: &'static str) {
+        let attributes = [
+            KeyValue::new("upstream", self.name),
+            KeyValue::new("state", state),
+        ];
+        metrics().breaker_transitions.add(1, &attributes);
     }
 
     fn release_probe(&self) {

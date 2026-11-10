@@ -12,6 +12,7 @@ use tokio::net::TcpListener;
 
 use crate::limits::concurrency::ConcurrencyLimit;
 use crate::settings::LimitSettings;
+use crate::telemetry::metrics::metrics;
 
 /// Serves `app` until `shutdown` completes, then waits for the requests in flight.
 ///
@@ -28,6 +29,10 @@ pub async fn serve(
     shutdown: impl Future<Output = ()>,
 ) {
     let connections = ConcurrencyLimit::new(limits.max_connections);
+    metrics().observe_in_use(
+        "gateway.connections.open",
+        vec![(connections.clone(), vec![])],
+    );
     let mut http = http1::Builder::new();
     http.timer(TokioTimer::new())
         .header_read_timeout(limits.header_timeout);
@@ -45,6 +50,7 @@ pub async fn serve(
             () = &mut shutdown => break,
         };
         let Some(place) = connections.try_enter() else {
+            metrics().refused_connections.add(1, &[]);
             continue;
         };
         let connection = graceful.watch(

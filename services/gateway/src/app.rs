@@ -1,9 +1,11 @@
 use std::sync::Arc;
 
 use axum::extract::DefaultBodyLimit;
+use axum::handler::Handler;
 use axum::middleware::{from_fn, from_fn_with_state};
 use axum::routing::{any, get};
 use axum::{Extension, Router};
+use opentelemetry::KeyValue;
 use reqwest::Client;
 use reqwest::redirect::Policy;
 
@@ -14,7 +16,8 @@ use crate::limits::concurrency::ConcurrencyLimit;
 use crate::limits::rate_limit::limiter::{self, RateLimiter};
 use crate::limits::shedding::shed;
 use crate::settings::{ClientSettings, RetrySettings, Settings};
-use crate::trace_context::trace_request;
+use crate::telemetry::metrics::metrics;
+use crate::telemetry::request::trace_request;
 use crate::upstream::{Upstream, UpstreamLimits};
 
 #[derive(Clone)]
@@ -76,6 +79,13 @@ pub fn build_app(settings: &Settings) -> Result<Router, BuildError> {
         },
         settings,
     );
+    let bulkheads = [&catalog, &seat_hold, &booking]
+        .map(|upstream| {
+            let attributes = vec![KeyValue::new("upstream", upstream.breaker.name())];
+            (upstream.bulkhead.clone(), attributes)
+        })
+        .to_vec();
+    metrics().observe_in_use("gateway.bulkhead.in_use", bulkheads);
     let mut protected = upstream_routes("/api/v1/events", catalog)
         .merge(upstream_routes("/api/v1/holds", seat_hold))
         .merge(upstream_routes("/api/v1/orders", booking));
@@ -84,6 +94,10 @@ pub fn build_app(settings: &Settings) -> Result<Router, BuildError> {
         protected = protected.route_layer(from_fn_with_state(Arc::new(limiter), limiter::limit));
     }
     let in_flight = ConcurrencyLimit::new(settings.limits.max_in_flight);
+    metrics().observe_in_use(
+        "gateway.in_flight.in_use",
+        vec![(in_flight.clone(), vec![])],
+    );
     let protected = protected
         .route_layer(from_fn_with_state(verifier, authenticate))
         .route_layer(from_fn_with_state(in_flight, shed));
@@ -92,9 +106,10 @@ pub fn build_app(settings: &Settings) -> Result<Router, BuildError> {
         .route("/health", get(health::health))
         .route("/ready", get(health::health))
         .merge(protected)
-        .fallback(async || GatewayError::NotFound)
+        // After routing, so the route template is known; the fallback gets the same layer.
+        .route_layer(from_fn(trace_request))
+        .fallback((async || GatewayError::NotFound).layer(from_fn(trace_request)))
         .layer(DefaultBodyLimit::max(settings.limits.max_body_bytes))
-        .layer(from_fn(trace_request))
         .with_state(state))
 }
 

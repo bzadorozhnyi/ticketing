@@ -1,12 +1,14 @@
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
+use opentelemetry::Context;
 use reqwest::{Method, RequestBuilder, Response, StatusCode};
 use tokio::time::{Instant, sleep};
 
 use crate::errors::GatewayError;
 use crate::resilience::breaker::CircuitBreaker;
 use crate::settings::RetrySettings;
+use crate::telemetry::upstream::UpstreamAttempt;
 
 const UPSTREAM_FAILURES: [StatusCode; 3] = [
     StatusCode::BAD_GATEWAY,
@@ -78,6 +80,7 @@ impl RetryBudget {
 /// # Errors
 /// The last error of the upstream, or `CircuitOpen` when no attempt was allowed.
 pub async fn send(
+    parent: &Context,
     settings: &RetrySettings,
     budget: &RetryBudget,
     breaker: &CircuitBreaker,
@@ -92,7 +95,9 @@ pub async fn send(
     let mut attempt = 1;
     loop {
         let remaining = deadline.saturating_duration_since(Instant::now());
-        let result = request(remaining).send().await;
+        let span = UpstreamAttempt::start(parent, breaker.name(), method, attempt);
+        let result = span.propagate(request(remaining)).send().await;
+        span.finish(&result);
         call.finish(is_failure(&result));
         let (status, no_answer) = match &result {
             Ok(response) => (Some(response.status()), false),

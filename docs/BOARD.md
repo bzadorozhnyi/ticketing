@@ -5,7 +5,6 @@ Next ticket: TIK-57
 ## In progress
 
 ## To do
-- [ ] TIK-52 Gateway: OpenTelemetry traces and metrics (M6)
 - [ ] TIK-53 Python services: OpenTelemetry traces and metrics, through RabbitMQ too (M6)
 - [ ] TIK-54 Seat-hold: OpenTelemetry traces and metrics (M6)
 - [ ] TIK-55 Dashboards and SLOs with burn-rate rules (M6)
@@ -63,3 +62,4 @@ Next ticket: TIK-57
 - [x] TIK-37 Seat-hold: limit active holds per user, one user cannot block a hall (M5)
 - [x] TIK-50 Seat-hold: `hold_limit_reached` error code; accepted breaking changes in the contract check
 - [x] TIK-51 Observability: Collector, Prometheus, Tempo and Grafana in a compose overlay, ADR (M6)
+- [x] TIK-52 Gateway: OpenTelemetry traces and metrics (M6)

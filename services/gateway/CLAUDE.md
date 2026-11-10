@@ -15,7 +15,9 @@ src/
     shedding.rs    the limit of requests in flight
     rate_limit/    per user: replica buckets (local.rs), then Valkey (shared.rs), joined in limiter.rs
   resilience/      calls to upstreams: breaker.rs, retry.rs
-  auth.rs  trace_context.rs  errors.rs  settings.rs  logging.rs  shutdown.rs
+  telemetry/       OpenTelemetry: init.rs (providers, the tracer), metrics.rs (every instrument), method.rs,
+                   request.rs (server span and request metrics), upstream.rs (a span per attempt, traceparent)
+  auth.rs  errors.rs  settings.rs  logging.rs  shutdown.rs
 ```
 
 ## Run
@@ -74,6 +76,9 @@ Read from the environment with the `config` crate; a wrong value stops the start
 | `LIMITS__MAX_IN_FLIGHT` | 1000 | requests in work in this replica; more get 503 `overloaded` at once. Bodies are buffered, so this times `MAX_BODY_BYTES` bounds their memory |
 | `LIMITS__MAX_CONNECTIONS` | 10000 | open client connections; more are closed at once. Keep it below the open-file limit minus the sum of the bulkheads (sockets to upstreams). An idle connection costs about 32 KB |
 | `LIMITS__HEADER_TIMEOUT_SECONDS` | 30 | time to send the headers of a request; also the longest a keep-alive connection may stay idle |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | none | OTLP/HTTP collector, e.g. `http://otel-collector:4318`; without it nothing is exported |
+| `OTEL_SERVICE_NAME` | `unknown_service` | `gateway` in compose; the `job` label in Prometheus |
+| `OTEL_METRIC_EXPORT_INTERVAL` | 60000 | milliseconds between metric exports; 10000 in the observability overlay |
 | `PORT` | 8000 | listening port |
 | `LOGGING__FORMAT` | `JSON` | `JSON` or `PRETTY` |
 | `LOGGING__LEVEL` | `INFO` | `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE` |
@@ -108,5 +113,17 @@ Read from the environment with the `config` crate; a wrong value stops the start
   it is added in `app.rs` outside the `protected` router. `/health` and `/ready` are public.
 - Upstreams trust `X-User-Id`: it comes from the token `sub`; the client's value and the `Authorization` header never pass.
 - A trace always starts here. Client `traceparent` and `tracestate` are dropped.
+- Telemetry (ADR 0006): a server span per request, named by method and route template, and a client span per attempt
+  to an upstream (named by method, the upstream in `server.address`), so a retry shows as a second attempt; the upstream
+  gets that attempt's `traceparent`. `trace_request` is a route layer, so the route is known; the fallback has its own
+  copy of it. Without a collector spans are not recorded (`AlwaysOff`) but still get ids, sent as not sampled.
+  The ADR 0002 benchmark runs without the overlay, so its numbers are the gateway without telemetry; with the overlay
+  every request is traced and exported, about 9 % of the maximum (`docs/CLAIMS.md`).
+  Metrics: `http.server.request.duration` (method, route, status, `error.type` = the gateway's error code, so every
+  refusal shows with its reason), `http.client.request.duration` (upstream, status or `timeout`/`connection`),
+  `gateway.{bulkhead,in_flight,connections}.*` places in use, `gateway.breaker.transitions`,
+  `gateway.rate_limit.shared_skipped`, `gateway.connections.refused`. Instruments live in `telemetry/metrics.rs`;
+  a module records with one line where it already handles the event. Spans get ids even without a collector,
+  because the logs and the upstreams need the trace id.
 - In JSON logs the id is at `span.trace_id`; in the Python services it is at `record.extra.trace_id`.
 - Paths with `..` or `%2e%2e` get 404: the URL library would resolve them to a route that was never matched.

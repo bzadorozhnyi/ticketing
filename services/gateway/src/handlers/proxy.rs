@@ -4,8 +4,8 @@ use axum::extract::State;
 use axum::extract::rejection::BytesRejection;
 use axum::http::Uri;
 use axum::http::header::{
-    AUTHORIZATION, CONNECTION, HeaderMap, HeaderName, HeaderValue, PROXY_AUTHENTICATE,
-    PROXY_AUTHORIZATION, TE, TRAILER, TRANSFER_ENCODING, UPGRADE,
+    AUTHORIZATION, CONNECTION, HeaderMap, HeaderName, PROXY_AUTHENTICATE, PROXY_AUTHORIZATION, TE,
+    TRAILER, TRANSFER_ENCODING, UPGRADE,
 };
 use axum::http::request::Parts;
 use axum::response::Response;
@@ -16,7 +16,7 @@ use crate::app::AppState;
 use crate::auth::AuthenticatedUser;
 use crate::errors::GatewayError;
 use crate::resilience::retry;
-use crate::trace_context::TraceContext;
+use crate::telemetry::request::RequestContext;
 use crate::upstream::Upstream;
 
 const TRACEPARENT: HeaderName = HeaderName::from_static("traceparent");
@@ -42,7 +42,7 @@ const HOP_BY_HOP: [HeaderName; 9] = [
 pub async fn forward(
     State(state): State<AppState>,
     Extension(upstream): Extension<Upstream>,
-    Extension(trace): Extension<TraceContext>,
+    Extension(RequestContext(context)): Extension<RequestContext>,
     user: Option<Extension<AuthenticatedUser>>,
     parts: Parts,
     body: Result<Bytes, BytesRejection>,
@@ -52,11 +52,12 @@ pub async fn forward(
         .bulkhead
         .try_enter()
         .ok_or(GatewayError::BulkheadFull)?;
-    let headers = request_headers(parts.headers, &trace, user.map(|user| user.0))?;
+    let headers = request_headers(parts.headers, user.map(|user| user.0));
     let body = body?;
     let method = parts.method;
     let deadline = Instant::now() + upstream.timeout;
     let response = retry::send(
+        &context,
         &state.retry,
         &upstream.budget,
         &upstream.breaker,
@@ -88,22 +89,17 @@ fn upstream_url(base: &Url, uri: &Uri) -> Result<Url, GatewayError> {
     }
 }
 
-fn request_headers(
-    mut headers: HeaderMap,
-    trace: &TraceContext,
-    user: Option<AuthenticatedUser>,
-) -> Result<HeaderMap, GatewayError> {
+/// A client's own `traceparent` and `tracestate` never pass: each attempt sends its own.
+fn request_headers(mut headers: HeaderMap, user: Option<AuthenticatedUser>) -> HeaderMap {
     remove_hop_by_hop(&mut headers);
     headers.remove(AUTHORIZATION);
+    headers.remove(TRACEPARENT);
     headers.remove(TRACESTATE);
     headers.remove(X_USER_ID);
     if let Some(AuthenticatedUser(user_id)) = user {
         headers.insert(X_USER_ID, user_id);
     }
-    let traceparent =
-        HeaderValue::try_from(trace.traceparent()).map_err(|_| GatewayError::UpstreamFailed)?;
-    headers.insert(TRACEPARENT, traceparent);
-    Ok(headers)
+    headers
 }
 
 fn into_response(upstream: reqwest::Response) -> Response {
@@ -125,6 +121,8 @@ fn remove_hop_by_hop(headers: &mut HeaderMap) {
 
 #[cfg(test)]
 mod tests {
+    use axum::http::header::HeaderValue;
+
     use super::*;
 
     #[test]
@@ -132,7 +130,7 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert(X_USER_ID, HeaderValue::from_static("admin"));
 
-        let forwarded = request_headers(headers, &TraceContext::generate(), None).unwrap();
+        let forwarded = request_headers(headers, None);
 
         assert!(!forwarded.contains_key(X_USER_ID));
     }

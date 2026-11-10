@@ -5,11 +5,13 @@ use gateway::logging;
 use gateway::server::serve::serve;
 use gateway::settings::Settings;
 use gateway::shutdown::shutdown_signal;
+use gateway::telemetry::init as telemetry;
 use tokio::net::TcpListener;
 use tokio::signal::unix::{SignalKind, signal};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+    let telemetry = telemetry::init()?;
     let settings = Settings::from_env()?;
     logging::init(&settings.logging)?;
 
@@ -19,6 +21,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     tracing::info!(port = settings.port, "Gateway started");
     serve(listener, app, &settings.limits, shutdown_signal(terminate)).await;
+    telemetry.shutdown();
     tracing::info!("Gateway stopped");
     Ok(())
 }

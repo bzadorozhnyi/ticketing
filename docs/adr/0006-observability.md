@@ -41,17 +41,20 @@ Checked on 2026-11-10, each released at least two weeks before.
 | `prom/prometheus` | v3.15.1 |
 | `grafana/tempo` | 3.1.1 |
 | `grafana/grafana` | 13.2.5 |
-| Rust: `opentelemetry`, `opentelemetry_sdk`, `opentelemetry-otlp`; `tracing-opentelemetry` | 0.33.1; 0.34.0 |
+| Rust: `opentelemetry`, `opentelemetry_sdk`, `opentelemetry-otlp` | 0.33.1 |
 | Python: `opentelemetry-sdk`, `opentelemetry-exporter-otlp-proto-http`; instrumentation | 1.45.2; 0.66b2 |
 
-The Rust project lists metrics as stable and traces as beta. The Python SQLAlchemy instrumentation supports only
+The Rust project lists metrics as stable and traces as beta. The gateway creates spans with the OpenTelemetry API, not
+through `tracing-opentelemetry`: the bridge would tie the trace id to a global `tracing` subscriber. The OTLP exporter
+uses the blocking `reqwest` client, as its docs require for the SDK's batch processors, which run on their own threads. The Python SQLAlchemy instrumentation supports only
 SQLAlchemy below 2.1, and the services use 2.1.6: database spans come from the `asyncpg` instrumentation instead, and the
 wait for a pooled connection is measured with SQLAlchemy's pool events.
 
 ## Consequences
 
 - Four more containers when the overlay is on.
-- Telemetry costs CPU in every request; it is measured on the ADR 0002 benchmark when the gateway is instrumented.
+- Telemetry costs CPU in every request: at the gateway's maximum 2 % without a collector, 9 % with every request traced,
+  4 % with one in ten (`docs/CLAIMS.md`). Sampling is how that cost is chosen.
 - A histogram gives a percentile only to the width of its bucket, so a dashboard and the load tool can disagree.
 - The saga and the relay work later, in the background: their spans are linked to the order's trace, not nested in it.
 

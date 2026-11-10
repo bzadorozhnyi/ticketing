@@ -8,5 +8,5 @@ pub mod resilience;
 pub mod server;
 pub mod settings;
 pub mod shutdown;
-pub mod trace_context;
+pub mod telemetry;
 pub mod upstream;

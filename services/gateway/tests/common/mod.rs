@@ -3,4 +3,5 @@
 
 pub mod app;
 pub mod client;
+pub mod telemetry;
 pub mod upstream;
