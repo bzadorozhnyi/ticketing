@@ -5,7 +5,6 @@ Next ticket: TIK-50
 ## In progress
 
 ## To do
-- [ ] TIK-47 Seat-hold: a hot seat, read before write (M5)
 - [ ] TIK-37 Seat-hold: limit active holds per user, one user cannot block a hall (M5)
 - [ ] TIK-49 Ingress: TLS and HTTP/2 at the edge; measure HTTP/2 to the gateway and its effect on balancing (M8)
 
@@ -56,3 +55,4 @@ Next ticket: TIK-50
 - [x] TIK-45 Gateway: rate limit per user, shared in Valkey (M5)
 - [x] TIK-48 Gateway: group modules by what they protect
 - [x] TIK-46 Gateway: load shedding, limits of connections and requests in flight, header read timeout (M5)
+- [x] TIK-47 Seat-hold: a hot seat, read before write (M5)

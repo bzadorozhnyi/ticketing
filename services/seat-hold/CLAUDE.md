@@ -53,6 +53,10 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
 - Migrations are SQL files in `migrations/`, embedded into the `migrate` binary.
 - The trace comes from the gateway: a valid `traceparent` is continued, an invalid one starts a new trace.
 - `POST /api/v1/holds` takes all seats or none, see ADR 0003. `X-User-Id` is the owner, set by the gateway from the token.
+- Before its transaction, `POST /api/v1/holds` reads who holds the seats and answers 409 at once when another user does:
+  the insert's `ON CONFLICT` locks the row even to refuse, so refusals for a hot seat would queue on one lock and hold
+  pooled connections. The read only refuses; the insert decides. A seat held by the same user goes the full way, so a repeat
+  with an `Idempotency-Key` still replays.
 - `POST /api/v1/holds` takes an optional `Idempotency-Key`, per user. A repeat of a success returns the first response from
   `hold_requests`, even after the hold ended. The key is written first in the same transaction: a concurrent repeat waits on it,
   and a refused request rolls it back, so it can be tried again. The same key with another request gets 422.

@@ -254,3 +254,38 @@ async fn concurrent_repeats_with_one_key_hold_once(pool: PgPool) {
     assert!(results.iter().all(|(_, hold_id)| hold_id == first));
     assert_eq!(stored(&pool, event_id).await.len(), 1);
 }
+
+#[sqlx::test]
+async fn a_seat_held_by_another_is_refused_without_waiting_for_its_lock(pool: PgPool) {
+    let (event_id, seat_id) = (Uuid::now_v7(), Uuid::now_v7());
+    sqlx::query(
+        "INSERT INTO holds (event_id, seat_id, hold_id, owner_id, expires_at)
+         VALUES ($1, $2, $3, 'owner', now() + interval '5 minutes')",
+    )
+    .bind(event_id)
+    .bind(seat_id)
+    .bind(Uuid::now_v7())
+    .execute(&pool)
+    .await
+    .unwrap();
+    let mut locker = pool.begin().await.unwrap();
+    sqlx::query("SELECT 1 FROM holds WHERE event_id = $1 AND seat_id = $2 FOR UPDATE")
+        .bind(event_id)
+        .bind(seat_id)
+        .execute(&mut *locker)
+        .await
+        .unwrap();
+    let (service, service_pool) = service_for(&pool).await;
+
+    let refused = tokio::time::timeout(
+        Duration::from_millis(500),
+        attempt(service, event_id, "other".to_owned(), vec![seat_id]),
+    )
+    .await;
+
+    locker.rollback().await.unwrap();
+    service_pool.close().await;
+    let refused = refused.expect("the request waited for the row lock");
+    assert_eq!(refused.status, StatusCode::CONFLICT);
+    assert_eq!(refused.body["details"], json!([seat_id.to_string()]));
+}

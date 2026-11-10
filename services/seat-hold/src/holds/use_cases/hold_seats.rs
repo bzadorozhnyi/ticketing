@@ -33,6 +33,11 @@ impl<D: DbPool> HoldSeatsUseCase<D> {
     /// All seats or none: if any seat is taken, the transaction is rolled back, and the
     /// key with it, so a refused request can be tried again. With a key, a repeat of a
     /// successful request returns the first result, even after the hold has ended.
+    ///
+    /// A seat held by another user is refused after a read, before any lock: on a hot
+    /// seat every refusal would otherwise queue on its row lock and hold a pooled
+    /// connection while it waits. The read only refuses; the insert below still decides.
+    /// A seat held by the same user goes the full way, so a repeat with a key replays.
     pub async fn execute(
         &self,
         hold: NewHold,
@@ -43,6 +48,15 @@ impl<D: DbPool> HoldSeatsUseCase<D> {
         let hold_id = Uuid::now_v7();
         let ttl = self.settings.ttl;
         let mut conn = self.db.get_conn().await?;
+        let holders = HoldRepository::holders(&mut conn, hold.event_id, &hold.seat_ids).await?;
+        if holders.iter().any(|seat| seat.owner_id != hold.owner_id) {
+            let taken = hold
+                .seat_ids
+                .into_iter()
+                .filter(|seat_id| holders.iter().any(|seat| seat.seat_id == *seat_id))
+                .collect();
+            return Err(ServiceError::SeatsTaken(taken));
+        }
         let mut transaction = conn.begin().await?;
 
         if let Some(key) = idempotency_key {

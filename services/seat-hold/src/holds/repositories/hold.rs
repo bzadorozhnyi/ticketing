@@ -4,11 +4,34 @@ use chrono::{DateTime, Utc};
 use sqlx::PgConnection;
 use uuid::Uuid;
 
-use crate::holds::dto::hold::{Hold, NewHold, TakenSeat};
+use crate::holds::dto::hold::{Hold, NewHold, SeatHolder, TakenSeat};
 
 pub struct HoldRepository;
 
 impl HoldRepository {
+    /// The seats among `seat_ids` that are held or sold, with their owners. A plain read
+    /// without a lock, so it may be stale by the time the caller acts on it.
+    pub async fn holders(
+        conn: &mut PgConnection,
+        event_id: Uuid,
+        seat_ids: &[Uuid],
+    ) -> Result<Vec<SeatHolder>, sqlx::Error> {
+        sqlx::query_as!(
+            SeatHolder,
+            r#"
+            SELECT seat_id, owner_id
+            FROM holds
+            WHERE event_id = $1
+              AND seat_id = ANY($2)
+              AND (status = 'confirmed' OR expires_at > now())
+            "#,
+            event_id,
+            seat_ids,
+        )
+        .fetch_all(conn)
+        .await
+    }
+
     /// Takes every seat that is free or whose hold has expired, and returns those seats.
     /// A taken seat is left out of the result, so the caller checks the count and rolls
     /// back. Seats are locked in sorted order: two requests for the same seats cannot deadlock.
