@@ -67,6 +67,7 @@ pub struct HoldSettings {
     #[serde(rename = "payment_ttl_seconds", deserialize_with = "seconds")]
     pub payment_ttl: Duration,
     pub max_seats: usize,
+    pub max_seats_per_user: i64,
     #[serde(rename = "cleanup_interval_seconds", deserialize_with = "seconds")]
     pub cleanup_interval: Duration,
     pub cleanup_batch_size: i64,
@@ -80,6 +81,7 @@ impl Default for HoldSettings {
             ttl: Duration::from_mins(5),
             payment_ttl: Duration::from_mins(15),
             max_seats: 10,
+            max_seats_per_user: 10,
             cleanup_interval: Duration::from_mins(1),
             cleanup_batch_size: 1000,
             idempotency_retention: Duration::from_hours(24),
