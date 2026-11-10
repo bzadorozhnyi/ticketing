@@ -134,3 +134,10 @@
 - `x-extensible-enum` would have let new error codes pass the contract check, but oasdiff then stops seeing removed codes too: a deleted `validation_error` gave "No breaking changes". We kept the strict enum and accept each new code explicitly instead.
 - oasdiff's `--err-ignore` matches a line only with the method, the path and the full text of the error, status included; a shorter line silently ignores nothing.
 - macOS ships bash 3.2, where an empty array under `set -u` is an unbound variable: the contract check crashed locally on a path CI's bash 5 never hits. `${a[@]+"${a[@]}"}` works in both.
+
+## M6
+
+- The guess that OpenTelemetry metrics in Rust were the immature part was backwards: the project lists metrics as stable and traces as beta. Checking the status table saved planning around a problem that did not exist.
+- `tempo -config.verify` accepted `generate_native_histograms: bogus` without a word; only the source told which values exist. A config that validates is not a config that is right.
+- The OpenTelemetry SQLAlchemy instrumentation declares `sqlalchemy<2.1`, and the services run 2.1.6. The version constraint, not the docs, showed it; spans come from the driver instead.
+- Grafana 13 gives anonymous users the Viewer role only, whatever the setting says, and a Viewer cannot open Explore. The deprecation warning in the log was the only sign.
