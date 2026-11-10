@@ -6,13 +6,6 @@ use opentelemetry::metrics::{Counter, Histogram, Meter};
 
 use crate::limits::concurrency::ConcurrencyLimit;
 
-/// Seconds. Starts below the OpenTelemetry defaults: the gateway itself answers in a
-/// fraction of a millisecond, and a percentile is only as precise as its bucket.
-const DURATION_BUCKETS: [f64; 17] = [
-    0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0,
-    7.5, 10.0,
-];
-
 /// Every instrument of the gateway. Attributes come from small fixed sets: a route
 /// template, a method, a status, an upstream, a reason. Never a user or a raw path.
 pub struct GatewayMetrics {
@@ -37,12 +30,10 @@ impl GatewayMetrics {
             server_duration: meter
                 .f64_histogram("http.server.request.duration")
                 .with_unit("s")
-                .with_boundaries(DURATION_BUCKETS.to_vec())
                 .build(),
             client_duration: meter
                 .f64_histogram("http.client.request.duration")
                 .with_unit("s")
-                .with_boundaries(DURATION_BUCKETS.to_vec())
                 .build(),
             breaker_transitions: meter.u64_counter("gateway.breaker.transitions").build(),
             shared_rate_limit_skipped: meter

@@ -1,11 +1,11 @@
 # Board
 
-Next ticket: TIK-57
+Next ticket: TIK-58
 
 ## In progress
 
 ## To do
-- [ ] TIK-53 Python services: OpenTelemetry traces and metrics, through RabbitMQ too (M6)
+- [ ] TIK-57 Booking and payment: OpenTelemetry, one trace per order through the saga and RabbitMQ (M6)
 - [ ] TIK-54 Seat-hold: OpenTelemetry traces and metrics (M6)
 - [ ] TIK-55 Dashboards and SLOs with burn-rate rules (M6)
 - [ ] TIK-56 Experiment: find the cause of a failure from dashboards and traces only (M6)
@@ -63,3 +63,4 @@ Next ticket: TIK-57
 - [x] TIK-50 Seat-hold: `hold_limit_reached` error code; accepted breaking changes in the contract check
 - [x] TIK-51 Observability: Collector, Prometheus, Tempo and Grafana in a compose overlay, ADR (M6)
 - [x] TIK-52 Gateway: OpenTelemetry traces and metrics (M6)
+- [x] TIK-53 Catalog: OpenTelemetry traces and metrics, the template for the Python services (M6)

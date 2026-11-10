@@ -123,7 +123,8 @@ Read from the environment with the `config` crate; a wrong value stops the start
   refusal shows with its reason), `http.client.request.duration` (upstream, status or `timeout`/`connection`),
   `gateway.{bulkhead,in_flight,connections}.*` places in use, `gateway.breaker.transitions`,
   `gateway.rate_limit.shared_skipped`, `gateway.connections.refused`. Instruments live in `telemetry/metrics.rs`;
-  a module records with one line where it already handles the event. Spans get ids even without a collector,
+  a module records with one line where it already handles the event. Histograms are exponential (native in Prometheus),
+  so no bucket list has to match the other services. Spans get ids even without a collector,
   because the logs and the upstreams need the trace id.
 - In JSON logs the id is at `span.trace_id`; in the Python services it is at `record.extra.trace_id`.
 - Paths with `..` or `%2e%2e` get 404: the URL library would resolve them to a route that was never matched.

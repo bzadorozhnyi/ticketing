@@ -4,7 +4,9 @@ use std::sync::OnceLock;
 use opentelemetry::global::{self, BoxedTracer};
 use opentelemetry_otlp::{ExporterBuildError, MetricExporter, SpanExporter};
 use opentelemetry_sdk::Resource;
-use opentelemetry_sdk::metrics::SdkMeterProvider;
+use opentelemetry_sdk::metrics::{
+    Aggregation, Instrument, InstrumentKind, SdkMeterProvider, Stream,
+};
 use opentelemetry_sdk::trace::{Sampler, SdkTracerProvider};
 
 /// Exports go to `$OTEL_EXPORTER_OTLP_ENDPOINT/v1/traces` and `/v1/metrics` over HTTP.
@@ -45,6 +47,7 @@ pub fn init() -> Result<Telemetry, ExporterBuildError> {
         let provider = SdkMeterProvider::builder()
             .with_resource(resource)
             .with_periodic_exporter(MetricExporter::builder().with_http().build()?)
+            .with_view(exponential_histogram)
             .build();
         global::set_meter_provider(provider.clone());
         meter = Some(provider);
@@ -52,6 +55,21 @@ pub fn init() -> Result<Telemetry, ExporterBuildError> {
     let tracer = tracer.build();
     global::set_tracer_provider(tracer.clone());
     Ok(Telemetry { tracer, meter })
+}
+
+/// Every histogram is exponential: its buckets follow the values it sees, so no service
+/// keeps a list of bucket bounds that the others would have to match. Prometheus stores
+/// it as a native histogram. The sizes are the OpenTelemetry defaults.
+fn exponential_histogram(instrument: &Instrument) -> Option<Stream> {
+    if instrument.kind() != InstrumentKind::Histogram {
+        return None;
+    }
+    let aggregation = Aggregation::Base2ExponentialHistogram {
+        max_size: 160,
+        max_scale: 20,
+        record_min_max: true,
+    };
+    Stream::builder().with_aggregation(aggregation).build().ok()
 }
 
 impl Telemetry {

@@ -34,6 +34,14 @@ docker compose run --rm catalog python -m scripts.seed  # demo data
 `POST /internal/v1/events/{event_id}/price` is for booking: the amount of an order comes from here, never from a client.
 The gateway does not route `/internal`.
 
+## Telemetry
+
+See ADR 0006. `core/telemetry.py` sets the providers; FastAPI's built-in telemetry makes the server span and
+`http.server.request.duration` (spans per dependency are off), the asyncpg instrumentation a span per statement,
+and `db.client.connection.count` shows the pool by state. Histograms are exponential (native in Prometheus). `OTEL_SERVICE_NAME=catalog` in compose; the collector address
+`OTEL_EXPORTER_OTLP_ENDPOINT` comes from the observability overlay. Without it spans are not recorded but keep the
+trace id from the gateway's `traceparent`, which `TraceContextMiddleware` puts into the logs.
+
 ## Layout notes
 
 - Code lives in `src/` and is imported without a package prefix (`from core.db import ...`);

@@ -12,11 +12,13 @@ from core.middlewares.exception_handler import (
     validation_exception_handler,
 )
 from core.middlewares.trace_context import TraceContextMiddleware
+from core.telemetry import setup as setup_telemetry
 from routes import internal_router, router
 
 configure_logging()
 
-app = FastAPI(title="catalog")
+# No spans per dependency or serialization: instrumentation lives at the edges.
+app = FastAPI(title="catalog", telemetry={"operation_spans": False})
 
 app.add_middleware(TraceContextMiddleware)
 app.include_router(router)
@@ -26,3 +28,4 @@ app.add_exception_handler(AppException, app_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
+setup_telemetry()

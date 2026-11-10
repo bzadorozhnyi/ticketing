@@ -81,7 +81,9 @@ docs/LEARNINGS.md       short running log of what was learned / what surprised u
 
 ## Python services
 
-Decided tools: loguru (logging), ruff (lint + format), ty (type checking), pre-commit (runs ruff and ty). Everything else: ask first.
+Decided tools: loguru (logging), ruff (lint + format), ty (type checking), pre-commit (runs ruff and ty),
+OpenTelemetry (`opentelemetry-sdk`, the OTLP HTTP exporter, FastAPI's built-in telemetry, the asyncpg instrumentation;
+see `core/telemetry.py` in catalog and ADR 0006). Everything else: ask first.
 
 ### Code organization (onion, grouped by entity)
 
