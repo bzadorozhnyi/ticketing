@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use sqlx::PgConnection;
 use uuid::Uuid;
 
+use crate::core::telemetry::db::db_span;
 use crate::holds::dto::hold::{Hold, NewHold, SeatHolder, TakenSeat};
 
 pub struct HoldRepository;
@@ -16,6 +17,7 @@ impl HoldRepository {
         event_id: Uuid,
         owner_id: &str,
     ) -> Result<(), sqlx::Error> {
+        let _span = db_span("SELECT", "pg_advisory_xact_lock");
         sqlx::query!(
             r#"
             SELECT 1 AS "locked!"
@@ -35,6 +37,7 @@ impl HoldRepository {
         event_id: Uuid,
         owner_id: &str,
     ) -> Result<i64, sqlx::Error> {
+        let _span = db_span("SELECT", "holds");
         sqlx::query_scalar!(
             r#"
             SELECT count(*) AS "seats!"
@@ -55,6 +58,7 @@ impl HoldRepository {
         event_id: Uuid,
         seat_ids: &[Uuid],
     ) -> Result<Vec<SeatHolder>, sqlx::Error> {
+        let _span = db_span("SELECT", "holds");
         sqlx::query_as!(
             SeatHolder,
             r#"
@@ -80,6 +84,7 @@ impl HoldRepository {
         hold: &NewHold,
         ttl: Duration,
     ) -> Result<Vec<TakenSeat>, sqlx::Error> {
+        let _span = db_span("INSERT", "holds");
         sqlx::query_as!(
             TakenSeat,
             r#"
@@ -110,6 +115,7 @@ impl HoldRepository {
         hold_id: Uuid,
         owner_id: &str,
     ) -> Result<Option<Hold>, sqlx::Error> {
+        let _span = db_span("SELECT", "holds");
         sqlx::query_as!(
             Hold,
             r#"
@@ -137,6 +143,7 @@ impl HoldRepository {
         owner_id: &str,
         ttl: Duration,
     ) -> Result<Vec<DateTime<Utc>>, sqlx::Error> {
+        let _span = db_span("UPDATE", "holds");
         sqlx::query_scalar!(
             r#"
             UPDATE holds
@@ -164,6 +171,7 @@ impl HoldRepository {
         hold_id: Uuid,
         owner_id: &str,
     ) -> Result<u64, sqlx::Error> {
+        let _span = db_span("UPDATE", "holds");
         let result = sqlx::query!(
             r#"
             UPDATE holds
@@ -185,6 +193,7 @@ impl HoldRepository {
         hold_id: Uuid,
         owner_id: &str,
     ) -> Result<u64, sqlx::Error> {
+        let _span = db_span("DELETE", "holds");
         let result = sqlx::query!(
             "DELETE FROM holds WHERE hold_id = $1 AND owner_id = $2 AND status = 'held'",
             hold_id,
@@ -201,6 +210,7 @@ impl HoldRepository {
         conn: &mut PgConnection,
         batch_size: i64,
     ) -> Result<u64, sqlx::Error> {
+        let _span = db_span("DELETE", "holds");
         let result = sqlx::query!(
             r#"
             DELETE FROM holds

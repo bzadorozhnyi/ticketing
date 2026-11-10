@@ -69,6 +69,10 @@ services:
     environment: *telemetry
     depends_on: [otel-collector]
 
+  seat-hold:
+    environment: *telemetry
+    depends_on: [otel-collector]
+
 volumes:
   tempo-data:
   prometheus-data:

@@ -5,5 +5,5 @@ pub mod idempotency;
 pub mod logging;
 pub mod settings;
 pub mod shutdown;
-pub mod trace_context;
+pub mod telemetry;
 pub mod user;

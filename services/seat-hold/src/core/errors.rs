@@ -1,13 +1,13 @@
 use axum::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 use thiserror::Error;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Clone, Copy, Debug, Serialize, ToSchema)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy, Debug, ToSchema)]
+#[schema(rename_all = "snake_case")]
 pub enum ErrorCode {
     Conflict,
     HoldLimitReached,
@@ -16,6 +16,28 @@ pub enum ErrorCode {
     ServiceUnavailable,
     Unauthorized,
     ValidationError,
+}
+
+impl ErrorCode {
+    /// The `code` of the response body; also the `error.type` of the request's metrics.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Conflict => "conflict",
+            Self::HoldLimitReached => "hold_limit_reached",
+            Self::InternalError => "internal_error",
+            Self::NotFound => "not_found",
+            Self::ServiceUnavailable => "service_unavailable",
+            Self::Unauthorized => "unauthorized",
+            Self::ValidationError => "validation_error",
+        }
+    }
+}
+
+impl Serialize for ErrorCode {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -99,6 +121,8 @@ impl IntoResponse for ServiceError {
             message: self.to_string(),
             details: self.details(),
         };
-        (status, Json(body)).into_response()
+        let mut response = (status, Json(body)).into_response();
+        response.extensions_mut().insert(code);
+        response
     }
 }

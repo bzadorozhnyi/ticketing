@@ -43,7 +43,7 @@ impl MakeWriter<'_> for Buffer {
 
 /// One test: a process has a single global subscriber.
 #[tokio::test]
-async fn continues_a_valid_trace_and_replaces_an_invalid_one() {
+async fn continues_a_valid_trace_and_replaces_every_invalid_one() {
     let buffer = Buffer::default();
     init_with_writer(&LoggingSettings::default(), buffer.clone()).unwrap();
     let service = spawn_service(dead_pool().await).await;
@@ -55,23 +55,35 @@ async fn continues_a_valid_trace_and_replaces_an_invalid_one() {
         .send()
         .await
         .unwrap();
-    client()
-        .get(format!("{service}/health"))
-        .header("traceparent", "garbage-injected")
-        .send()
-        .await
-        .unwrap();
+    let invalid = [
+        "garbage-injected".to_owned(),
+        format!("00-{}-00f067aa0ba902b7-01", "0".repeat(32)),
+        format!("ff-{trace_id}-00f067aa0ba902b7-01"),
+        format!("00-{trace_id}-00f067aa0ba902b7-01-extra"),
+        format!("00-{}-00f067aa0ba902b7-01", trace_id.to_uppercase()),
+    ];
+    for header in &invalid {
+        client()
+            .get(format!("{service}/health"))
+            .header("traceparent", header)
+            .send()
+            .await
+            .unwrap();
+    }
 
     let logs = buffer.text();
     let lines: Vec<&str> = logs
         .lines()
         .filter(|line| line.contains("Request finished"))
         .collect();
-    assert_eq!(lines.len(), 2, "{logs}");
+    assert_eq!(lines.len(), 1 + invalid.len(), "{logs}");
     assert!(
         lines[0].contains(&format!(r#""trace_id":"{trace_id}""#)),
         "{logs}"
     );
-    assert!(lines[1].contains(r#""trace_id":""#), "{logs}");
+    for (line, header) in lines[1..].iter().zip(&invalid) {
+        assert!(line.contains(r#""trace_id":""#), "{line}");
+        assert!(!line.contains(trace_id), "{header} was continued: {line}");
+    }
     assert!(!logs.contains("garbage-injected"), "{logs}");
 }

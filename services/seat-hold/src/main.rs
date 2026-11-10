@@ -5,6 +5,8 @@ use seat_hold::core::db::build_pool;
 use seat_hold::core::logging;
 use seat_hold::core::settings::Settings;
 use seat_hold::core::shutdown::shutdown_signal;
+use seat_hold::core::telemetry::init as telemetry;
+use seat_hold::core::telemetry::metrics::metrics;
 use seat_hold::holds::cleanup_job;
 use seat_hold::holds::use_cases::cleanup_expired_holds::CleanupExpiredHoldsUseCase;
 use tokio::net::TcpListener;
@@ -12,10 +14,12 @@ use tokio::signal::unix::{SignalKind, signal};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+    let telemetry = telemetry::init()?;
     let settings = Settings::from_env()?;
     logging::init(&settings.logging)?;
 
     let db = build_pool(&settings);
+    metrics().observe_pool(db.clone());
     let cleanup = CleanupExpiredHoldsUseCase::new(
         db.clone(),
         settings.holds.cleanup_batch_size,
@@ -32,6 +36,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .with_graceful_shutdown(shutdown_signal(terminate))
         .await?;
     cleanup_job.abort();
+    telemetry.shutdown();
     tracing::info!("Seat-hold stopped");
     Ok(())
 }
