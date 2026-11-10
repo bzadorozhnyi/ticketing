@@ -5,15 +5,14 @@ use std::time::Duration;
 
 use axum::http::header::{HeaderValue, RETRY_AFTER, WWW_AUTHENTICATE};
 use axum::response::{IntoResponse, Response};
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 use thiserror::Error;
 
 /// A full limit frees up as requests finish, usually well within a second. Without a
 /// hint a refused client comes straight back and is refused again.
 const BUSY_RETRY_AFTER: Duration = Duration::from_secs(1);
 
-#[derive(Clone, Copy, Debug, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy, Debug)]
 pub enum ErrorCode {
     BadGateway,
     BulkheadFull,
@@ -26,6 +25,32 @@ pub enum ErrorCode {
     RateLimited,
     ServiceUnavailable,
     Unauthorized,
+}
+
+impl ErrorCode {
+    /// The `code` of the response body; also the `error.type` of the request's metrics.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::BadGateway => "bad_gateway",
+            Self::BulkheadFull => "bulkhead_full",
+            Self::CircuitOpen => "circuit_open",
+            Self::GatewayTimeout => "gateway_timeout",
+            Self::HttpError => "http_error",
+            Self::NotFound => "not_found",
+            Self::Overloaded => "overloaded",
+            Self::PayloadTooLarge => "payload_too_large",
+            Self::RateLimited => "rate_limited",
+            Self::ServiceUnavailable => "service_unavailable",
+            Self::Unauthorized => "unauthorized",
+        }
+    }
+}
+
+impl Serialize for ErrorCode {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -131,6 +156,7 @@ impl IntoResponse for GatewayError {
             details: Vec::new(),
         };
         let mut response = (status, Json(body)).into_response();
+        response.extensions_mut().insert(code);
         if matches!(self, Self::Unauthorized) {
             let challenge = HeaderValue::from_static("Bearer");
             response.headers_mut().insert(WWW_AUTHENTICATE, challenge);

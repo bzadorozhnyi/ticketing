@@ -11,6 +11,7 @@ use gateway::settings::{
 use tokio::net::TcpListener;
 use tracing::Level;
 
+use super::telemetry;
 use super::upstream::{Upstream, spawn_upstream};
 
 pub const MAX_BODY_BYTES: usize = 64;
@@ -78,6 +79,7 @@ pub fn test_settings(catalog_url: &str) -> Settings {
 }
 
 pub async fn spawn_gateway(settings: &Settings) -> String {
+    telemetry::spans();
     let app = build_app(settings).expect("a valid gateway client");
     let listener = TcpListener::bind(("127.0.0.1", 0))
         .await

@@ -6,6 +6,7 @@ use redis::{RedisError, Script};
 use crate::limits::rate_limit::decision::Decision;
 use crate::resilience::breaker::CircuitBreaker;
 use crate::settings::{BreakerSettings, RateLimitSettings};
+use crate::telemetry::metrics::metrics;
 
 /// A token bucket per user, kept in Valkey so every gateway replica shares it. The
 /// check and the update are one script: two replicas cannot both take the last token.
@@ -96,6 +97,7 @@ impl SharedBuckets {
             Err(error) => {
                 call.finish(true);
                 tracing::warn!(error = %error, "Shared rate limit skipped: Valkey failed or was slow");
+                metrics().shared_rate_limit_skipped.add(1, &[]);
                 Decision::Allowed
             }
         }

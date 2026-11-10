@@ -38,6 +38,13 @@ services:
     ports: ["127.0.0.1:3000:3000"]
     depends_on: [prometheus, tempo]
 
+  gateway:
+    environment: &telemetry
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      # Every 10 s instead of the default 60 s, so a short experiment shows on a dashboard.
+      OTEL_METRIC_EXPORT_INTERVAL: "10000"
+    depends_on: [otel-collector]
+
 volumes:
   tempo-data:
   prometheus-data:
