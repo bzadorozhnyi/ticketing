@@ -26,6 +26,23 @@ For a direct call, `docker compose run --rm -p 8002:8000 booking` starts a secon
 docker compose up -d --wait --build                     # db -> booking-migrate -> booking
 ```
 
+## Telemetry
+
+See ADR 0006; `core/telemetry.py` follows catalog's. One trace per order, from the gateway to `confirmed`:
+- `orders.traceparent` and `outbox.traceparent` are filled by a column default, `current_traceparent()`, in the same
+  INSERT as the row, so no use case or repository handles them.
+- `continue_trace()` gives the later work a span in that trace: a saga step (`saga {step}`, in `SagaRunner`), a publish
+  (`publish {queue}`, a producer span in the relay, whose `traceparent` the message carries) and a reply (a consumer span).
+- `HttpClient` makes a client span per call to seat-hold or catalog and sends its `traceparent`; it uses aiohttp,
+  which has no instrumentation here.
+- A trace starts only at the gateway: the polls of the saga and the relay and the health checks are not recorded.
+- Metrics: `http.server.request.duration` (FastAPI), `http.client.request.duration` (upstream, status),
+  `booking.saga.steps` (step, outcome `ran`/`postponed`/`failed`), `booking.outbox.publish.delay` (how long a command
+  waited for the relay), `db.client.connection.count`. Each process has its own `OTEL_SERVICE_NAME`:
+  `booking`, `booking-saga`, `booking-relay`.
+- A process killed with buffered spans loses up to about 5 s of them. Not measured yet: a relay crash after a publish
+  should show as two publish and two consumer spans, the duplicate that at-least-once delivery allows.
+
 ## Layout notes
 
 - Code lives in `src/` and is imported without a package prefix (`from core.db import ...`);

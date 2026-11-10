@@ -16,6 +16,13 @@ its time. Answering "what happened during the spike" took a script per question.
   span metrics and the service graph from them. **Grafana** shows both, with links from a metric's exemplar to its trace.
 - The stack is a compose overlay, `infra/observability/`, like Toxiproxy. Without it the services run as before.
 - **Telemetry is off without a collector address.** Tests and local runs need nothing new.
+- **A trace starts only at the gateway.** Behind it a span without a parent is not recorded
+  (`ParentBased(root=ALWAYS_OFF)`): health checks and the polls of the saga and the relay would add thousands of empty traces.
+- **One trace per order.** The request's `traceparent` is stored with the order and with every outbox command, and the
+  saga steps, the publish and the consumers continue it as children, not as links: each step is caused by one order.
+  The trace of a purchase lasts as long as its saga, minutes during a recovery.
+- **Messaging spans are written by hand**, not by the aio-pika instrumentation: with an outbox the context to continue
+  is the one stored with the command, not the relay's when it publishes.
 - **Settings use the standard `OTEL_*` variables** (`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`), an exception to
   the `GROUP__NAME` convention: the SDKs read them themselves, and every tool and Kubernetes knows them.
 - **Instrumentation lives at the edges**: the framework's own telemetry, driver instrumentation, one middleware for request metrics,

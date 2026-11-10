@@ -26,6 +26,13 @@ For a direct call, `docker compose run --rm -p 8003:8000 payment` starts a secon
 docker compose up -d --wait --build                     # db -> payment-migrate -> payment
 ```
 
+## Telemetry
+
+See ADR 0006; `core/telemetry.py` follows booking's. The consumer handles each command in a span continuing the
+relay's `traceparent`, and the reply carries that span's own `traceparent`. `payment.commands` counts commands by type
+and `outcome` (`handled`, `retry`, `dead_letter`, `malformed`); a handled one also has its `result` (`succeeded`, `declined`, ...). `OTEL_SERVICE_NAME` is `payment` for the
+API and `payment-consumer` for the worker.
+
 ## Layout notes
 
 - Code lives in `src/` and is imported without a package prefix (`from core.db import ...`);

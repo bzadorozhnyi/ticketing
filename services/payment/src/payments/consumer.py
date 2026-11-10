@@ -1,16 +1,16 @@
 import asyncio
-import secrets
 from collections.abc import Callable
+from typing import Literal
 
 from loguru import logger
+from opentelemetry.trace import SpanKind
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from core.exceptions import ConflictException
-from core.logging import trace_id_var
-from core.middlewares.trace_context import parse_trace_id
 from core.rabbitmq import Delivery
 from core.settings import FaultSettings, RabbitMQSettings
+from core.telemetry import commands, continue_trace, current_traceparent
 from payments.dto.messages import (
     COMMAND_ADAPTER,
     ChargeCommand,
@@ -26,6 +26,23 @@ from payments.services.pending_charge import PendingChargeFinisher
 from payments.services.provider import MockProvider, kill_process
 from payments.use_cases.charge import ChargeUseCase
 from payments.use_cases.refund import RefundUseCase
+
+# The `outcome` of `payment.commands`; a handled command also has its `result`.
+CommandOutcome = Literal["handled", "retry", "dead_letter", "malformed"]
+
+
+def count_command(
+    *,
+    outcome: CommandOutcome,
+    command_type: str | None = None,
+    result: str | None = None,
+) -> None:
+    attributes = {"outcome": outcome}
+    if command_type is not None:
+        attributes["command.type"] = command_type
+    if result is not None:
+        attributes["result"] = result
+    commands.add(1, attributes)
 
 
 class CommandConsumer:
@@ -49,15 +66,19 @@ class CommandConsumer:
         self.crash = crash
 
     async def handle(self, delivery: Delivery) -> None:
-        traceparent = delivery.traceparent
-        trace_id_var.set(
-            parse_trace_id(traceparent=traceparent) or secrets.token_hex(16)
-        )
+        """A consumer span, a child of the relay's span that published the command;
+        the reply carries this span's `traceparent`."""
+        name = "process payment command"
+        with continue_trace(delivery.traceparent, name=name, kind=SpanKind.CONSUMER):
+            await self._handle(delivery=delivery)
+
+    async def _handle(self, *, delivery: Delivery) -> None:
         try:
             command = COMMAND_ADAPTER.validate_json(delivery.body)
         except ValidationError as exc:
             logger.bind(error=repr(exc)).error("Malformed command")
             await delivery.dead_letter()
+            count_command(outcome="malformed")
             return
 
         try:
@@ -65,17 +86,24 @@ class CommandConsumer:
                 result = await self._process(
                     command=command, first_delivery=not delivery.redelivered
                 )
-                await self.replies.send(result=result, traceparent=traceparent)
+                await self.replies.send(
+                    result=result, traceparent=current_traceparent()
+                )
         except ConflictException as exc:
             logger.bind(error=repr(exc)).error("Command can never succeed")
             await delivery.dead_letter()
+            count_command(outcome="dead_letter", command_type=command.type)
         except Exception as exc:
             logger.bind(error=repr(exc)).warning("Command failed, will retry")
             await self._retry_later(delivery=delivery)
+            count_command(outcome="retry", command_type=command.type)
         else:
             await delivery.ack()
             logger.bind(order_id=str(command.order_id)).info(
                 f"Command {command.type} handled"
+            )
+            count_command(
+                outcome="handled", command_type=command.type, result=result.status
             )
 
     async def _process(

@@ -1,12 +1,14 @@
 import asyncio
 
 from loguru import logger
+from opentelemetry.trace import SpanKind
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from core.faults import crash_point
 from core.rabbitmq import Delivery
 from core.settings import SagaSettings
+from core.telemetry import continue_trace
 from orders.dto.messages import REPLY_ADAPTER, ChargeResult, Reply
 from orders.repositories.order import OrderRepository
 from orders.use_cases.apply_charge_result import ApplyChargeResultUseCase
@@ -34,6 +36,12 @@ class PaymentReplyConsumer:
         self.settings = settings
 
     async def handle(self, delivery: Delivery) -> None:
+        """A consumer span, a child of payment's span that sent the reply."""
+        name = "process payment reply"
+        with continue_trace(delivery.traceparent, name=name, kind=SpanKind.CONSUMER):
+            await self._handle(delivery=delivery)
+
+    async def _handle(self, *, delivery: Delivery) -> None:
         try:
             reply = REPLY_ADAPTER.validate_json(delivery.body)
         except ValidationError as exc:

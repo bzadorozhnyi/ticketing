@@ -49,6 +49,26 @@ services:
     environment: *telemetry
     depends_on: [otel-collector]
 
+  booking:
+    environment: *telemetry
+    depends_on: [otel-collector]
+
+  booking-relay:
+    environment: *telemetry
+    depends_on: [otel-collector]
+
+  booking-saga:
+    environment: *telemetry
+    depends_on: [otel-collector]
+
+  payment:
+    environment: *telemetry
+    depends_on: [otel-collector]
+
+  payment-consumer:
+    environment: *telemetry
+    depends_on: [otel-collector]
+
 volumes:
   tempo-data:
   prometheus-data:

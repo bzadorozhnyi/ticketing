@@ -9,6 +9,7 @@ from core.db import async_session, engine
 from core.logging import configure_logging
 from core.rabbitmq import RabbitMQClient
 from core.settings import settings
+from core.telemetry import setup as setup_telemetry
 from payments.consumer import CommandConsumer
 from payments.queues.commands import PaymentCommandsQueue
 from payments.queues.replies import PaymentRepliesQueue
@@ -16,6 +17,7 @@ from payments.queues.replies import PaymentRepliesQueue
 
 async def main() -> None:
     configure_logging()
+    setup_telemetry()
     client = RabbitMQClient(settings=settings.RABBITMQ)
     await client.connect()
 

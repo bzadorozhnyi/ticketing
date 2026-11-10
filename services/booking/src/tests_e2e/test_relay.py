@@ -5,11 +5,13 @@ import aio_pika
 import pytest
 from aio_pika import DeliveryMode
 from aio_pika.abc import AbstractIncomingMessage, AbstractQueue
+from opentelemetry.trace import SpanKind
 from sqlalchemy import delete, select
 
 from core.db import async_session
 from core.rabbitmq import RabbitMQClient
 from core.settings import OutboxSettings, settings
+from core.telemetry import continue_trace
 from outbox.models.message import OutboxMessage
 from outbox.relay import Relay
 from outbox.repositories.message import OutboxRepository
@@ -70,8 +72,9 @@ async def add_messages(
 ) -> None:
     async with async_session() as session:
         repository = OutboxRepository(session=session)
-        for body in bodies:
-            await repository.add(queue=queue_name, body=body, traceparent=traceparent)
+        with continue_trace(traceparent, name="test step", kind=SpanKind.INTERNAL):
+            for body in bodies:
+                await repository.add(queue=queue_name, body=body)
         await session.commit()
 
 
@@ -97,11 +100,11 @@ async def receive_bodies(queue: AbstractQueue) -> list[str]:
 async def test_message_is_written_with_the_transaction_it_belongs_to():
     async with async_session() as session:
         repository = OutboxRepository(session=session)
-        await repository.add(queue="q", body="rolled back", traceparent=None)
+        await repository.add(queue="q", body="rolled back")
         await session.rollback()
     async with async_session() as session:
         repository = OutboxRepository(session=session)
-        await repository.add(queue="q", body="committed", traceparent=None)
+        await repository.add(queue="q", body="committed")
         await session.commit()
 
     assert await outbox_bodies() == ["committed"]
@@ -131,7 +134,7 @@ async def test_order_comes_from_the_id_not_from_the_table_layout(queue):
     assert [message.id for message in messages] == [older]
 
 
-async def test_published_message_is_persistent_and_keeps_its_trace(queue, client):
+async def test_published_message_is_persistent_and_continues_its_trace(queue, client):
     await add_messages(queue.name, "traced", traceparent=TRACEPARENT)
 
     await make_relay(client).publish_batch()
@@ -139,7 +142,9 @@ async def test_published_message_is_persistent_and_keeps_its_trace(queue, client
     [message] = await receive(queue)
     assert message.delivery_mode == DeliveryMode.PERSISTENT
     assert message.content_type == "application/json"
-    assert message.headers["traceparent"] == TRACEPARENT
+    sent = message.headers["traceparent"]
+    assert isinstance(sent, str)
+    assert sent.split("-")[1] == TRACEPARENT.split("-")[1], "the same trace"
 
 
 async def test_batch_is_limited(queue, client):

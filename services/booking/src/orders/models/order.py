@@ -13,6 +13,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.db import BaseModel
+from core.telemetry import current_traceparent
 
 
 class OrderStatus(StrEnum):
@@ -85,3 +86,5 @@ class Order(BaseModel):
     amount_minor: Mapped[int | None] = mapped_column(BigInteger)
     currency: Mapped[str | None]
     failure_reason: Mapped[str | None]
+    # The request that created the order: the saga's steps continue its trace.
+    traceparent: Mapped[str | None] = mapped_column(default=current_traceparent)

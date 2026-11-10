@@ -22,6 +22,8 @@ from orders.use_cases.apply_charge_result import ApplyChargeResultUseCase
 from outbox.repositories.message import OutboxRepository
 from tests_e2e.helpers import (
     COMMANDS_QUEUE,
+    TRACE_ID,
+    TRACEPARENT,
     USER,
     Reply,
     create_order,
@@ -47,8 +49,9 @@ class SimulatedCrash(Exception):
 class RecordedDelivery(Delivery):
     """Records how a message was settled, without a broker."""
 
-    def __init__(self, *, content: bytes):
+    def __init__(self, *, content: bytes, traceparent: str | None = None):
         self.content = content
+        self.sent_traceparent = traceparent
         self.settled: list[str] = []
 
     @property
@@ -58,6 +61,10 @@ class RecordedDelivery(Delivery):
     @property
     def attempts(self) -> int:
         return 0
+
+    @property
+    def traceparent(self) -> str | None:
+        return self.sent_traceparent
 
     async def ack(self) -> None:
         self.settled.append("ack")
@@ -553,3 +560,15 @@ async def test_crash_before_the_ack_redelivers_a_harmless_reply(
 
     assert seen == [False, True]
     assert (await load(order_id)).status == OrderStatus.CONFIRMED
+
+
+async def test_a_reply_is_handled_in_the_trace_it_came_with():
+    logged = []
+    sink = logger.add(lambda message: logged.append(message.record["extra"]))
+    delivery = RecordedDelivery(content=b"not a reply", traceparent=TRACEPARENT)
+
+    await make_consumer().handle(delivery)
+
+    logger.remove(sink)
+    assert delivery.settled == ["dead_letter"]
+    assert [extra.get("trace_id") for extra in logged] == [TRACE_ID]

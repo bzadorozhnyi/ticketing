@@ -9,11 +9,13 @@ from core.db import async_session, engine
 from core.logging import configure_logging
 from core.rabbitmq import RabbitMQClient
 from core.settings import settings
+from core.telemetry import setup as setup_telemetry
 from outbox.relay import Relay
 
 
 async def main() -> None:
     configure_logging()
+    setup_telemetry()
     client = RabbitMQClient(settings=settings.RABBITMQ)
     await client.connect()
 

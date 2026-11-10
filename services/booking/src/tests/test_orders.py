@@ -45,6 +45,21 @@ async def test_create_stores_a_pending_order(async_client, db_session):
     assert order.payment_token == "tok_ok"
 
 
+async def test_order_keeps_the_trace_of_the_request_for_its_saga(
+    async_client, db_session
+):
+    trace_id = "4bf92f3577b34da6a3ce929d0e0e4736"
+    traced = {**headers(), "traceparent": f"00-{trace_id}-00f067aa0ba902b7-01"}
+
+    response = await async_client.post(
+        ORDERS_URL, json=order_body(uuid.uuid4()), headers=traced
+    )
+
+    order = await db_session.get(Order, uuid.UUID(response.json()["id"]))
+    assert order.traceparent is not None
+    assert order.traceparent.split("-")[1] == trace_id
+
+
 async def test_repeat_with_the_same_key_returns_the_first_order(
     async_client, db_session
 ):

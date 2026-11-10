@@ -2,13 +2,21 @@ import asyncio
 import uuid
 from collections.abc import Sequence
 from contextlib import suppress
+from datetime import UTC, datetime
 
 from loguru import logger
+from opentelemetry.trace import SpanKind
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from core.faults import crash_point
 from core.rabbitmq import RabbitMQClient
 from core.settings import OutboxSettings
+from core.telemetry import (
+    TRACEPARENT,
+    continue_trace,
+    current_traceparent,
+    outbox_publish_delay,
+)
 from outbox.models.message import OutboxMessage
 from outbox.repositories.message import OutboxRepository
 
@@ -59,21 +67,29 @@ class Relay:
         published: list[uuid.UUID] = []
         for message in messages:
             try:
-                async with asyncio.timeout(self.settings.PUBLISH_TIMEOUT_SECONDS):
-                    await self.client.publish(
-                        queue=message.queue,
-                        body=message.body.encode(),
-                        headers=(
-                            {"traceparent": message.traceparent}
-                            if message.traceparent
-                            else None
-                        ),
-                    )
+                await self._publish(message=message)
             except Exception as exc:
                 logger.bind(error=repr(exc), queue=message.queue).warning(
                     "Publish failed, the message stays in the outbox"
                 )
                 break
+            waited = datetime.now(UTC) - message.created_at
+            outbox_publish_delay.record(
+                waited.total_seconds(), {"messaging.destination.name": message.queue}
+            )
             crash_point("after_publish")
             published.append(message.id)
         return published
+
+    async def _publish(self, *, message: OutboxMessage) -> None:
+        """A producer span in the trace of the step that wrote the message; the message
+        carries this span's `traceparent`, so the consumer's span is its child."""
+        name = f"publish {message.queue}"
+        with continue_trace(message.traceparent, name=name, kind=SpanKind.PRODUCER):
+            traceparent = current_traceparent()
+            async with asyncio.timeout(self.settings.PUBLISH_TIMEOUT_SECONDS):
+                await self.client.publish(
+                    queue=message.queue,
+                    body=message.body.encode(),
+                    headers={TRACEPARENT: traceparent} if traceparent else None,
+                )

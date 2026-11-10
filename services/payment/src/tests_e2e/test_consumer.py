@@ -135,14 +135,16 @@ async def test_a_refund_command_returns_money(broker, session_maker):
         assert await money_held(session, order_id) == 0
 
 
-async def test_the_reply_keeps_the_trace(broker, session_maker):
+async def test_the_reply_continues_the_trace(broker, session_maker):
     await start_consumer(broker, session_maker)
 
     await broker.publish(charge_command(uuid.uuid4()), {"traceparent": TRACEPARENT})
 
     reply = await broker.take(broker.replies)
     assert reply is not None
-    assert reply.headers["traceparent"] == TRACEPARENT
+    sent = reply.headers["traceparent"]
+    assert isinstance(sent, str)
+    assert sent.split("-")[1] == TRACEPARENT.split("-")[1], "the same trace"
 
 
 @pytest.mark.parametrize(
