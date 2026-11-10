@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from core.faults import crash_point
 from core.rabbitmq import Delivery
 from core.settings import SagaSettings
-from core.telemetry import continue_trace
+from core.telemetry import continue_trace, record_finished_order
 from orders.dto.messages import REPLY_ADAPTER, ChargeResult, Reply
 from orders.repositories.order import OrderRepository
 from orders.use_cases.apply_charge_result import ApplyChargeResultUseCase
@@ -63,13 +63,17 @@ class PaymentReplyConsumer:
         async with self.session_maker() as session:
             repository = OrderRepository(session=session)
             if isinstance(reply, ChargeResult):
-                await ApplyChargeResultUseCase(
+                finished = await ApplyChargeResultUseCase(
                     session=session, order_repository=repository
                 ).execute(result=reply)
-                return
-            await ApplyRefundResultUseCase(
-                session=session, order_repository=repository
-            ).execute(result=reply)
+            else:
+                finished = await ApplyRefundResultUseCase(
+                    session=session, order_repository=repository
+                ).execute(result=reply)
+        if finished:
+            record_finished_order(
+                created_at=finished.created_at, status=finished.status
+            )
 
     async def _retry_later(self, *, delivery: Delivery) -> None:
         delay = self.settings.RETRY_BASE_DELAY_SECONDS * 2**delivery.attempts

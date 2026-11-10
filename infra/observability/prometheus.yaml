@@ -7,6 +7,8 @@ storage:
   tsdb:
     out_of_order_time_window: 30m
 
+rule_files: [rules/slo.yaml]
+
 scrape_configs:
   - job_name: prometheus
     static_configs:

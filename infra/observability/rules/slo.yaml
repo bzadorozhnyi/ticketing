@@ -1,0 +1,127 @@
+# SLOs over 30 days and their burn-rate alerts, see ADR 0006. Tests: slo.test.yaml (infra/check-rules.sh).
+#
+# For every SLO: the share of bad events over several windows (error_ratio_rate<window>) and the share
+# allowed (error_budget = 1 - objective). Burn rate = error ratio / error budget: 1 spends the budget
+# in exactly 30 days. An alert needs a long and a short window together: the long one proves the burn
+# is real, the short one that it still goes on, so the alert clears soon after a fix.
+#   page: burn rate 14.4 over 1 h and 5 m (2 % of the budget in an hour)
+#   page: burn rate 6 over 6 h and 30 m (5 % of the budget in 6 hours)
+# Without traffic a ratio is NaN and no alert fires.
+
+groups:
+  # Requests to /api through the gateway that got no 5xx. 4xx and 429 are the client's side.
+  - name: slo-gateway-availability
+    rules:
+      - record: slo:gateway_availability:error_budget
+        expr: vector(0.005)
+      - record: slo:gateway_availability:error_ratio_rate5m
+        expr: |
+          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*", http_response_status_code=~"5.."}[5m]))) or vector(0))
+          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*"}[5m])))
+      - record: slo:gateway_availability:error_ratio_rate30m
+        expr: |
+          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*", http_response_status_code=~"5.."}[30m]))) or vector(0))
+          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*"}[30m])))
+      - record: slo:gateway_availability:error_ratio_rate1h
+        expr: |
+          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*", http_response_status_code=~"5.."}[1h]))) or vector(0))
+          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*"}[1h])))
+      - record: slo:gateway_availability:error_ratio_rate6h
+        expr: |
+          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*", http_response_status_code=~"5.."}[6h]))) or vector(0))
+          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*"}[6h])))
+      - record: slo:gateway_availability:error_ratio_rate30d
+        expr: |
+          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*", http_response_status_code=~"5.."}[30d]))) or vector(0))
+          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*"}[30d])))
+      - alert: GatewayAvailabilityFastBurn
+        expr: |
+          slo:gateway_availability:error_ratio_rate1h / slo:gateway_availability:error_budget > 14.4
+          and slo:gateway_availability:error_ratio_rate5m / slo:gateway_availability:error_budget > 14.4
+        labels: { severity: page, slo: gateway-availability }
+        annotations:
+          summary: "Gateway 5xx spend 2 % of the 30-day budget per hour; Services dashboard"
+          description: "Burn rate {{ $value | humanize }} over 1 h"
+      - alert: GatewayAvailabilitySlowBurn
+        expr: |
+          slo:gateway_availability:error_ratio_rate6h / slo:gateway_availability:error_budget > 6
+          and slo:gateway_availability:error_ratio_rate30m / slo:gateway_availability:error_budget > 6
+        labels: { severity: page, slo: gateway-availability }
+        annotations:
+          summary: "Gateway 5xx spend 5 % of the 30-day budget in 6 hours; Services dashboard"
+          description: "Burn rate {{ $value | humanize }} over 6 h"
+
+  # GET requests to /api through the gateway answered within 300 ms, errors included.
+  # histogram_fraction interpolates inside the bucket that holds 300 ms.
+  - name: slo-gateway-read-latency
+    rules:
+      - record: slo:gateway_read_latency:error_budget
+        expr: vector(0.01)
+      - record: slo:gateway_read_latency:error_ratio_rate5m
+        expr: 1 - histogram_fraction(0, 0.3, sum(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*", http_request_method="GET"}[5m])))
+      - record: slo:gateway_read_latency:error_ratio_rate30m
+        expr: 1 - histogram_fraction(0, 0.3, sum(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*", http_request_method="GET"}[30m])))
+      - record: slo:gateway_read_latency:error_ratio_rate1h
+        expr: 1 - histogram_fraction(0, 0.3, sum(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*", http_request_method="GET"}[1h])))
+      - record: slo:gateway_read_latency:error_ratio_rate6h
+        expr: 1 - histogram_fraction(0, 0.3, sum(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*", http_request_method="GET"}[6h])))
+      - record: slo:gateway_read_latency:error_ratio_rate30d
+        expr: 1 - histogram_fraction(0, 0.3, sum(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*", http_request_method="GET"}[30d])))
+      - alert: GatewayReadLatencyFastBurn
+        expr: |
+          slo:gateway_read_latency:error_ratio_rate1h / slo:gateway_read_latency:error_budget > 14.4
+          and slo:gateway_read_latency:error_ratio_rate5m / slo:gateway_read_latency:error_budget > 14.4
+        labels: { severity: page, slo: gateway-read-latency }
+        annotations:
+          summary: "Slow GETs spend 2 % of the 30-day budget per hour; Services dashboard"
+          description: "Burn rate {{ $value | humanize }} over 1 h"
+      - alert: GatewayReadLatencySlowBurn
+        expr: |
+          slo:gateway_read_latency:error_ratio_rate6h / slo:gateway_read_latency:error_budget > 6
+          and slo:gateway_read_latency:error_ratio_rate30m / slo:gateway_read_latency:error_budget > 6
+        labels: { severity: page, slo: gateway-read-latency }
+        annotations:
+          summary: "Slow GETs spend 5 % of the 30-day budget in 6 hours; Services dashboard"
+          description: "Burn rate {{ $value | humanize }} over 6 h"
+
+  # Orders that reached confirmed or failed within 10 s of being created. An order that never
+  # finishes is never counted here: OrdersNotFinishing covers it.
+  - name: slo-purchase
+    rules:
+      - record: slo:purchase:error_budget
+        expr: vector(0.01)
+      - record: slo:purchase:error_ratio_rate5m
+        expr: 1 - histogram_fraction(0, 10, sum(rate(booking_order_duration_seconds[5m])))
+      - record: slo:purchase:error_ratio_rate30m
+        expr: 1 - histogram_fraction(0, 10, sum(rate(booking_order_duration_seconds[30m])))
+      - record: slo:purchase:error_ratio_rate1h
+        expr: 1 - histogram_fraction(0, 10, sum(rate(booking_order_duration_seconds[1h])))
+      - record: slo:purchase:error_ratio_rate6h
+        expr: 1 - histogram_fraction(0, 10, sum(rate(booking_order_duration_seconds[6h])))
+      - record: slo:purchase:error_ratio_rate30d
+        expr: 1 - histogram_fraction(0, 10, sum(rate(booking_order_duration_seconds[30d])))
+      - alert: PurchaseFastBurn
+        expr: |
+          slo:purchase:error_ratio_rate1h / slo:purchase:error_budget > 14.4
+          and slo:purchase:error_ratio_rate5m / slo:purchase:error_budget > 14.4
+        labels: { severity: page, slo: purchase }
+        annotations:
+          summary: "Slow purchases spend 2 % of the 30-day budget per hour; Purchase dashboard"
+          description: "Burn rate {{ $value | humanize }} over 1 h"
+      - alert: PurchaseSlowBurn
+        expr: |
+          slo:purchase:error_ratio_rate6h / slo:purchase:error_budget > 6
+          and slo:purchase:error_ratio_rate30m / slo:purchase:error_budget > 6
+        labels: { severity: page, slo: purchase }
+        annotations:
+          summary: "Slow purchases spend 5 % of the 30-day budget in 6 hours; Purchase dashboard"
+          description: "Burn rate {{ $value | humanize }} over 6 h"
+      - alert: OrdersNotFinishing
+        expr: |
+          sum(histogram_count(rate(http_server_request_duration_seconds{job="booking", http_request_method="POST", http_route="/api/v1/orders", http_response_status_code="202"}[10m]))) > 0
+          unless sum(histogram_count(rate(booking_order_duration_seconds[10m]))) > 0
+        for: 5m
+        labels: { severity: page, slo: purchase }
+        annotations:
+          summary: "Orders are created but none has finished for 10 minutes; Purchase dashboard"
+          description: "The saga worker, the relay, RabbitMQ or payment may be down"

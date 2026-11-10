@@ -34,6 +34,16 @@ its time. Answering "what happened during the spike" took a script per question.
 - Latency is recorded as **exponential histograms**, which Prometheus keeps as native histograms: percentiles combine
   across replicas and services, and no service keeps a list of bucket bounds that the others would have to match.
   Both SDKs set it with one view; the sizes are the OpenTelemetry defaults (160 buckets, scale up to 20).
+- **Dashboards and alert rules are files** in the overlay, loaded at start: `grafana/dashboards/` (Services, Purchase,
+  SLO) and `rules/slo.yaml`. A change made in the Grafana UI is not saved; it is exported into the file.
+- **Three SLOs over 30 days**, measured where the user sees the result: 99.5 % of `/api` requests through the gateway
+  without a 5xx, 99 % of its `GET`s within 300 ms, 99 % of orders confirmed or failed within 10 s of being created
+  (`booking.order.duration`, recorded by the edge after the step that ended the order, so a repeated reply is not
+  counted twice). The SLO for purchases cannot see an order that never finishes; `OrdersNotFinishing` covers that.
+- **Alerts on the burn rate over two windows** (Google SRE Workbook): 14.4 over 1 h and 5 m, 6 over 6 h and 30 m.
+  The long window proves the budget is really going, the short one that it still is, so an alert clears a few minutes
+  after a fix. Prometheus evaluates them; there is no Alertmanager, since a laptop has nobody to page.
+  `promtool test rules` checks them against synthetic series in CI (`infra/check-observability.sh`).
 
 | Option | Why not |
 |---|---|
@@ -77,4 +87,9 @@ instead, and pool saturation is a gauge read from the SQLAlchemy pool.
 ## Known limits
 
 - One Prometheus and one Tempo with local storage: losing their volumes loses the history.
+- Prometheus ignores the start time of an OTLP series: the first export of a new series is only a baseline, so
+  `rate()` and `increase()` never count what it holds. With exports every 10 s, a new label set (the first 503 of
+  a route, every series of a Python process after a restart, which gets a new `instance`) loses up to its first 10 s.
+  A burst of errors shorter than one export, in a series that did not exist, is invisible to the SLO.
+- A 30-day SLO on a stack that lives for hours: the budget panels show the hours there are, not a month.
 - Grafana allows anonymous viewing; Explore needs `admin/admin`. Local only.

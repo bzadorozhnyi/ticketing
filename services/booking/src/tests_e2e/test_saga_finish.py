@@ -124,7 +124,7 @@ async def test_successful_charge_makes_the_order_due_for_confirm(http):
     assert await make_runner(http).process_next() is True
 
 
-async def test_declined_card_fails_the_order_and_leaves_the_hold(upstreams):
+async def test_declined_card_fails_the_order_and_leaves_the_hold(upstreams, finished):
     order_id = await create_order(saga_step=SagaStep.AWAITING_CHARGE)
 
     settled = await deliver(charge_result(order_id, ChargeStatus.DECLINED))
@@ -136,6 +136,17 @@ async def test_declined_card_fails_the_order_and_leaves_the_hold(upstreams):
     assert order.failure_reason == FailureReason.CARD_DECLINED
     assert upstreams.calls == []
     assert await outbox() == []
+    assert finished == [OrderStatus.FAILED]
+
+
+async def test_repeated_reply_does_not_finish_the_order_again(finished):
+    order_id = await create_order(saga_step=SagaStep.AWAITING_CHARGE)
+
+    await deliver(charge_result(order_id, ChargeStatus.DECLINED))
+    settled = await deliver(charge_result(order_id, ChargeStatus.DECLINED))
+
+    assert settled == ["ack"]
+    assert finished == [OrderStatus.FAILED]
 
 
 async def test_cancelled_charge_changes_nothing_and_is_reported():
@@ -444,7 +455,7 @@ async def test_finished_order_is_not_taken(http):
     assert await make_runner(http).process_next() is False
 
 
-async def test_whole_saga_ends_confirmed(upstreams, http):
+async def test_whole_saga_ends_confirmed(upstreams, http, finished):
     order_id = await create_order()
     runner = make_runner(http)
 
@@ -463,9 +474,10 @@ async def test_whole_saga_ends_confirmed(upstreams, http):
         "extend",
         "confirm",
     ]
+    assert finished == [OrderStatus.CONFIRMED]
 
 
-async def test_whole_saga_with_a_lost_hold_ends_failed(upstreams, http):
+async def test_whole_saga_with_a_lost_hold_ends_failed(upstreams, http, finished):
     upstreams.confirm = Reply(status=status.HTTP_409_CONFLICT)
     order_id = await create_order()
     runner = make_runner(http)
@@ -480,6 +492,7 @@ async def test_whole_saga_with_a_lost_hold_ends_failed(upstreams, http):
     assert order.status == OrderStatus.FAILED
     assert order.failure_reason == FailureReason.REFUNDED_HOLD_LOST
     assert [json.loads(m.body)["type"] for m in await outbox()].count("refund") == 1
+    assert finished == [OrderStatus.FAILED]
 
 
 @pytest.fixture

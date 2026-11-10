@@ -1,0 +1,155 @@
+{
+  "uid": "services",
+  "title": "Services",
+  "description": "Rate, errors and duration of every service, and the gateway's limits. See ADR 0006.",
+  "tags": ["ticketing"],
+  "schemaVersion": 41,
+  "editable": false,
+  "time": { "from": "now-30m", "to": "now" },
+  "refresh": "10s",
+  "panels": [
+    { "type": "row", "title": "Gateway: what clients see", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }, "panels": [] },
+    {
+      "type": "timeseries",
+      "title": "Requests by status",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (http_response_status_code) (histogram_count(rate(http_server_request_duration_seconds{job=\"gateway\"}[$__rate_interval])))",
+          "legendFormat": "{{http_response_status_code}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Refusals by reason (error.type)",
+      "description": "Answers the gateway gave itself: rate_limited, overloaded, bulkhead_full, circuit_open, timeouts, ...",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (error_type) (histogram_count(rate(http_server_request_duration_seconds{job=\"gateway\", error_type!=\"\"}[$__rate_interval])))",
+          "legendFormat": "{{error_type}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "p99 duration by route",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (http_request_method, http_route) (rate(http_server_request_duration_seconds{job=\"gateway\"}[$__rate_interval])))",
+          "legendFormat": "{{http_request_method}} {{http_route}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Calls to upstreams by status",
+      "description": "One per attempt, so a retry counts twice; timeout and connection are calls without an answer.",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (server_address, http_response_status_code, error_type) (histogram_count(rate(http_client_request_duration_seconds{job=\"gateway\"}[$__rate_interval])))",
+          "legendFormat": "{{server_address}} {{http_response_status_code}}{{error_type}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Places in use",
+      "description": "Bulkhead per upstream (BULKHEAD__MAX_CONCURRENT), requests in flight (LIMITS__MAX_IN_FLIGHT), open connections (LIMITS__MAX_CONNECTIONS).",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum by (upstream) (gateway_bulkhead_in_use)", "legendFormat": "bulkhead {{upstream}}" },
+        { "refId": "B", "expr": "sum(gateway_in_flight_in_use)", "legendFormat": "in flight" },
+        { "refId": "C", "expr": "sum(gateway_connections_open)", "legendFormat": "connections" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Breakers and fallbacks",
+      "description": "Breaker transitions per upstream and state, connections closed over the limit, requests that skipped the shared rate limit.",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 9 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "bars" } }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum by (upstream, state) (increase(gateway_breaker_transitions_total[$__rate_interval]))", "legendFormat": "breaker {{upstream}} {{state}}" },
+        { "refId": "B", "expr": "sum(increase(gateway_connections_refused_total[$__rate_interval]))", "legendFormat": "connections refused" },
+        { "refId": "C", "expr": "sum(increase(gateway_rate_limit_shared_skipped_total[$__rate_interval]))", "legendFormat": "shared limit skipped" }
+      ]
+    },
+    { "type": "row", "title": "Services behind the gateway", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 }, "panels": [] },
+    {
+      "type": "timeseries",
+      "title": "Requests by service",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 18 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (job) (histogram_count(rate(http_server_request_duration_seconds{job!=\"gateway\"}[$__rate_interval])))",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "5xx share by service",
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 18 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum by (job) (histogram_count(rate(http_server_request_duration_seconds{job!=\"gateway\", http_response_status_code=~\"5..\"}[$__rate_interval]))) or 0 * sum by (job) (histogram_count(rate(http_server_request_duration_seconds{job!=\"gateway\"}[$__rate_interval])))) / sum by (job) (histogram_count(rate(http_server_request_duration_seconds{job!=\"gateway\"}[$__rate_interval])))",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "p99 duration by service",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 18 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (job) (rate(http_server_request_duration_seconds{job!=\"gateway\"}[$__rate_interval])))",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Database connections in use",
+      "description": "Per process; idle connections are the rest of the pool.",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 18 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (job) (db_client_connection_count{db_client_connection_state=\"used\"})",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    }
+  ]
+}

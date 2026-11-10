@@ -146,7 +146,9 @@ async def test_crash_while_repeating_changes_nothing(http, monkeypatch):
     assert await outbox() == []
 
 
-async def test_started_order_past_the_deadline_fails_without_any_call(upstreams, http):
+async def test_started_order_past_the_deadline_fails_without_any_call(
+    upstreams, http, finished
+):
     order_id = await create_order()
     await make_overdue(order_id)
 
@@ -158,6 +160,7 @@ async def test_started_order_past_the_deadline_fails_without_any_call(upstreams,
     assert order.failure_reason == FailureReason.SAGA_TIMED_OUT
     assert upstreams.calls == []
     assert await outbox() == []
+    assert finished == [OrderStatus.FAILED]
 
 
 async def test_order_just_inside_the_deadline_still_runs(upstreams, http):
@@ -217,7 +220,7 @@ async def test_crash_while_giving_up_repeats_it_with_one_refund(http, monkeypatc
 @pytest.mark.parametrize(
     "refund_status", [RefundStatus.REFUNDED, RefundStatus.NOTHING_TO_REFUND]
 )
-async def test_answered_refund_ends_a_timed_out_order(http, refund_status):
+async def test_answered_refund_ends_a_timed_out_order(http, finished, refund_status):
     order_id = await create_order(**WAITING_CHARGE)
     await make_overdue(order_id)
     await make_runner(http).process_next()
@@ -228,6 +231,7 @@ async def test_answered_refund_ends_a_timed_out_order(http, refund_status):
     assert order.status == OrderStatus.FAILED
     assert order.saga_step == SagaStep.DONE
     assert order.failure_reason == FailureReason.CHARGE_TIMED_OUT
+    assert finished == [OrderStatus.FAILED]
 
 
 async def test_late_charge_result_after_giving_up_is_ignored(http):
