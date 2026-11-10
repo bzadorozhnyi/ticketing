@@ -10,6 +10,7 @@ use uuid::Uuid;
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCode {
     Conflict,
+    HoldLimitReached,
     InternalError,
     NotFound,
     ServiceUnavailable,
@@ -50,9 +51,8 @@ impl ServiceError {
             Self::NotFound => (StatusCode::NOT_FOUND, ErrorCode::NotFound),
             Self::Unauthorized => (StatusCode::UNAUTHORIZED, ErrorCode::Unauthorized),
             Self::Validation(_) => (StatusCode::UNPROCESSABLE_ENTITY, ErrorCode::ValidationError),
-            Self::SeatsTaken(_) | Self::HoldExpired | Self::HoldLimitReached(_) => {
-                (StatusCode::CONFLICT, ErrorCode::Conflict)
-            }
+            Self::SeatsTaken(_) | Self::HoldExpired => (StatusCode::CONFLICT, ErrorCode::Conflict),
+            Self::HoldLimitReached(_) => (StatusCode::CONFLICT, ErrorCode::HoldLimitReached),
             Self::Unavailable => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 ErrorCode::ServiceUnavailable,

@@ -172,7 +172,9 @@ GitHub Actions on pull requests into `main` and on pushes to `main` (`.github/wo
 - Python: ruff, ty, pytest against the compose database.
 - Rust: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, `cargo test --release`.
 - `cargo-deny` for advisories and licenses (`services/gateway/deny.toml`).
-- `infra/check-contracts.sh` runs `oasdiff`: a breaking API change fails the build.
+- `infra/check-contracts.sh` runs `oasdiff`: a breaking API change fails the build. A break made on purpose is listed in
+  `infra/contracts/<service>.accepted` ("METHOD PATH" and the full text oasdiff prints, one line per error), so it is visible
+  in the pull request. The file holds the latest such change; the next one replaces its lines.
 - All Docker images build, with the layers cached between runs.
 
 `infra/changed_areas.py` decides what runs in a pull request: only documentation is skipped, a service runs its own checks,

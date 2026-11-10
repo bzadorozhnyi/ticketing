@@ -6,7 +6,6 @@ Next ticket: TIK-51
 
 ## To do
 - [ ] TIK-49 Ingress: TLS and HTTP/2 at the edge; measure HTTP/2 to the gateway and its effect on balancing (M8)
-- [ ] TIK-50 Contracts: extensible error codes in every service, then `hold_limit_reached` in seat-hold
 
 ## Done
 - [x] TIK-1 Catalog: service skeleton (M1)
@@ -57,3 +56,4 @@ Next ticket: TIK-51
 - [x] TIK-46 Gateway: load shedding, limits of connections and requests in flight, header read timeout (M5)
 - [x] TIK-47 Seat-hold: a hot seat, read before write (M5)
 - [x] TIK-37 Seat-hold: limit active holds per user, one user cannot block a hall (M5)
+- [x] TIK-50 Seat-hold: `hold_limit_reached` error code; accepted breaking changes in the contract check
