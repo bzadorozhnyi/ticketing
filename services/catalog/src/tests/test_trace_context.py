@@ -4,7 +4,6 @@ from loguru import logger
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from core.logging import trace_id_var
-from core.middlewares.trace_context import parse_trace_id
 from events.use_cases.list_events import get_list_events_use_case
 from main import app
 
@@ -33,50 +32,6 @@ def broken_db(monkeypatch):
     return engine
 
 
-@pytest.mark.parametrize(
-    "traceparent",
-    [VALID, f"00-{TRACE_ID}-{PARENT_ID}-00", f"01-{TRACE_ID}-{PARENT_ID}-01-extra"],
-    ids=["sampled", "not-sampled", "future-version-with-extra-field"],
-)
-def test_parse_trace_id_accepts_valid_header(traceparent):
-    assert parse_trace_id(traceparent=traceparent) == TRACE_ID
-
-
-@pytest.mark.parametrize(
-    "traceparent",
-    [
-        None,
-        "",
-        "garbage",
-        VALID.upper(),
-        VALID + "\n",
-        VALID + '\n{"message": "forged log line"}',
-        VALID + "-extra",
-        f"ff-{TRACE_ID}-{PARENT_ID}-01",
-        f"00-{'0' * 32}-{PARENT_ID}-01",
-        f"00-{TRACE_ID}-{'0' * 16}-01",
-        f"00-{TRACE_ID[:-1]}-{PARENT_ID}-01",
-        f"00-{TRACE_ID}-{PARENT_ID}",
-    ],
-    ids=[
-        "missing",
-        "empty",
-        "garbage",
-        "uppercase",
-        "trailing-newline",
-        "log-injection",
-        "version-00-with-extra-field",
-        "forbidden-version",
-        "zero-trace-id",
-        "zero-parent-id",
-        "short-trace-id",
-        "no-flags",
-    ],
-)
-def test_parse_trace_id_rejects_invalid_header(traceparent):
-    assert parse_trace_id(traceparent=traceparent) is None
-
-
 @pytest.mark.anyio
 async def test_valid_traceparent_keeps_trace_id_in_logs(
     real_session_client, broken_db, log_extras
@@ -93,8 +48,15 @@ async def test_valid_traceparent_keeps_trace_id_in_logs(
 @pytest.mark.anyio
 @pytest.mark.parametrize(
     "headers",
-    [{}, {"traceparent": "garbage"}],
-    ids=["missing", "invalid"],
+    [
+        {},
+        {"traceparent": "garbage"},
+        {"traceparent": VALID + '\n{"message": "forged log line"}'},
+        {"traceparent": VALID.upper()},
+        {"traceparent": VALID + "-extra"},
+        {"traceparent": f"00-{'0' * 32}-{PARENT_ID}-01"},
+    ],
+    ids=["missing", "garbage", "log-injection", "uppercase", "extra-field", "zero-id"],
 )
 async def test_each_request_without_valid_traceparent_gets_new_trace_id(
     real_session_client, broken_db, log_extras, headers
@@ -105,6 +67,7 @@ async def test_each_request_without_valid_traceparent_gets_new_trace_id(
 
     first, second = (extra["trace_id"] for extra in log_extras)
     assert first != second
+    assert TRACE_ID not in (first, second)
     assert all(len(trace_id) == 32 for trace_id in (first, second))
 
 

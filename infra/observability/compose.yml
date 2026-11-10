@@ -45,6 +45,10 @@ services:
       OTEL_METRIC_EXPORT_INTERVAL: "10000"
     depends_on: [otel-collector]
 
+  catalog:
+    environment: *telemetry
+    depends_on: [otel-collector]
+
 volumes:
   tempo-data:
   prometheus-data:

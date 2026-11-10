@@ -38,6 +38,7 @@ x-catalog: &catalog
     <<: *service-db-env
     DB__NAME: catalog_db
     DB__HOST: catalog-db
+    OTEL_SERVICE_NAME: catalog
 
 x-booking: &booking
   build: ./services/booking
