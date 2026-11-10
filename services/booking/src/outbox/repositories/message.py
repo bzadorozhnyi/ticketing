@@ -11,12 +11,8 @@ class OutboxRepository:
     def __init__(self, *, session: AsyncSession):
         self.session = session
 
-    async def add(self, *, queue: str, body: str, traceparent: str | None) -> None:
-        await self.session.execute(
-            insert(OutboxMessage).values(
-                queue=queue, body=body, traceparent=traceparent
-            )
-        )
+    async def add(self, *, queue: str, body: str) -> None:
+        await self.session.execute(insert(OutboxMessage).values(queue=queue, body=body))
 
     async def lock_batch(self, *, limit: int) -> Sequence[OutboxMessage]:
         """Oldest first. A row locked by another relay is skipped, not waited for."""

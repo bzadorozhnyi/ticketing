@@ -11,6 +11,7 @@ from core.http import HttpClient
 from core.logging import configure_logging
 from core.rabbitmq import RabbitMQClient
 from core.settings import settings
+from core.telemetry import setup as setup_telemetry
 from orders.clients.catalog import CatalogClient
 from orders.clients.seat_hold import SeatHoldClient
 from orders.payment_reply_consumer import PaymentReplyConsumer
@@ -20,6 +21,7 @@ from orders.saga_runner import SagaRunner
 
 async def main() -> None:
     configure_logging()
+    setup_telemetry()
     seat_hold_http = HttpClient(
         base_url=settings.UPSTREAMS.SEAT_HOLD_URL,
         settings=settings.UPSTREAMS,

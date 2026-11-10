@@ -47,6 +47,7 @@ x-booking: &booking
     <<: *service-db-env
     DB__NAME: booking_db
     DB__HOST: booking-db
+    OTEL_SERVICE_NAME: booking
 
 x-payment: &payment
   build: ./services/payment
@@ -55,6 +56,7 @@ x-payment: &payment
     <<: *service-db-env
     DB__NAME: payment_db
     DB__HOST: payment-db
+    OTEL_SERVICE_NAME: payment
 
 x-seat-hold: &seat-hold
   build: ./services/seat-hold
@@ -150,6 +152,7 @@ services:
       DB__NAME: booking_db
       DB__HOST: booking-db
       RABBITMQ__HOST: rabbitmq
+      OTEL_SERVICE_NAME: booking-relay
     restart: on-failure
     depends_on:
       booking-migrate: { condition: service_completed_successfully }
@@ -163,6 +166,7 @@ services:
       DB__NAME: booking_db
       DB__HOST: booking-db
       RABBITMQ__HOST: rabbitmq
+      OTEL_SERVICE_NAME: booking-saga
     restart: on-failure
     depends_on:
       booking-migrate: { condition: service_completed_successfully }
@@ -176,6 +180,7 @@ services:
       DB__NAME: payment_db
       DB__HOST: payment-db
       RABBITMQ__HOST: rabbitmq
+      OTEL_SERVICE_NAME: payment-consumer
     restart: on-failure
     depends_on:
       payment-migrate: { condition: service_completed_successfully }

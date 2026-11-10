@@ -34,7 +34,7 @@ class PaymentCommands:
             payment_token=payment_token,
         )
         await self.outbox_repository.add(
-            queue=self.queue, body=command.model_dump_json(), traceparent=None
+            queue=self.queue, body=command.model_dump_json()
         )
 
     async def refund(self, *, order: Order) -> None:
@@ -43,5 +43,5 @@ class PaymentCommands:
             order_id=order.id, amount_minor=amount_minor, currency=currency
         )
         await self.outbox_repository.add(
-            queue=self.queue, body=command.model_dump_json(), traceparent=None
+            queue=self.queue, body=command.model_dump_json()
         )

@@ -39,8 +39,9 @@ The gateway does not route `/internal`.
 See ADR 0006. `core/telemetry.py` sets the providers; FastAPI's built-in telemetry makes the server span and
 `http.server.request.duration` (spans per dependency are off), the asyncpg instrumentation a span per statement,
 and `db.client.connection.count` shows the pool by state. Histograms are exponential (native in Prometheus). `OTEL_SERVICE_NAME=catalog` in compose; the collector address
-`OTEL_EXPORTER_OTLP_ENDPOINT` comes from the observability overlay. Without it spans are not recorded but keep the
-trace id from the gateway's `traceparent`, which `TraceContextMiddleware` puts into the logs.
+`OTEL_EXPORTER_OTLP_ENDPOINT` comes from the observability overlay. A trace starts only at the gateway: a request
+without a `traceparent`, such as a health check, is not recorded. Without a collector nothing is recorded, but spans keep
+the trace id from the gateway's `traceparent`, which `TraceContextMiddleware` puts into the logs.
 
 ## Layout notes
 

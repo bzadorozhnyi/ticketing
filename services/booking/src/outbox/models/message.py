@@ -4,6 +4,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.db import BaseModel
+from core.telemetry import current_traceparent
 
 
 class OutboxMessage(BaseModel):
@@ -18,4 +19,5 @@ class OutboxMessage(BaseModel):
     )
     queue: Mapped[str]
     body: Mapped[str]
-    traceparent: Mapped[str | None]
+    # The step that wrote the message: the relay and the consumer continue its trace.
+    traceparent: Mapped[str | None] = mapped_column(default=current_traceparent)

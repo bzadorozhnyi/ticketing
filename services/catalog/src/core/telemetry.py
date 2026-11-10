@@ -11,7 +11,7 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.metrics.view import ExponentialBucketHistogramAggregation, View
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.sdk.trace.sampling import ALWAYS_OFF
+from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ParentBased
 from sqlalchemy.pool import QueuePool
 
 from core.db import engine
@@ -20,12 +20,13 @@ from core.db import engine
 def setup() -> None:
     """Traces and metrics, see ADR 0006. FastAPI's own telemetry makes the server span
     and `http.server.request.duration`; this sets where they go. Exports go to
-    `OTEL_EXPORTER_OTLP_ENDPOINT`; without it spans are not recorded but keep their ids,
-    so the logs still carry the trace id that came from the gateway, and metrics go
-    nowhere.
+    `OTEL_EXPORTER_OTLP_ENDPOINT`. A trace starts only at the gateway: a request without
+    a `traceparent`, such as a health check, is not recorded. Without a collector
+    nothing is recorded, but spans keep their ids, so the logs still carry the trace id
+    that came from the gateway, and metrics go nowhere.
     """
     if os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
-        tracer_provider = TracerProvider()
+        tracer_provider = TracerProvider(sampler=ParentBased(root=ALWAYS_OFF))
         tracer_provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
         reader = PeriodicExportingMetricReader(OTLPMetricExporter())
         # Exponential: the buckets follow the values, so no service keeps bounds that

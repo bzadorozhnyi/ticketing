@@ -17,6 +17,8 @@ from tests_e2e.helpers import (
     COMMANDS_QUEUE,
     EVENT_ID,
     SEAT_IDS,
+    TRACE_ID,
+    TRACEPARENT,
     USER,
     Reply,
     breaker_off,
@@ -25,6 +27,7 @@ from tests_e2e.helpers import (
     make_due,
     make_runner,
     outbox,
+    trace_id_of,
 )
 
 pytestmark = [pytest.mark.anyio, pytest.mark.usefixtures("empty_tables")]
@@ -69,6 +72,19 @@ async def test_step_calls_upstreams_in_order_as_the_owner(upstreams, http):
         ("extend", f"/internal/v1/holds/{hold_id}/extend", USER),
     ]
     assert upstreams.price_bodies == [{"seat_ids": [str(s) for s in SEAT_IDS]}]
+
+
+async def test_step_continues_the_trace_of_the_request_that_created_the_order(
+    upstreams, http
+):
+    await create_order(traceparent=TRACEPARENT)
+
+    await make_runner(http).process_next()
+
+    [message] = await outbox()
+    assert trace_id_of(message.traceparent) == TRACE_ID
+    assert len(upstreams.traceparents) == 3
+    assert {trace_id_of(sent) for sent in upstreams.traceparents} == {TRACE_ID}
 
 
 async def test_nothing_due_returns_false(http):

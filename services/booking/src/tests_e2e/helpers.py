@@ -40,6 +40,7 @@ class Upstreams:
     amount_minor: int = 150_000
     calls: list[tuple[str, str, str | None]] = field(default_factory=list)
     price_bodies: list[dict] = field(default_factory=list)
+    traceparents: list[str | None] = field(default_factory=list)
 
     def called(self, name: str) -> int:
         return sum(1 for call_name, _, _ in self.calls if call_name == name)
@@ -48,6 +49,7 @@ class Upstreams:
         self, *, name: str, reply: Reply, request: web.Request, body: dict
     ) -> web.Response:
         self.calls.append((name, request.path, request.headers.get("X-User-Id")))
+        self.traceparents.append(request.headers.get("traceparent"))
         await asyncio.sleep(reply.delay_seconds)
         if reply.body is not None:
             return web.Response(
@@ -103,6 +105,14 @@ class Upstreams:
         app.router.add_post("/internal/v1/holds/{hold_id}/confirm", self.confirm_hold)
         app.router.add_post("/internal/v1/events/{event_id}/price", self.price_seats)
         return app
+
+
+TRACE_ID = "4bf92f3577b34da6a3ce929d0e0e4736"
+TRACEPARENT = f"00-{TRACE_ID}-00f067aa0ba902b7-01"
+
+
+def trace_id_of(traceparent: str | None) -> str | None:
+    return traceparent.split("-")[1] if traceparent else None
 
 
 def make_runner(http: HttpClient, **overrides) -> SagaRunner:

@@ -5,6 +5,7 @@ import aiohttp
 
 from core.breaker import CircuitBreaker
 from core.settings import UpstreamSettings
+from core.telemetry import upstream_call
 
 UPSTREAM_FAILURES = {502, 503, 504}
 
@@ -61,16 +62,21 @@ class HttpClient:
         Raises CircuitOpenError without a call while the breaker is open.
         """
         call = self.breaker.acquire()
-        try:
-            async with self.session.request(
-                method, path, headers=headers, json=json
-            ) as response:
-                call.finish(failed=response.status in UPSTREAM_FAILURES)
-                if response.status not in expected:
-                    raise UpstreamError(f"{method} {path}: {response.status}")
-                return response.status, await response.json()
-        except (aiohttp.ClientError, TimeoutError) as exc:
-            call.finish(failed=True)
-            raise UpstreamError(f"{method} {path}: {exc!r}") from exc
-        finally:
-            call.release()
+        with upstream_call(method=method, upstream=self.breaker.upstream) as upstream:
+            try:
+                async with self.session.request(
+                    method,
+                    path,
+                    headers={**(headers or {}), **upstream.headers},
+                    json=json,
+                ) as response:
+                    upstream.answered(status=response.status)
+                    call.finish(failed=response.status in UPSTREAM_FAILURES)
+                    if response.status not in expected:
+                        raise UpstreamError(f"{method} {path}: {response.status}")
+                    return response.status, await response.json()
+            except (aiohttp.ClientError, TimeoutError) as exc:
+                call.finish(failed=True)
+                raise UpstreamError(f"{method} {path}: {exc!r}") from exc
+            finally:
+                call.release()
