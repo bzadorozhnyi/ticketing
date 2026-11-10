@@ -38,8 +38,11 @@ See ADR 0006; `core/telemetry.py` follows catalog's. One trace per order, from t
 - A trace starts only at the gateway: the polls of the saga and the relay and the health checks are not recorded.
 - Metrics: `http.server.request.duration` (FastAPI), `http.client.request.duration` (upstream, status),
   `booking.saga.steps` (step, outcome `ran`/`postponed`/`failed`), `booking.outbox.publish.delay` (how long a command
-  waited for the relay), `db.client.connection.count`. Each process has its own `OTEL_SERVICE_NAME`:
+  waited for the relay), `booking.order.duration` (creation to `confirmed` or `failed`, outcome; the purchase SLO),
+  `db.client.connection.count`. Each process has its own `OTEL_SERVICE_NAME`:
   `booking`, `booking-saga`, `booking-relay`.
+- A use case that ends an order returns `FinishedOrder`, and one that changed nothing returns None, so a repeated
+  reply is not counted twice; `SagaRunner` and `PaymentReplyConsumer` record the duration after the commit.
 - A process killed with buffered spans loses up to about 5 s of them. Not measured yet: a relay crash after a publish
   should show as two publish and two consumer spans, the duplicate that at-least-once delivery allows.
 

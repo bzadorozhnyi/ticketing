@@ -18,6 +18,7 @@ jobs:
       rust_services: ${{ steps.areas.outputs.rust_services }}
       images: ${{ steps.areas.outputs.images }}
       contracts: ${{ steps.areas.outputs.contracts }}
+      observability: ${{ steps.areas.outputs.observability }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -106,6 +107,14 @@ jobs:
           fetch-depth: 0
       - run: infra/check-contracts.sh
 
+  observability:
+    needs: changes
+    if: needs.changes.outputs.observability == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - run: infra/check-observability.sh
+
   images:
     needs: changes
     if: needs.changes.outputs.images != '[]'
@@ -125,7 +134,7 @@ jobs:
 
   ci-passed:
     if: always()
-    needs: [changes, python, rust, dependencies, contracts, images]
+    needs: [changes, python, rust, dependencies, contracts, observability, images]
     runs-on: ubuntu-latest
     steps:
       - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')

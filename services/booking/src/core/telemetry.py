@@ -1,6 +1,7 @@
 import os
 from collections.abc import Generator, Iterable
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from time import perf_counter
 
 from opentelemetry import metrics, trace
@@ -37,6 +38,11 @@ outbox_publish_delay = meter.create_histogram(
     "booking.outbox.publish.delay",
     unit="s",
     description="Time a command waited in the outbox before the broker confirmed it",
+)
+order_duration = meter.create_histogram(
+    "booking.order.duration",
+    unit="s",
+    description="Time from creating an order to confirmed or failed",
 )
 
 
@@ -95,6 +101,12 @@ def continue_trace(
             yield span
         finally:
             trace_id_var.reset(token)
+
+
+def record_finished_order(*, created_at: datetime, status: str) -> None:
+    """Called once per order, by the step that ended it, after its commit."""
+    seconds = (datetime.now(UTC) - created_at).total_seconds()
+    order_duration.record(seconds, {"outcome": status})
 
 
 class UpstreamCall:

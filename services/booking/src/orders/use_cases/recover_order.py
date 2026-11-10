@@ -2,7 +2,8 @@ from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.settings import SagaSettings
-from orders.models.order import FailureReason, Order, SagaStep
+from orders.dto.order import FinishedOrder
+from orders.models.order import FailureReason, Order, OrderStatus, SagaStep
 from orders.repositories.order import OrderRepository
 from orders.services.payment_commands import PaymentCommands, order_sum
 
@@ -23,13 +24,17 @@ class RecoverOrderUseCase:
         self.payment_commands = payment_commands
         self.settings = settings
 
-    async def execute(self, *, order: Order, overdue: bool) -> None:
+    async def execute(self, *, order: Order, overdue: bool) -> FinishedOrder | None:
         """Runs when no answer came in time. Commands are safe to send again: payment
         is idempotent by order, so a repeat also brings back a lost reply.
         """
+        finished = None
         if order.saga_step == SagaStep.STARTED:
             await self.order_repository.mark_failed(
                 order_id=order.id, reason=FailureReason.SAGA_TIMED_OUT
+            )
+            finished = FinishedOrder(
+                status=OrderStatus.FAILED, created_at=order.created_at
             )
         elif order.saga_step == SagaStep.AWAITING_REFUND:
             await self._repeat_refund(order=order, overdue=overdue)
@@ -38,6 +43,7 @@ class RecoverOrderUseCase:
         else:
             await self._repeat_charge(order=order)
         await self.session.commit()
+        return finished
 
     async def _repeat_charge(self, *, order: Order) -> None:
         amount_minor, currency = order_sum(order=order)

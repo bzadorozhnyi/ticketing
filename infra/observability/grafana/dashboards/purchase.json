@@ -1,0 +1,113 @@
+{
+  "uid": "purchase",
+  "title": "Purchase",
+  "description": "An order from POST /orders to confirmed or failed: the saga, the outbox and payment. See ADR 0006.",
+  "tags": ["ticketing"],
+  "schemaVersion": 41,
+  "editable": false,
+  "time": { "from": "now-30m", "to": "now" },
+  "refresh": "10s",
+  "panels": [
+    { "type": "row", "title": "Orders", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }, "panels": [] },
+    {
+      "type": "timeseries",
+      "title": "Orders created by status",
+      "description": "POST /api/v1/orders at booking: 202 a new order, 200 a repeat with the same Idempotency-Key.",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (http_response_status_code) (histogram_count(rate(http_server_request_duration_seconds{job=\"booking\", http_request_method=\"POST\", http_route=\"/api/v1/orders\"}[$__rate_interval])))",
+          "legendFormat": "{{http_response_status_code}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Orders finished by outcome",
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (histogram_count(rate(booking_order_duration_seconds[$__rate_interval])))",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Time to a final state",
+      "description": "From creating the order to confirmed or failed.",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.5, sum by (outcome) (rate(booking_order_duration_seconds[$__rate_interval])))", "legendFormat": "p50 {{outcome}}" },
+        { "refId": "B", "expr": "histogram_quantile(0.99, sum by (outcome) (rate(booking_order_duration_seconds[$__rate_interval])))", "legendFormat": "p99 {{outcome}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Finished within 10 s",
+      "description": "The purchase SLI: the share of finished orders that took at most 10 s.",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "histogram_fraction(0, 10, sum(rate(booking_order_duration_seconds[$__rate_interval])))", "legendFormat": "within 10 s" }
+      ]
+    },
+    { "type": "row", "title": "Saga, outbox and payment", "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 }, "panels": [] },
+    {
+      "type": "timeseries",
+      "title": "Saga steps by outcome",
+      "description": "ran, postponed (a breaker is open) or failed (will retry), by the step the order was in.",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 10 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum by (saga_step, outcome) (rate(booking_saga_steps_total[$__rate_interval]))", "legendFormat": "{{saga_step}} {{outcome}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Saga calls to upstreams",
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 10 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (server_address, http_response_status_code, error_type) (histogram_count(rate(http_client_request_duration_seconds{job=\"booking-saga\"}[$__rate_interval])))",
+          "legendFormat": "{{server_address}} {{http_response_status_code}} {{error_type}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Outbox: wait before publish",
+      "description": "How long a command waited in the outbox until the broker confirmed it.",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 10 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.5, sum by (messaging_destination_name) (rate(booking_outbox_publish_delay_seconds[$__rate_interval])))", "legendFormat": "p50 {{messaging_destination_name}}" },
+        { "refId": "B", "expr": "histogram_quantile(0.99, sum by (messaging_destination_name) (rate(booking_outbox_publish_delay_seconds[$__rate_interval])))", "legendFormat": "p99 {{messaging_destination_name}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Payment commands by outcome",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 10 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum by (command_type, outcome) (rate(payment_commands_total[$__rate_interval]))", "legendFormat": "{{command_type}} {{outcome}}" }
+      ]
+    }
+  ]
+}

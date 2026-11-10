@@ -9,9 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from core.breaker import CircuitOpenError
 from core.settings import SagaSettings
-from core.telemetry import continue_trace, saga_steps
+from core.telemetry import continue_trace, record_finished_order, saga_steps
 from orders.clients.catalog import CatalogClient
 from orders.clients.seat_hold import SeatHoldClient
+from orders.dto.order import FinishedOrder
 from orders.models.order import Order, SagaStep
 from orders.repositories.order import OrderRepository
 from orders.services.payment_commands import PaymentCommands
@@ -85,7 +86,9 @@ class SagaRunner:
         order_id, attempts = order.id, order.attempts
         overdue = self._is_overdue(order=order)
         try:
-            await self._run_step(session=session, order=order, overdue=overdue)
+            finished = await self._run_step(
+                session=session, order=order, overdue=overdue
+            )
         except CircuitOpenError as exc:
             logger.bind(order_id=str(order_id), upstream=exc.upstream).info(
                 "Saga step postponed, the circuit is open"
@@ -108,26 +111,30 @@ class SagaRunner:
             )
             await session.commit()
             return "failed"
+        if finished:
+            record_finished_order(
+                created_at=finished.created_at, status=finished.status
+            )
         return "ran"
 
     async def _run_step(
         self, *, session: AsyncSession, order: Order, overdue: bool
-    ) -> None:
+    ) -> FinishedOrder | None:
         order_repository = OrderRepository(session=session)
         payment_commands = PaymentCommands(
             outbox_repository=OutboxRepository(session=session),
             queue=self.settings.PAYMENT_COMMANDS_QUEUE,
         )
         if order.saga_step == SagaStep.CHARGED:
-            await ConfirmOrderUseCase(
+            return await ConfirmOrderUseCase(
                 session=session,
                 order_repository=order_repository,
                 payment_commands=payment_commands,
                 seat_hold=self.seat_hold,
                 settings=self.settings,
             ).execute(order=order)
-        elif order.saga_step == SagaStep.STARTED and not overdue:
-            await StartSagaUseCase(
+        if order.saga_step == SagaStep.STARTED and not overdue:
+            return await StartSagaUseCase(
                 session=session,
                 order_repository=order_repository,
                 payment_commands=payment_commands,
@@ -135,13 +142,12 @@ class SagaRunner:
                 catalog=self.catalog,
                 settings=self.settings,
             ).execute(order=order)
-        else:
-            await RecoverOrderUseCase(
-                session=session,
-                order_repository=order_repository,
-                payment_commands=payment_commands,
-                settings=self.settings,
-            ).execute(order=order, overdue=overdue)
+        return await RecoverOrderUseCase(
+            session=session,
+            order_repository=order_repository,
+            payment_commands=payment_commands,
+            settings=self.settings,
+        ).execute(order=order, overdue=overdue)
 
     def _is_overdue(self, *, order: Order) -> bool:
         give_up_at = order.created_at + timedelta(

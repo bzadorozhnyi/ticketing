@@ -19,6 +19,7 @@ from core.db import async_session, engine  # noqa: E402
 from core.http import HttpClient  # noqa: E402
 from core.settings import UpstreamSettings, settings  # noqa: E402
 from main import app  # noqa: E402
+from orders import payment_reply_consumer, saga_runner  # noqa: E402
 from orders.models.order import Order  # noqa: E402
 from outbox.models.message import OutboxMessage  # noqa: E402
 from tests.helpers.db import create_db, drop_db  # noqa: E402
@@ -81,3 +82,16 @@ async def http(upstreams):
     await client.connect()
     yield client
     await client.close()
+
+
+@pytest.fixture
+def finished(monkeypatch) -> list[str]:
+    """Statuses of the orders the saga and the reply consumer report as finished."""
+    statuses: list[str] = []
+
+    def record(*, created_at, status):
+        statuses.append(status)
+
+    for module in (saga_runner, payment_reply_consumer):
+        monkeypatch.setattr(module, "record_finished_order", record)
+    return statuses

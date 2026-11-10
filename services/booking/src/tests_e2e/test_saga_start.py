@@ -125,7 +125,7 @@ async def test_finished_step_is_not_taken_again(upstreams, http):
     ],
 )
 async def test_definite_refusal_fails_the_order_without_a_charge(
-    upstreams, http, reply_name, code, reason, calls
+    upstreams, http, finished, reply_name, code, reason, calls
 ):
     setattr(upstreams, reply_name, Reply(status=code))
     order_id = await create_order()
@@ -138,6 +138,7 @@ async def test_definite_refusal_fails_the_order_without_a_charge(
     assert order.failure_reason == reason
     assert [name for name, _, _ in upstreams.calls] == calls
     assert await outbox() == []
+    assert finished == [OrderStatus.FAILED]
 
 
 @pytest.mark.parametrize(
@@ -151,7 +152,7 @@ async def test_definite_refusal_fails_the_order_without_a_charge(
     ],
     ids=["503", "500", "timeout", "not-json", "wrong-schema"],
 )
-async def test_no_definite_answer_postpones_the_order(upstreams, http, reply):
+async def test_no_definite_answer_postpones_the_order(upstreams, http, finished, reply):
     upstreams.hold = reply
     order_id = await create_order()
     runner = make_runner(http)
@@ -165,6 +166,7 @@ async def test_no_definite_answer_postpones_the_order(upstreams, http, reply):
     assert order.next_attempt_at > order.created_at
     assert await outbox() == []
     assert await runner.process_next() is False
+    assert finished == []
 
 
 async def test_postponed_order_succeeds_when_the_upstream_returns(upstreams, http):

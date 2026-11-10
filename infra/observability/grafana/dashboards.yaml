@@ -1,0 +1,11 @@
+apiVersion: 1
+
+# Dashboards are files in the repository; a change made in the UI is not saved, export it into the file instead.
+providers:
+  - name: ticketing
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 10
+    options:
+      path: /var/lib/grafana/dashboards

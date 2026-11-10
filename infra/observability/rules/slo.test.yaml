@@ -1,0 +1,128 @@
+# Unit tests of slo.yaml with synthetic series, one sample a minute: infra/check-rules.sh.
+# Native histograms, schema 0: bucket i holds values in (2^(i-1), 2^i], `offset` is the first i.
+rule_files: [slo.yaml]
+evaluation_interval: 1m
+
+tests:
+  # 600 requests a minute; at 60m every request fails, at 80m the gateway is fixed.
+  # The 1 h error ratio passes 14.4 x 0.5 % = 7.2 % after 4.3 minutes of the outage.
+  - name: a full outage pages within 5 minutes and clears within 5 minutes of the fix
+    interval: 1m
+    input_series:
+      - series: 'http_server_request_duration_seconds{job="gateway", http_route="/api/v1/events", http_response_status_code="200"}'
+        values: '{{count:0 sum:0}}+{{count:600 sum:30}}x60 {{count:36000 sum:1800}}x19 {{count:36600 sum:1830}}+{{count:600 sum:30}}x29'
+      - series: 'http_server_request_duration_seconds{job="gateway", http_route="/api/v1/events", http_response_status_code="503"}'
+        values: '{{count:0 sum:0}}x60 {{count:600 sum:30}}+{{count:600 sum:30}}x19 {{count:12000 sum:600}}x29'
+    alert_rule_test:
+      - alertname: GatewayAvailabilityFastBurn
+        eval_time: 64m
+      - alertname: GatewayAvailabilityFastBurn
+        eval_time: 65m
+        exp_alerts:
+          - exp_labels: { severity: page, slo: gateway-availability }
+            exp_annotations:
+              summary: "Gateway 5xx spend 2 % of the 30-day budget per hour; Services dashboard"
+              description: "Burn rate 16.69 over 1 h"
+      - alertname: GatewayAvailabilityFastBurn
+        eval_time: 83m
+        exp_alerts:
+          - exp_labels: { severity: page, slo: gateway-availability }
+            exp_annotations:
+              summary: "Gateway 5xx spend 2 % of the 30-day budget per hour; Services dashboard"
+              description: "Burn rate 67.05 over 1 h"
+      - alertname: GatewayAvailabilityFastBurn
+        eval_time: 84m
+
+  # 4 % of requests fail from the start: burn rate 8, the budget lasts under 4 days.
+  - name: a steady small error rate pages through the slow burn only
+    interval: 1m
+    input_series:
+      - series: 'http_server_request_duration_seconds{job="gateway", http_route="/api/v1/holds", http_response_status_code="201"}'
+        values: '{{count:0 sum:0}}+{{count:576 sum:30}}x60'
+      - series: 'http_server_request_duration_seconds{job="gateway", http_route="/api/v1/holds", http_response_status_code="503"}'
+        values: '{{count:0 sum:0}}+{{count:24 sum:1}}x60'
+    alert_rule_test:
+      - alertname: GatewayAvailabilityFastBurn
+        eval_time: 40m
+      - alertname: GatewayAvailabilitySlowBurn
+        eval_time: 40m
+        exp_alerts:
+          - exp_labels: { severity: page, slo: gateway-availability }
+            exp_annotations:
+              summary: "Gateway 5xx spend 5 % of the 30-day budget in 6 hours; Services dashboard"
+              description: "Burn rate 8 over 6 h"
+
+  - name: errors outside /api and 4xx do not count
+    interval: 1m
+    input_series:
+      - series: 'http_server_request_duration_seconds{job="gateway", http_route="/api/v1/events", http_response_status_code="429"}'
+        values: '{{count:0 sum:0}}+{{count:600 sum:30}}x60'
+      - series: 'http_server_request_duration_seconds{job="gateway", http_route="/ready", http_response_status_code="503"}'
+        values: '{{count:0 sum:0}}+{{count:600 sum:30}}x60'
+    promql_expr_test:
+      - expr: slo:gateway_availability:error_ratio_rate1h
+        eval_time: 60m
+        exp_samples: [{ labels: 'slo:gateway_availability:error_ratio_rate1h', value: 0 }]
+
+  # 600 GETs a minute in (0.125 s, 0.25 s]; from 60m half of them take (0.5 s, 1 s].
+  # The 1 h share of slow ones passes 14.4 x 1 % = 14.4 % after 18 minutes.
+  - name: slow reads page through the fast burn
+    interval: 1m
+    input_series:
+      - series: 'http_server_request_duration_seconds{job="gateway", http_route="/api/v1/events", http_request_method="GET", http_response_status_code="200"}'
+        values: '{{schema:0 count:0 sum:0 offset:-2 buckets:[0 0 0]}}+{{schema:0 count:600 sum:120 offset:-2 buckets:[600 0 0]}}x60 {{schema:0 count:36600 sum:7425 offset:-2 buckets:[36300 0 300]}}+{{schema:0 count:600 sum:285 offset:-2 buckets:[300 0 300]}}x29'
+    alert_rule_test:
+      - alertname: GatewayReadLatencyFastBurn
+        eval_time: 75m
+      - alertname: GatewayReadLatencyFastBurn
+        eval_time: 80m
+        exp_alerts:
+          - exp_labels: { severity: page, slo: gateway-read-latency }
+            exp_annotations:
+              summary: "Slow GETs spend 2 % of the 30-day budget per hour; Services dashboard"
+              description: "Burn rate 16.95 over 1 h"
+    promql_expr_test:
+      - expr: slo:gateway_read_latency:error_ratio_rate5m
+        eval_time: 80m
+        exp_samples: [{ labels: 'slo:gateway_read_latency:error_ratio_rate5m', value: 0.5 }]
+
+  # 10 orders a minute finish in (4 s, 8 s]; from 60m they take (16 s, 32 s].
+  - name: slow purchases page through the fast burn
+    interval: 1m
+    input_series:
+      - series: 'booking_order_duration_seconds{job="booking-saga", outcome="confirmed"}'
+        values: '{{schema:0 count:0 sum:0 offset:3 buckets:[0 0 0]}}+{{schema:0 count:10 sum:60 offset:3 buckets:[10 0 0]}}x60 {{schema:0 count:610 sum:3800 offset:3 buckets:[600 0 10]}}+{{schema:0 count:10 sum:200 offset:3 buckets:[0 0 10]}}x19'
+    alert_rule_test:
+      - alertname: PurchaseFastBurn
+        eval_time: 65m
+      - alertname: PurchaseFastBurn
+        eval_time: 70m
+        exp_alerts:
+          - exp_labels: { severity: page, slo: purchase }
+            exp_annotations:
+              summary: "Slow purchases spend 2 % of the 30-day budget per hour; Purchase dashboard"
+              description: "Burn rate 16.95 over 1 h"
+
+  # Orders keep coming; the last one finishes at 30m. From 39m the 10 m window holds only samples
+  # after it, so the rule holds, and the alert fires 5m later.
+  - name: orders that stop finishing page although no order is slow
+    interval: 1m
+    input_series:
+      - series: 'http_server_request_duration_seconds{job="booking", http_route="/api/v1/orders", http_request_method="POST", http_response_status_code="202"}'
+        values: '{{count:0 sum:0}}+{{count:10 sum:1}}x60'
+      - series: 'booking_order_duration_seconds{job="booking-saga", outcome="confirmed"}'
+        values: '{{schema:0 count:0 sum:0 offset:3 buckets:[0]}}+{{schema:0 count:10 sum:60 offset:3 buckets:[10]}}x30 {{schema:0 count:300 sum:1800 offset:3 buckets:[300]}}x30'
+    alert_rule_test:
+      - alertname: OrdersNotFinishing
+        eval_time: 30m
+      - alertname: OrdersNotFinishing
+        eval_time: 43m
+      - alertname: OrdersNotFinishing
+        eval_time: 44m
+        exp_alerts:
+          - exp_labels: { severity: page, slo: purchase }
+            exp_annotations:
+              summary: "Orders are created but none has finished for 10 minutes; Purchase dashboard"
+              description: "The saga worker, the relay, RabbitMQ or payment may be down"
+      - alertname: PurchaseFastBurn
+        eval_time: 44m

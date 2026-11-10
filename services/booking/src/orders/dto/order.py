@@ -4,7 +4,7 @@ from typing import Self
 
 from pydantic import BaseModel
 
-from orders.models.order import Order
+from orders.models.order import Order, OrderStatus
 
 
 class OrderDTO(BaseModel):
@@ -23,3 +23,11 @@ class OrderDTO(BaseModel):
             failure_reason=order.failure_reason,
             created_at=order.created_at,
         )
+
+
+class FinishedOrder(BaseModel):
+    """What a step returns when it ended the order; a repeat that changed nothing
+    returns None instead."""
+
+    status: OrderStatus
+    created_at: datetime
