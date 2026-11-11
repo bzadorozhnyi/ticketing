@@ -7,7 +7,9 @@ from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.consistency import ReplicaReads
 from core.db import ReplicaSessionDep, SessionDep
+from core.settings import settings
 from orders.models.order import FailureReason, Order, OrderStatus, SagaStep
 
 
@@ -181,3 +183,19 @@ def get_replica_order_repository(session: ReplicaSessionDep) -> OrderRepository:
 ReplicaOrderRepositoryDep = Annotated[
     OrderRepository, Depends(get_replica_order_repository)
 ]
+
+
+def get_order_reads(
+    replica_session: ReplicaSessionDep,
+    replica: ReplicaOrderRepositoryDep,
+    primary: OrderRepositoryDep,
+) -> ReplicaReads[OrderRepository]:
+    return ReplicaReads(
+        replica_session=replica_session,
+        replica=replica,
+        primary=primary,
+        wait_seconds=settings.REPLICATION.WAIT_FOR_TOKEN_SECONDS,
+    )
+
+
+OrderReadsDep = Annotated[ReplicaReads[OrderRepository], Depends(get_order_reads)]

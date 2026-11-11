@@ -60,6 +60,14 @@
                   "$ref": "#/components/schemas/OrderOut"
                 }
               }
+            },
+            "headers": {
+              "X-Consistency-Token": {
+                "description": "Send it with GET /orders/{order_id} to see this order at once, even on a replica that lags behind",
+                "schema": {
+                  "type": "string"
+                }
+              }
             }
           },
           "401": {
@@ -121,6 +129,23 @@
               "type": "string",
               "format": "uuid",
               "title": "Order Id"
+            }
+          },
+          {
+            "name": "x-consistency-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9A-F]{1,8}/[0-9A-F]{1,8}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Consistency-Token"
             }
           },
           {

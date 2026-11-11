@@ -32,6 +32,10 @@ meter = metrics.get_meter("booking")
 http_client_duration = meter.create_histogram(
     "http.client.request.duration", unit="s", description="Calls to seat-hold, catalog"
 )
+replica_reads = meter.create_counter(
+    "db.replica.reads",
+    description="Reads meant for the replica, by where they went and why (primary)",
+)
 saga_steps = meter.create_counter(
     "booking.saga.steps", description="Saga steps by step and outcome"
 )

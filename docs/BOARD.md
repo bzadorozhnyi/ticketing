@@ -5,7 +5,6 @@ Next ticket: TIK-65
 ## In progress
 
 ## To do
-- [ ] TIK-62 Experiment: replica lag breaks read-your-writes; measure, protect, measure again (M7)
 - [ ] TIK-63 Migrations: lock_timeout with retries, so a migration waiting for a lock does not queue every query (M7)
 - [ ] TIK-64 Expand/migrate/contract: rename a column under load while old and new versions run (M7)
 - [ ] TIK-60 CPU and throttling metrics of every process, from the kubelet (M8)
@@ -71,3 +70,4 @@ Next ticket: TIK-65
 - [x] TIK-59 Seat-hold: lock_timeout and statement_timeout, so one locked table cannot take the whole pool (M6)
 - [x] TIK-58 SLO: count the first export of a new OTLP series, lost to rate() today (M6)
 - [x] TIK-61 Booking: streaming read replica, order reads from it, replica lag as a metric and an alert (M7)
+- [x] TIK-62 Experiment: replica lag breaks read-your-writes; measure, protect, measure again (M7)

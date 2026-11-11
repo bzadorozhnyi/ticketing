@@ -354,7 +354,7 @@
       "description": "How far GET /orders/{id} reads are behind the primary (pg_stat_replication.replay_lag). No line: the replica is not streaming.",
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 8,
         "x": 0,
         "y": 27
       },
@@ -401,8 +401,8 @@
       "description": "WAL the primary's slot keeps until the replica confirms it; it grows while the replica is gone.",
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
+        "w": 8,
+        "x": 8,
         "y": 27
       },
       "datasource": {
@@ -421,6 +421,34 @@
           "refId": "A",
           "expr": "max(db_replication_slot_retained_bytes)",
           "legendFormat": "retained"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Order reads by source",
+      "description": "Reads meant for the replica: served there, or sent to the primary because the replica was behind the client's token, did not have the order yet (no token), or could not be reached.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 27
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (source, reason) (rate(db_replica_reads_total[$__rate_interval]))",
+          "legendFormat": "{{source}} {{reason}}"
         }
       ]
     }
