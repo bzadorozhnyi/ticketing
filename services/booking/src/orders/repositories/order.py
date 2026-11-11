@@ -3,13 +3,14 @@ from datetime import timedelta
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy import func, select, update
+from sqlalchemy import func, literal, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.consistency import ReplicaReads
 from core.db import ReplicaSessionDep, SessionDep
 from orders.models.order import FailureReason, Order, OrderStatus, SagaStep
+from orders.models.payment_token import OrderPaymentToken
 
 
 class OrderRepository:
@@ -40,8 +41,10 @@ class OrderRepository:
     ) -> None:
         """No conflict target on purpose: either unique index refuses the row.
         Of two concurrent calls one inserts, the other waits for it and does nothing.
+        One statement writes the token next to the order, only for an order it created,
+        so a repeat adds nothing.
         """
-        await self.session.execute(
+        new_order = (
             insert(Order)
             .values(
                 user_id=user_id,
@@ -51,7 +54,27 @@ class OrderRepository:
                 status=OrderStatus.PENDING,
             )
             .on_conflict_do_nothing()
+            .returning(Order.id)
+            .cte("new_order")
         )
+        await self.session.execute(
+            insert(OrderPaymentToken)
+            .from_select(
+                ["order_id", "payment_token"],
+                select(new_order.c.id, literal(payment_token)),
+            )
+            .add_cte(new_order)
+        )
+
+    async def payment_token_of(self, *, order: Order) -> str:
+        """An order created before the token table existed has its token only in its
+        own row."""
+        token = await self.session.scalar(
+            select(OrderPaymentToken.payment_token).where(
+                OrderPaymentToken.order_id == order.id
+            )
+        )
+        return token if token is not None else order.payment_token
 
     async def lock_next_due(self) -> Order | None:
         """An order another worker is on is skipped. The lock ends with the transaction,

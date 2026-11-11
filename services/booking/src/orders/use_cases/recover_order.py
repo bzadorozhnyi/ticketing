@@ -53,7 +53,7 @@ class RecoverOrderUseCase:
             order_id=order.id,
             amount_minor=amount_minor,
             currency=currency,
-            payment_token=order.payment_token,
+            payment_token=await self.order_repository.payment_token_of(order=order),
         )
         await self._wait_again(order=order)
 

@@ -12,6 +12,7 @@ from core.settings import BreakerSettings, SagaSettings
 from orders.clients.catalog import CatalogClient
 from orders.clients.seat_hold import SeatHoldClient
 from orders.models.order import Order, OrderStatus
+from orders.models.payment_token import OrderPaymentToken
 from orders.saga_runner import SagaRunner
 from outbox.models.message import OutboxMessage
 
@@ -171,3 +172,10 @@ def breaker_off() -> CircuitBreaker:
     return CircuitBreaker(
         upstream="test", settings=BreakerSettings(WINDOW=10, MIN_CALLS=1000)
     )
+
+
+async def store_token(order_id: uuid.UUID, token: str) -> None:
+    """The token in its own table, as an order created since TIK-64 has it."""
+    async with async_session() as session:
+        session.add(OrderPaymentToken(order_id=order_id, payment_token=token))
+        await session.commit()

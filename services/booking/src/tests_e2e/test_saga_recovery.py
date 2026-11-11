@@ -23,6 +23,7 @@ from tests_e2e.helpers import (
     make_due,
     make_runner,
     outbox,
+    store_token,
 )
 from tests_e2e.test_saga_finish import (
     RecordedDelivery,
@@ -90,6 +91,16 @@ async def test_missing_reply_sends_the_same_charge_again(http):
         "currency": "UAH",
         "payment_token": "tok_card",
     }
+
+
+async def test_a_repeated_charge_takes_the_token_from_its_own_table(http):
+    order_id = await create_order(token="tok_in_order", **WAITING_CHARGE)
+    await store_token(order_id, "tok_apart")
+
+    await make_runner(http).process_next()
+
+    [body] = await bodies()
+    assert body["payment_token"] == "tok_apart"
 
 
 async def test_repeated_charge_waits_before_the_next_one(http):

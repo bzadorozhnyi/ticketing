@@ -48,6 +48,13 @@ See ADR 0006; `core/telemetry.py` follows catalog's. One trace per order, from t
 - A process killed with buffered spans loses up to about 5 s of them. Not measured yet: a relay crash after a publish
   should show as two publish and two consumer spans, the duplicate that at-least-once delivery allows.
 
+## Payment tokens
+
+Moving out of `orders` into `order_payment_tokens` over three releases (ADR 0008): the saga needs a token only until the
+charge, so it can be deleted once the order is final. Now (TIK-64, expand): `POST /orders` writes both in one statement,
+the token row only for an order it created; the saga reads the table and falls back to `orders.payment_token` for an
+order created before it. TIK-66 backfills and reads only the table, TIK-67 drops the column.
+
 ## Read replica
 
 See ADR 0007 and `infra/replication/README.md`. `GET /orders/{id}` reads from `booking-db-replica` (`DB_REPLICA__HOST`,

@@ -12,6 +12,7 @@ from core.consistency import TOKEN_HEADER, TOKEN_PATTERN
 from core.db import get_replica_session
 from main import app
 from orders.models.order import FailureReason, Order, OrderStatus
+from orders.models.payment_token import OrderPaymentToken
 
 pytestmark = pytest.mark.anyio
 
@@ -49,6 +50,8 @@ async def test_create_stores_a_pending_order(async_client, db_session):
     assert order.user_id == USER
     assert order.idempotency_key == "key-1"
     assert order.payment_token == "tok_ok"
+    token = await db_session.get(OrderPaymentToken, order.id)
+    assert token.payment_token == "tok_ok"
 
 
 async def test_order_keeps_the_trace_of_the_request_for_its_saga(
@@ -81,6 +84,10 @@ async def test_repeat_with_the_same_key_returns_the_first_order(
     assert repeat.status_code == status.HTTP_202_ACCEPTED
     assert repeat.json() == first.json()
     assert await count_orders(db_session) == 1
+    tokens = await db_session.scalar(
+        select(func.count()).select_from(OrderPaymentToken)
+    )
+    assert tokens == 1
 
 
 @pytest.mark.parametrize("order_status", list(OrderStatus))
