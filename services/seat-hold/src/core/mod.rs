@@ -3,6 +3,7 @@ pub mod errors;
 pub mod health;
 pub mod idempotency;
 pub mod logging;
+pub mod migrations;
 pub mod settings;
 pub mod shutdown;
 pub mod telemetry;

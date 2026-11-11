@@ -23,6 +23,13 @@ class LogFormat(StrEnum):
     PRETTY = "PRETTY"
 
 
+class MigrationSettings(BaseModel):
+    LOCK_TIMEOUT_SECONDS: float = 2
+    ATTEMPTS: int = 10
+    RETRY_BASE_DELAY_SECONDS: float = 1
+    MAX_RETRY_DELAY_SECONDS: float = 15
+
+
 class LoggingSettings(BaseModel):
     FORMAT: LogFormat = LogFormat.JSON
     LEVEL: str = "INFO"
@@ -55,6 +62,7 @@ class RabbitMQSettings(BaseModel):
 class Settings(BaseSettings):
     SERVICE_NAME: str = "payment"
     DB: DBSettings
+    MIGRATIONS: MigrationSettings = MigrationSettings()
     LOGGING: LoggingSettings = LoggingSettings()
     FAULTS: FaultSettings = FaultSettings()
     RABBITMQ: RabbitMQSettings = RabbitMQSettings()

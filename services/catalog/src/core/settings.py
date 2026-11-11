@@ -23,6 +23,13 @@ class LogFormat(StrEnum):
     PRETTY = "PRETTY"
 
 
+class MigrationSettings(BaseModel):
+    LOCK_TIMEOUT_SECONDS: float = 2
+    ATTEMPTS: int = 10
+    RETRY_BASE_DELAY_SECONDS: float = 1
+    MAX_RETRY_DELAY_SECONDS: float = 15
+
+
 class LoggingSettings(BaseModel):
     FORMAT: LogFormat = LogFormat.JSON
     LEVEL: str = "INFO"
@@ -31,6 +38,7 @@ class LoggingSettings(BaseModel):
 class Settings(BaseSettings):
     SERVICE_NAME: str = "catalog"
     DB: DBSettings
+    MIGRATIONS: MigrationSettings = MigrationSettings()
     LOGGING: LoggingSettings = LoggingSettings()
 
     # No env_file: this reads only os.environ. Docker compose sets the values

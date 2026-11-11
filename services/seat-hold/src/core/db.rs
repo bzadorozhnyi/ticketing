@@ -6,7 +6,7 @@ use sqlx::pool::PoolConnection;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{PgConnection, PgPool, Postgres};
 
-use crate::core::settings::{DbSettings, PoolSettings, Settings};
+use crate::core::settings::{DbSettings, MigrationSettings, PoolSettings, Settings};
 
 /// Code that needs the database asks this trait for a connection. Production uses the
 /// pool; tests use one connection inside a transaction that is rolled back at the end.
@@ -34,11 +34,24 @@ pub fn build_pool(settings: &Settings) -> PgPool {
     ))
 }
 
-/// Migrations run without the service's timeouts: building an index or filling a column
-/// may take minutes.
+/// Migrations run without a statement timeout, since building an index or filling a column
+/// may take minutes, but with a short lock timeout (`core/migrations.rs`).
 #[must_use]
 pub fn build_migration_pool(settings: &Settings) -> PgPool {
-    pool_options(&settings.pool).connect_lazy_with(connect_options(&settings.db))
+    pool_options(&settings.pool).connect_lazy_with(with_migration_limits(
+        connect_options(&settings.db),
+        &settings.migrations,
+    ))
+}
+
+/// A migration's session gives up a lock after `lock_timeout` instead of queueing every
+/// later query on the table behind itself.
+#[must_use]
+pub fn with_migration_limits(
+    options: PgConnectOptions,
+    migrations: &MigrationSettings,
+) -> PgConnectOptions {
+    options.options([("lock_timeout", milliseconds(migrations.lock_timeout))])
 }
 
 /// Every session starts with `lock_timeout` and `statement_timeout` set: Postgres then cancels

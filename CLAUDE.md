@@ -120,6 +120,10 @@ src/
   one exception handler maps codes to HTTP statuses and returns `{"code", "message", "details"}`.
 - Settings: pydantic-settings, nested groups with `__` delimiter (`DB__HOST`), read only from `os.environ`, no env_file.
 - Health: `/health` (process is up) and `/ready` (dependencies reachable, 503 otherwise).
+- Migrations (`migrations/env.py`, `core/migrations.py`): the session gives up a lock after `MIGRATIONS__LOCK_TIMEOUT_SECONDS`
+  (2) and the run is tried again, `MIGRATIONS__ATTEMPTS` (10) times, so a migration waiting for a lock never queues the
+  service's queries behind it; no statement timeout. An index on an existing table is built `CONCURRENTLY` inside
+  `with op.get_context().autocommit_block():`, because a plain `CREATE INDEX` blocks writes while it builds.
 - Complexity limits: cyclomatic complexity <= 10, nesting depth <= 4.
 
 ### Tests
@@ -161,6 +165,8 @@ src/
   upper case names, read only from the environment. A group with defaults uses `#[serde(default)]`
   and a hand-written `impl Default`; required values live in a group without defaults.
 - pre-commit runs `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings`.
+- Migrations run like the Python ones (`core/migrations.rs`, `MIGRATIONS__*`). An index on an existing table is built
+  `CONCURRENTLY` in a migration file whose first line is `-- no-transaction`.
 - SQL goes through `sqlx::query!` and `query_as!`, checked at compile time against the `.sqlx` cache, which is committed.
   `SQLX_OFFLINE` is on in `.cargo/config.toml`, so a build needs no database. CI runs `cargo sqlx prepare --check` (`sqlx-cli` 0.9.0).
 - API contract: `utoipa` generates `contracts/<service>.openapi.json`, a test fails on drift.
