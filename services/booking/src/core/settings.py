@@ -23,6 +23,13 @@ class LogFormat(StrEnum):
     PRETTY = "PRETTY"
 
 
+class MigrationSettings(BaseModel):
+    LOCK_TIMEOUT_SECONDS: float = 2
+    ATTEMPTS: int = 10
+    RETRY_BASE_DELAY_SECONDS: float = 1
+    MAX_RETRY_DELAY_SECONDS: float = 15
+
+
 class LoggingSettings(BaseModel):
     FORMAT: LogFormat = LogFormat.JSON
     LEVEL: str = "INFO"
@@ -85,6 +92,7 @@ class FaultSettings(BaseModel):
 class Settings(BaseSettings):
     SERVICE_NAME: str = "booking"
     DB: DBSettings
+    MIGRATIONS: MigrationSettings = MigrationSettings()
     # A streaming replica for reads that may lag behind (GET /orders/{id}); without it
     # they go to DB.
     DB_REPLICA: DBSettings | None = None

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 import core.models_registry  # noqa: F401
 from core.db import BaseModel
+from core.migrations import connect_args, run_with_lock_retries
 from core.settings import settings
 
 # this is the Alembic Config object, which provides
@@ -61,20 +62,21 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
-    """In this scenario we need to create an Engine
-    and associate a connection with the context.
-
-    """
+    """Every attempt takes a new connection, whose session gives up a lock after
+    `MIGRATIONS__LOCK_TIMEOUT_SECONDS`; see core/migrations.py."""
 
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=connect_args(settings.MIGRATIONS),
     )
 
-    async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations)
+    async def attempt() -> None:
+        async with connectable.connect() as connection:
+            await connection.run_sync(do_run_migrations)
 
+    await run_with_lock_retries(attempt, settings=settings.MIGRATIONS)
     await connectable.dispose()
 
 

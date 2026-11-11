@@ -40,6 +40,9 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
 | `POOL__ACQUIRE_TIMEOUT_SECONDS` | 5 | wait for a connection; `/ready` fails after this time |
 | `POOL__LOCK_TIMEOUT_SECONDS` | 1 | Postgres `lock_timeout` of every service session: a statement waiting longer for a lock fails with 503; 0 turns it off |
 | `POOL__STATEMENT_TIMEOUT_SECONDS` | 5 | Postgres `statement_timeout`: below the gateway's timeout, so seat-hold answers first; 0 turns it off |
+| `MIGRATIONS__LOCK_TIMEOUT_SECONDS` | 2 | the `migrate` binary's session gives up a lock after this, so it never queues queries behind it |
+| `MIGRATIONS__ATTEMPTS` | 10 | runs of the migrations when a lock was not available; then `migrate` fails and the service is not started |
+| `MIGRATIONS__RETRY_BASE_DELAY_SECONDS`, `MIGRATIONS__MAX_RETRY_DELAY_SECONDS` | 1, 15 | the pause before the next run doubles up to the maximum |
 | `HOLDS__TTL_SECONDS` | 300 | how long a hold lasts |
 | `HOLDS__PAYMENT_TTL_SECONDS` | 900 | how long a hold lasts once extended for a payment |
 | `HOLDS__MAX_SEATS` | 10 | seats in one request |
@@ -55,8 +58,9 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
 
 ## Notes
 
-- Migrations are SQL files in `migrations/`, embedded into the `migrate` binary. It connects without the service's
-  timeouts (`build_migration_pool`): an index or a backfill may take minutes.
+- Migrations are SQL files in `migrations/`, embedded into the `migrate` binary. It connects without a statement
+  timeout (`build_migration_pool`), since an index or a backfill may take minutes, but with a short lock timeout and
+  retries (`core/migrations.rs`, `tests/migration_locks.rs`).
 - A lock held by someone else costs a request, not the pool: the service's sessions start with `lock_timeout` and
   `statement_timeout`, and Postgres cancels the waiting statement (55P03, 57014), which answers 503 and gives the
   connection back. It does not remove the lock: while a migration locks `holds`, every write to it fails, but reads and

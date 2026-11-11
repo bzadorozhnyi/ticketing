@@ -67,6 +67,31 @@ impl Default for PoolSettings {
     }
 }
 
+/// The migration's session gives up a lock after `lock_timeout`, and the run is tried again,
+/// at most `attempts` times; there is no statement timeout (see `core/migrations.rs`).
+#[derive(Clone, Debug, Deserialize)]
+#[serde(default)]
+pub struct MigrationSettings {
+    #[serde(rename = "lock_timeout_seconds", deserialize_with = "seconds")]
+    pub lock_timeout: Duration,
+    pub attempts: u32,
+    #[serde(rename = "retry_base_delay_seconds", deserialize_with = "seconds")]
+    pub retry_base_delay: Duration,
+    #[serde(rename = "max_retry_delay_seconds", deserialize_with = "seconds")]
+    pub max_retry_delay: Duration,
+}
+
+impl Default for MigrationSettings {
+    fn default() -> Self {
+        Self {
+            lock_timeout: Duration::from_secs(2),
+            attempts: 10,
+            retry_base_delay: Duration::from_secs(1),
+            max_retry_delay: Duration::from_secs(15),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(default)]
 pub struct HoldSettings {
@@ -104,6 +129,8 @@ pub struct Settings {
     pub db: DbSettings,
     #[serde(default)]
     pub pool: PoolSettings,
+    #[serde(default)]
+    pub migrations: MigrationSettings,
     #[serde(default)]
     pub holds: HoldSettings,
     #[serde(default)]
