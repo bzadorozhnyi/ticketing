@@ -1,4 +1,4 @@
-//! Migrations that cannot stall the service (TIK-63).
+//! Migrations that cannot stall the service, see ADR 0008.
 //!
 //! A migration waiting for a lock holds a place in the lock queue, and every later query
 //! on that table waits behind it, reads included. So the migration's session gives up a

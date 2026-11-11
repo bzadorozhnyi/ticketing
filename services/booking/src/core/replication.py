@@ -14,10 +14,10 @@ from core.db import engine
 # On the primary, for the replica's slot. `replay_lag`: from writing WAL here to the
 # replica applying it; Postgres shows NULL once the replica has caught up and nothing
 # new was written, which is 0 here. The age of the replica's last applied transaction
-# would be wrong after a quiet period: a write following 10 idle seconds and applied in
-# 3 showed as 10 s. No row in pg_stat_replication: the replica is not streaming, so the
-# lag is unknown. `retained`: the WAL the slot keeps until the replica confirms it; it
-# grows without limit while the replica is gone, until the primary's disk is full.
+# is not a lag: after a quiet period it counts the quiet time too. No row in
+# pg_stat_replication: the replica is not streaming, so the lag is unknown. `retained`:
+# the WAL the slot keeps until the replica confirms it; it grows without limit while the
+# replica is gone, until the primary's disk is full.
 REPLICATION_STATE = text(
     "SELECT CASE WHEN r.pid IS NULL THEN NULL "
     "ELSE extract(epoch FROM coalesce(r.replay_lag, interval '0')) END AS lag, "

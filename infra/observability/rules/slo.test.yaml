@@ -133,8 +133,8 @@ tests:
       - alertname: PurchaseFastBurn
         eval_time: 44m
 
-  # TIK-56, round 5: a locked table made every hold fail while the reads of the catalog went on, 20 times
-  # as many. One SLO over all requests stayed at 3.75 % errors, under the 7.2 % that pages.
+  # Every hold fails while the reads of the catalog, 20 times as many, go on: over all requests the error
+  # ratio would be under the 7.2 % that pages.
   - name: a checkout outage pages although the reads around it are fine
     interval: 1m
     input_series:
@@ -164,8 +164,8 @@ tests:
         eval_time: 70m
         exp_samples: [{ labels: 'slo:checkout_availability:error_ratio_rate5m', value: 1 }]
 
-  # TIK-56, round 2: a stopped relay showed only as a missing line. booking restarts with a new instance
-  # and must not page; prometheus is scraped and stops sending target_info, but `up` covers it.
+  # booking restarts with a new instance and must not page; prometheus is scraped and stops sending
+  # target_info, but `up` covers it.
   - name: a process that stops exporting pages within 2 minutes, a restart does not
     interval: 1m
     input_series:

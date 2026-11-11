@@ -53,8 +53,10 @@ See ADR 0006; `core/telemetry.py` follows catalog's. One trace per order, from t
 Moving out of `orders` into `order_payment_tokens` over three releases (ADR 0008): the saga needs a token only until the
 charge, so it can be deleted once the order is final. `POST /orders` writes both in one statement, the token row only
 for an order it created (TIK-64). The saga reads only the table; the orders in flight from before got their row from a
-backfill (TIK-66), and an order without one is a bug: its step fails and is retried. The column is still written, since
-it is `NOT NULL`; TIK-67 makes it nullable, stops writing it, and drops it a release later.
+backfill (TIK-66), and an order without one is a bug: its step fails and is retried. Every move to `confirmed` or
+`failed` deletes the token in the same transaction, and a repeat of `POST /orders` is compared with
+`request_fingerprint`, a sha256 of the hold and the token (TIK-67). The column is still written: the release before
+compares repeats with it. TIK-68 stops writing it and drops it after the deploy.
 
 ## Read replica
 

@@ -137,8 +137,7 @@ async def create_order(
     **fields,
 ) -> uuid.UUID:
     """As `POST /orders` makes it: the token in the order and in its own table
-    (`stored_token`, the same by default). `without_token_row` is an order from before
-    TIK-64."""
+    (`stored_token`, the same by default)."""
     async with async_session() as session:
         order = Order(
             user_id=USER,
@@ -187,3 +186,8 @@ def breaker_off() -> CircuitBreaker:
     return CircuitBreaker(
         upstream="test", settings=BreakerSettings(WINDOW=10, MIN_CALLS=1000)
     )
+
+
+async def has_token(order_id: uuid.UUID) -> bool:
+    async with async_session() as session:
+        return await session.get(OrderPaymentToken, order_id) is not None

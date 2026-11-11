@@ -1,8 +1,5 @@
 """create order payment tokens
 
-The expand step of moving payment tokens out of orders (TIK-64): the new table only;
-orders.payment_token stays until both are written and read by every running version.
-
 Revision ID: 5d78bac08591
 Revises: c7e2f4a1b9d3
 Create Date: 2026-11-11 18:13:45.449630

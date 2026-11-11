@@ -23,7 +23,7 @@ services:
     command:
       - --config.file=/etc/prometheus/prometheus.yaml
       - --web.enable-remote-write-receiver
-      # A 0 at the start time of a new series, so rate() counts its first scrape (TIK-58).
+      # A 0 at the start time of a new series, so rate() counts its first scrape.
       - --enable-feature=exemplar-storage,created-timestamp-zero-ingestion
     volumes:
       - ./infra/observability/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro

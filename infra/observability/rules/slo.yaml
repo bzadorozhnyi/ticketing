@@ -9,9 +9,9 @@
 # Without traffic a ratio is NaN and no alert fires.
 
 groups:
-  # Availability per user journey, each with its own budget: one SLO over all /api requests let the reads
-  # of the catalog hide a full outage of holds (TIK-56). A request is good without a 5xx; 4xx and 429 are
-  # the client's side.
+  # Availability per user journey, each with its own budget: in one SLO over all /api requests the reads
+  # of the catalog, far more numerous, would hide an outage of checkout. A request is good without a 5xx;
+  # 4xx and 429 are the client's side.
   # Browsing the catalog.
   - name: slo-browse-availability
     rules:
@@ -171,9 +171,9 @@ groups:
           summary: "Orders are created but none has finished for 10 minutes; Purchase dashboard"
           description: "The saga worker, the relay, RabbitMQ or payment may be down"
 
-  # Not an SLO: a process that stops exporting has no requests to fail, so no ratio above notices it
-  # (a stopped relay in TIK-56 showed only as a missing line). Every OTLP export brings `target_info`;
-  # a job seen in the last hour and silent for 2 minutes is down. Scraped jobs have `up` instead.
+  # Not an SLO: a process that stops exporting has no requests to fail, so no ratio above notices it.
+  # The collector exposes a `target_info` for each process while it exports; a job seen in the last hour
+  # and absent for 2 minutes is down. Scraped jobs have `up` instead.
   - name: processes
     rules:
       - alert: ProcessNotExporting
@@ -186,7 +186,7 @@ groups:
           summary: "{{ $labels.job }} has sent no telemetry for 2 minutes: stopped or cannot reach the collector"
           description: "Exports come every 10 s in the overlay (OTEL_METRIC_EXPORT_INTERVAL); keep the window above it"
 
-  # booking's read replica (TIK-61). The API process reads both gauges from the primary every 5 s.
+  # booking's read replica. The API process reads both gauges from the primary every 5 s.
   - name: replication
     rules:
       - alert: BookingReplicaLagging
