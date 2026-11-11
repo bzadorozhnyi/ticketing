@@ -168,8 +168,12 @@ async fn repeats_wait_before_they_go() {
         get(&gateway).await;
     }
 
+    // The budget allows two repeats to each of the first five requests and one to the sixth:
+    // random pauses up to 100 and 200 ms, 800 ms on average. Without pauses the ten take
+    // about 20 ms. A simulation of a million runs gave a sum below 500 ms in 2 % of them
+    // and below 200 ms in 0.0003 %.
     let elapsed = started.elapsed();
-    assert!(elapsed > Duration::from_millis(500), "{elapsed:?}");
+    assert!(elapsed > Duration::from_millis(200), "{elapsed:?}");
 }
 
 #[tokio::test]
