@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.consistency import ReplicaReads
 from core.db import ReplicaSessionDep, SessionDep
-from core.settings import settings
 from orders.models.order import FailureReason, Order, OrderStatus, SagaStep
 
 
@@ -194,7 +193,6 @@ def get_order_reads(
         replica_session=replica_session,
         replica=replica,
         primary=primary,
-        wait_seconds=settings.REPLICATION.WAIT_FOR_TOKEN_SECONDS,
     )
 
 
