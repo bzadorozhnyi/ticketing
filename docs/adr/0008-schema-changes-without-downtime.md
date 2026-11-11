@@ -32,6 +32,11 @@ the old one. Two experiments in M7 showed what goes wrong otherwise:
 | `SET NOT NULL` | 1.3 s | 1.3 s | `CHECK (...) NOT VALID`, `VALIDATE CONSTRAINT` (246 ms, inserts 4 ms), then `SET NOT NULL` (1 ms) |
 | `CREATE INDEX` | 0.9 s | 0.9 s | `CREATE INDEX CONCURRENTLY`: 7.0 s, inserts 88 ms |
 
+- **A backfill is sized before it is placed.** A few rows: one idempotent statement in the migration (TIK-66 copied
+  the tokens of the orders in flight only, a handful, since a final order never charges again). Thousands to
+  millions: batches with a commit each, inside the migration (`autocommit_block`) or, when it takes longer than a
+  deploy may wait, a separate command after it. One long statement over a big table holds a transaction open: the next
+  migration queues behind it, vacuum cannot clean, and a burst of WAL puts the replica behind.
 - Indexes on existing tables are built `CONCURRENTLY` (CLAUDE.md has the recipes for Alembic and sqlx).
 - Migrations live in the service that owns the database and ship with its code; tools are copied, not shared, as the
   rest of `core/` is.
