@@ -115,7 +115,7 @@ docs/               board, ADRs, claims, learnings
 | M2 | Concurrency and seat holds | Done |
 | M3 | Saga and idempotency | Done |
 | M4 | Resilience: timeouts, retries, circuit breaker | Done |
-| M5 | Load spike: rate limiting, load shedding, p95 and p99 | Planned |
-| M6 | Observability | In progress |
-| M7 | Replica lag, expand/migrate/contract migrations | Planned |
+| M5 | Load spike: rate limiting, load shedding, p95 and p99 | Done |
+| M6 | Observability | Done |
+| M7 | Replica lag, expand/migrate/contract migrations | In progress |
 | M8 | Kubernetes on minikube | Planned |

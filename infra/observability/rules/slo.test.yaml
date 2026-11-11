@@ -189,3 +189,45 @@ tests:
             exp_annotations:
               summary: "booking-relay has sent no telemetry for 2 minutes: stopped or cannot reach the collector"
               description: "Exports come every 10 s in the overlay (OTEL_METRIC_EXPORT_INTERVAL); keep the window above it"
+
+  # A replica 3 s behind is normal under load; 8 s from 4m pages after a minute.
+  - name: a replica that stays behind pages, a short delay does not
+    interval: 1m
+    input_series:
+      - series: 'db_replica_lag_seconds{job="booking"}'
+        values: '0 3 3 0 8 8 8 0'
+      - series: 'db_replication_slot_retained_bytes{job="booking"}'
+        values: '0x7'
+    alert_rule_test:
+      - alertname: BookingReplicaLagging
+        eval_time: 2m
+      - alertname: BookingReplicaLagging
+        eval_time: 4m
+      - alertname: BookingReplicaLagging
+        eval_time: 5m
+        exp_alerts:
+          - exp_labels: { severity: page }
+            exp_annotations:
+              summary: "booking's replica applies WAL 8 s behind the primary; order reads are that old"
+              description: "Services dashboard, Replication; GET /orders/{id} may answer 404 for an order just created"
+      - alertname: BookingReplicaNotStreaming
+        eval_time: 6m
+
+  # The replica stops at 2m: its lag is gone, the slot keeps growing.
+  - name: a replica that stops streaming pages while its slot keeps WAL
+    interval: 1m
+    input_series:
+      - series: 'db_replica_lag_seconds{job="booking"}'
+        values: '0 0 0 stale'
+      - series: 'db_replication_slot_retained_bytes{job="booking"}'
+        values: '0 0 0 1048576 2097152 3145728 4194304'
+    alert_rule_test:
+      - alertname: BookingReplicaNotStreaming
+        eval_time: 4m
+      - alertname: BookingReplicaNotStreaming
+        eval_time: 5m
+        exp_alerts:
+          - exp_labels: { severity: page }
+            exp_annotations:
+              summary: "booking's replica is not streaming; the primary keeps 3MiB of WAL for it"
+              description: "Order reads fail while it is down; a slot without its replica fills the primary's disk"
