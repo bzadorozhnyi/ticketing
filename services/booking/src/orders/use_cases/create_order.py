@@ -4,9 +4,10 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.consistency import write_position
 from core.db import SessionDep
 from core.exceptions import ConflictException, ValidationException
-from orders.dto.order import OrderDTO
+from orders.dto.order import CreatedOrderDTO, OrderDTO
 from orders.repositories.order import OrderRepository, OrderRepositoryDep
 
 
@@ -22,9 +23,10 @@ class CreateOrderUseCase:
         idempotency_key: str,
         hold_id: uuid.UUID,
         payment_token: str,
-    ) -> OrderDTO:
+    ) -> CreatedOrderDTO:
         """Safe to repeat: one transaction, so a crash leaves either nothing or the
-        order, and a repeat with the same key returns that order in any status.
+        order, and a repeat with the same key returns that order in any status. The
+        consistency token lets the client read the order from the replica at once.
         """
         await self.order_repository.insert_pending_if_absent(
             user_id=user_id,
@@ -41,7 +43,10 @@ class CreateOrderUseCase:
             raise ConflictException(f"Hold {hold_id} already has an active order")
         if order.hold_id != hold_id or order.payment_token != payment_token:
             raise ValidationException("Idempotency-Key was used with another request")
-        return OrderDTO.from_model(order)
+        return CreatedOrderDTO(
+            order=OrderDTO.from_model(order),
+            consistency_token=await write_position(self.session),
+        )
 
 
 def get_create_order_use_case(

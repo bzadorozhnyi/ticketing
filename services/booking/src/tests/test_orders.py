@@ -1,11 +1,14 @@
+import re
 import uuid
 
 import pytest
 from fastapi import status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from core import consistency
+from core.consistency import TOKEN_HEADER, TOKEN_PATTERN
 from core.db import get_replica_session
 from main import app
 from orders.models.order import FailureReason, Order, OrderStatus
@@ -192,21 +195,103 @@ async def test_create_without_a_user_is_refused(async_client, db_session, user):
     assert await count_orders(db_session) == 0
 
 
-async def test_get_reads_from_the_replica(async_client, order_factory, async_engine):
+@pytest.fixture
+def lagging_replica(async_engine):
     """Another connection does not see the test's uncommitted order, as a lagging
     replica does not see the latest commit yet."""
-    order = await order_factory(status=OrderStatus.CONFIRMED)
 
-    async def lagging_replica():
+    async def replica_session():
         async with AsyncSession(async_engine) as session:
             yield session
 
-    app.dependency_overrides[get_replica_session] = lagging_replica
-    response = await async_client.get(
-        f"{ORDERS_URL}/{order.id}", headers={"X-User-Id": USER}
+    app.dependency_overrides[get_replica_session] = replica_session
+
+
+@pytest.fixture
+async def unreachable_replica():
+    engine = create_async_engine(
+        "postgresql+asyncpg://postgres:password@127.0.0.1:1/booking_db",
+        connect_args={"timeout": 1},
     )
 
+    async def replica_session():
+        async with AsyncSession(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_replica_session] = replica_session
+    yield
+    await engine.dispose()
+
+
+async def get_order(client, order_id, token: str | None = None):
+    headers = {"X-User-Id": USER}
+    if token is not None:
+        headers[TOKEN_HEADER] = token
+    return await client.get(f"{ORDERS_URL}/{order_id}", headers=headers)
+
+
+async def test_create_returns_a_consistency_token(async_client):
+    response = await async_client.post(
+        ORDERS_URL, json=order_body(uuid.uuid4()), headers=headers()
+    )
+
+    assert re.fullmatch(TOKEN_PATTERN, response.headers[TOKEN_HEADER])
+
+
+async def test_an_order_the_replica_lacks_is_read_from_the_primary(
+    async_client, order_factory, lagging_replica
+):
+    order = await order_factory()
+
+    response = await get_order(async_client, order.id)
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["id"] == str(order.id)
+
+
+async def test_with_a_token_a_replica_behind_is_skipped(
+    async_client, order_factory, lagging_replica, monkeypatch
+):
+    async def behind(session, token):
+        return False
+
+    monkeypatch.setattr(consistency, "replica_has", behind)
+    order = await order_factory()
+
+    response = await get_order(async_client, order.id, token="0/1")
+
+    assert response.status_code == status.HTTP_200_OK
+
+
+async def test_with_a_token_a_replica_that_has_it_answers_alone(
+    async_client, order_factory, lagging_replica
+):
+    """Once the replica has the client's write, its answer stands: a 404 is not read
+    again from the primary."""
+    order = await order_factory()
+
+    response = await get_order(async_client, order.id, token="0/1")
+
     assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+async def test_an_unreachable_replica_sends_reads_to_the_primary(
+    async_client, order_factory, unreachable_replica
+):
+    order = await order_factory()
+
+    response = await get_order(async_client, order.id, token="0/1")
+
+    assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.parametrize("token", ["0/1; DROP TABLE orders", "x/y", "0-1", ""])
+async def test_a_malformed_token_is_refused(async_client, order_factory, token):
+    order = await order_factory()
+
+    response = await get_order(async_client, order.id, token=token)
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 async def test_get_returns_the_order(async_client, order_factory):

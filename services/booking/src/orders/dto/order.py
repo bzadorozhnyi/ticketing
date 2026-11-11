@@ -32,3 +32,8 @@ class FinishedOrder(BaseModel):
     status: OrderStatus
     failure_reason: FailureReason | None = None
     created_at: datetime
+
+
+class CreatedOrderDTO(BaseModel):
+    order: OrderDTO
+    consistency_token: str

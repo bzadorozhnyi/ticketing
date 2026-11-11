@@ -52,11 +52,15 @@ See ADR 0006; `core/telemetry.py` follows catalog's. One trace per order, from t
 
 See ADR 0007 and `infra/replication/README.md`. `GET /orders/{id}` reads from `booking-db-replica` (`DB_REPLICA__HOST`,
 `__NAME`, `__USER`, `__PASS`); everything else uses `DB`. Without `DB_REPLICA` those reads go to the primary.
-- Reads may be as old as the replica's lag: an order just created can answer 404. While the replica is down they answer 503.
+- Read-your-writes (`core/consistency.py`): `POST /orders` returns `X-Consistency-Token`; a `GET` that sends it reads
+  from the replica once it has that write (waiting up to `REPLICATION__WAIT_FOR_TOKEN_SECONDS`, 0.2), else from the
+  primary. Without a token, an order the replica does not have yet is read from the primary. A replica that cannot be
+  reached sends reads to the primary. `db.replica.reads` (source, reason) counts it.
+- `pg_lsn` parameters go to asyncpg as text and are cast in SQL: asyncpg would encode a `pg_lsn` as an integer.
 - Background job of the API process, only with a replica: `core/replication.py` reads the replica's lag
   (`pg_stat_replication.replay_lag`) and the WAL its slot keeps from the primary every `REPLICATION__PROBE_INTERVAL_SECONDS`
   (5), exported as `db.replica.lag` and `db.replication_slot.retained`.
-- Tests: `get_replica_session` is overridden like `get_session`; `test_get_reads_from_the_replica` gives it another
+- Tests: `get_replica_session` is overridden like `get_session`; the `lagging_replica` fixture gives it another
   connection, which does not see the test's uncommitted order, as a lagging replica does not.
 
 ## Layout notes
