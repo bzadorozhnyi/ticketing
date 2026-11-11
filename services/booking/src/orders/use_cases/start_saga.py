@@ -60,7 +60,7 @@ class StartSagaUseCase:
             order_id=order.id,
             amount_minor=price.amount_minor,
             currency=price.currency,
-            payment_token=order.payment_token,
+            payment_token=await self.order_repository.payment_token_of(order=order),
         )
         await self.session.commit()
         return None
