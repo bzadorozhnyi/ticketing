@@ -126,5 +126,7 @@ Read from the environment with the `config` crate; a wrong value stops the start
   a module records with one line where it already handles the event. Histograms are exponential (native in Prometheus),
   so no bucket list has to match the other services. Spans get ids even without a collector,
   because the logs and the upstreams need the trace id.
+- The resource has `service.instance.id` (process id and start time), which the Rust SDK does not set itself: without
+  it the collector exposes no `target_info` for the gateway, and `ProcessNotExporting` would page.
 - In JSON logs the id is at `span.trace_id`; in the Python services it is at `record.extra.trace_id`.
 - Paths with `..` or `%2e%2e` get 404: the URL library would resolve them to a route that was never matched.

@@ -1,6 +1,8 @@
-use std::env;
 use std::sync::OnceLock;
+use std::time::{SystemTime, UNIX_EPOCH};
+use std::{env, process};
 
+use opentelemetry::KeyValue;
 use opentelemetry::global::{self, BoxedTracer};
 use opentelemetry_otlp::{ExporterBuildError, MetricExporter, SpanExporter};
 use opentelemetry_sdk::Resource;
@@ -37,7 +39,9 @@ pub struct Telemetry {
 /// # Errors
 /// An exporter that cannot be built from the `OTEL_*` variables.
 pub fn init() -> Result<Telemetry, ExporterBuildError> {
-    let resource = Resource::builder().build();
+    let resource = Resource::builder()
+        .with_attribute(KeyValue::new("service.instance.id", instance_id()))
+        .build();
     let mut tracer = SdkTracerProvider::builder().with_resource(resource.clone());
     let mut meter = None;
     if env::var_os(ENDPOINT).is_none() {
@@ -81,4 +85,13 @@ impl Telemetry {
             tracing::warn!(%error, "Metrics were not flushed");
         }
     }
+}
+
+/// Python's SDK sets `service.instance.id` itself and the Rust one does not. Without it the collector exposes no
+/// `target_info` for the process, so `ProcessNotExporting` would see it as silent. Unique per process, like Python's.
+fn instance_id() -> String {
+    let started = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |since| since.as_nanos());
+    format!("{}-{started:x}", process::id())
 }

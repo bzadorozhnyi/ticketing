@@ -5,7 +5,6 @@ Next ticket: TIK-61
 ## In progress
 
 ## To do
-- [ ] TIK-58 SLO: count the first export of a new OTLP series, lost to rate() today (M6)
 - [ ] TIK-60 CPU and throttling metrics of every process, from the kubelet (M8)
 - [ ] TIK-49 Ingress: TLS and HTTP/2 at the edge; measure HTTP/2 to the gateway and its effect on balancing (M8)
 
@@ -67,3 +66,4 @@ Next ticket: TIK-61
 - [x] TIK-55 Dashboards and SLOs with burn-rate rules (M6)
 - [x] TIK-56 Experiment: find the cause of a failure from dashboards and traces only (M6)
 - [x] TIK-59 Seat-hold: lock_timeout and statement_timeout, so one locked table cannot take the whole pool (M6)
+- [x] TIK-58 SLO: count the first export of a new OTLP series, lost to rate() today (M6)

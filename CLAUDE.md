@@ -53,8 +53,8 @@ Calls to seat-hold are synchronous HTTP. Delivery is at least once, so every con
 
 ## Observability
 
-See ADR 0006. OpenTelemetry traces and metrics over OTLP to an OpenTelemetry Collector, then Prometheus (metrics),
-Tempo (traces) and Grafana, all in the `infra/observability/` compose overlay. Telemetry is off without
+See ADR 0006. OpenTelemetry traces and metrics over OTLP to an OpenTelemetry Collector, then Prometheus (scrapes the
+metrics from the collector), Tempo (traces) and Grafana, all in the `infra/observability/` compose overlay. Telemetry is off without
 `OTEL_EXPORTER_OTLP_ENDPOINT`. Instrumentation stays at the edges, never in use cases; labels come from small fixed sets.
 
 ## Services
@@ -183,7 +183,8 @@ GitHub Actions on pull requests into `main` and on pushes to `main` (`.github/wo
 - `infra/check-contracts.sh` runs `oasdiff`: a breaking API change fails the build. A break made on purpose is listed in
   `infra/contracts/<service>.accepted` ("METHOD PATH" and the full text oasdiff prints, one line per error), so it is visible
   in the pull request. The file holds the latest such change; the next one replaces its lines.
-- `infra/check-observability.sh`: the Prometheus config, `promtool test rules` for the SLO alerts, valid dashboard JSON.
+- `infra/check-observability.sh`: the collector and Prometheus configs, `promtool test rules` for the SLO alerts,
+  valid dashboard JSON.
 - All Docker images build, with the layers cached between runs.
 
 `infra/changed_areas.py` decides what runs in a pull request: only documentation is skipped, a service runs its own checks,
