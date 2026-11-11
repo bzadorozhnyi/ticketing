@@ -2,11 +2,9 @@
 
 A write returns the primary's WAL position after its commit as a consistency token.
 A read that brings the token goes to the replica if the replica has applied that
-position, and to the primary otherwise. It does not wait for the replica: under load,
-200 ms of waiting made reads slower and sent more of them to the primary (TIK-65).
-A read without a token goes to the replica, and to the primary only when the replica
-does not have the row yet. A replica that cannot be reached sends every read to the
-primary.
+position, and to the primary otherwise. A read without a token goes to the replica, and
+to the primary only when the replica does not have the row yet. A replica that cannot be
+reached sends every read to the primary.
 """
 
 from collections.abc import Awaitable, Callable

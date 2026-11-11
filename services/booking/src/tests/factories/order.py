@@ -4,6 +4,7 @@ import factory
 import pytest
 
 from orders.models.order import Order, OrderStatus
+from orders.use_cases.create_order import request_fingerprint
 from tests.helpers.factory import AsyncFactory
 
 
@@ -19,6 +20,11 @@ def order_factory(db_session):
         idempotency_key = factory.LazyFunction(lambda: str(uuid.uuid4()))
         hold_id = factory.LazyFunction(uuid.uuid4)
         payment_token = "tok_ok"
+        request_fingerprint = factory.LazyAttribute(
+            lambda order: request_fingerprint(
+                hold_id=order.hold_id, payment_token=order.payment_token
+            )
+        )
         status = OrderStatus.PENDING
 
     return AsyncFactory(factory_class=OrderFactory, session=db_session)

@@ -79,6 +79,10 @@ class Order(BaseModel):
     idempotency_key: Mapped[str]
     hold_id: Mapped[uuid.UUID]
     payment_token: Mapped[str]
+    # sha256 of the request's hold and payment token: a repeat with the same
+    # Idempotency-Key is compared with it, since the token is deleted once the order is
+    # final.
+    request_fingerprint: Mapped[str | None]
     status: Mapped[str]
     saga_step: Mapped[str] = mapped_column(server_default=SagaStep.STARTED)
     attempts: Mapped[int] = mapped_column(server_default="0")

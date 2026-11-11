@@ -11,8 +11,9 @@ from core import consistency
 from core.consistency import TOKEN_HEADER, TOKEN_PATTERN
 from core.db import get_replica_session
 from main import app
-from orders.models.order import FailureReason, Order, OrderStatus
+from orders.models.order import FailureReason, Order, OrderStatus, SagaStep
 from orders.models.payment_token import OrderPaymentToken
+from orders.use_cases.create_order import request_fingerprint
 
 pytestmark = pytest.mark.anyio
 
@@ -52,6 +53,9 @@ async def test_create_stores_a_pending_order(async_client, db_session):
     assert order.payment_token == "tok_ok"
     token = await db_session.get(OrderPaymentToken, order.id)
     assert token.payment_token == "tok_ok"
+    assert order.request_fingerprint == request_fingerprint(
+        hold_id=hold_id, payment_token="tok_ok"
+    )
 
 
 async def test_order_keeps_the_trace_of_the_request_for_its_saga(
@@ -103,6 +107,48 @@ async def test_repeat_returns_the_order_in_its_current_status(
     assert response.status_code == status.HTTP_202_ACCEPTED
     assert response.json()["id"] == str(order.id)
     assert response.json()["status"] == order_status
+
+
+@pytest.mark.parametrize(
+    ("token", "expected"),
+    [
+        ("tok_ok", status.HTTP_202_ACCEPTED),
+        ("tok_another", status.HTTP_422_UNPROCESSABLE_CONTENT),
+    ],
+)
+async def test_a_repeat_of_a_final_order_is_checked_without_its_token(
+    async_client, order_factory, token, expected
+):
+    """A final order keeps no token: its fingerprint says whether the repeat is the
+    same request."""
+    order = await order_factory(
+        idempotency_key="key-1", status=OrderStatus.CONFIRMED, saga_step=SagaStep.DONE
+    )
+
+    response = await async_client.post(
+        ORDERS_URL, json=order_body(order.hold_id, token), headers=headers()
+    )
+
+    assert response.status_code == expected
+
+
+@pytest.mark.parametrize(
+    ("token", "expected"),
+    [
+        ("tok_ok", status.HTTP_202_ACCEPTED),
+        ("tok_another", status.HTTP_422_UNPROCESSABLE_CONTENT),
+    ],
+)
+async def test_an_order_without_a_fingerprint_is_checked_by_its_token(
+    async_client, order_factory, token, expected
+):
+    order = await order_factory(idempotency_key="key-1", request_fingerprint=None)
+
+    response = await async_client.post(
+        ORDERS_URL, json=order_body(order.hold_id, token), headers=headers()
+    )
+
+    assert response.status_code == expected
 
 
 @pytest.mark.parametrize(

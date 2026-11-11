@@ -27,6 +27,7 @@ from tests_e2e.helpers import (
     USER,
     Reply,
     create_order,
+    has_token,
     load,
     make_due,
     make_runner,
@@ -137,6 +138,7 @@ async def test_declined_card_fails_the_order_and_leaves_the_hold(upstreams, fini
     assert upstreams.calls == []
     assert await outbox() == []
     assert finished == [(OrderStatus.FAILED, FailureReason.CARD_DECLINED)]
+    assert not await has_token(order_id)
 
 
 async def test_repeated_reply_does_not_finish_the_order_again(finished):
@@ -475,6 +477,7 @@ async def test_whole_saga_ends_confirmed(upstreams, http, finished):
         "confirm",
     ]
     assert finished == [(OrderStatus.CONFIRMED, None)]
+    assert not await has_token(order_id)
 
 
 async def test_whole_saga_with_a_lost_hold_ends_failed(upstreams, http, finished):
@@ -493,6 +496,7 @@ async def test_whole_saga_with_a_lost_hold_ends_failed(upstreams, http, finished
     assert order.failure_reason == FailureReason.REFUNDED_HOLD_LOST
     assert [json.loads(m.body)["type"] for m in await outbox()].count("refund") == 1
     assert finished == [(OrderStatus.FAILED, FailureReason.REFUNDED_HOLD_LOST)]
+    assert not await has_token(order_id)
 
 
 @pytest.fixture

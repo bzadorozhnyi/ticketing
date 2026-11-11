@@ -1,10 +1,6 @@
 """backfill order payment tokens
 
-The migrate step of moving payment tokens out of orders (TIK-66). Only orders still in
-flight need their token; a final order never charges again. They are few, so one
-statement does it; ON CONFLICT keeps it safe to repeat and safe next to the release
-before, which writes token rows itself. No process older than TIK-64 may still run:
-those create orders without a token row.
+Only orders still in flight need their token: a final order never charges again.
 
 Revision ID: 8a1d4c6e2b7f
 Revises: 5d78bac08591
@@ -35,4 +31,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """The copied rows stay: the release before reads them first anyway."""
+    """Downgrade schema. The copied rows stay."""

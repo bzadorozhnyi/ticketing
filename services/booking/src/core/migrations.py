@@ -1,10 +1,10 @@
-"""Migrations that cannot stall the service (TIK-63).
+"""Migrations that cannot stall the service, see ADR 0008.
 
 A migration waiting for a lock holds a place in the lock queue, and every later query
-on that table waits behind it, reads included: an ALTER behind a 20 s report cost 20 s
-of failed orders. So a migration gives up a lock after `LOCK_TIMEOUT_SECONDS` and runs
-again after a pause, and the service waits at most that long. There is no
-statement_timeout: building an index or filling a column may take minutes.
+on that table waits behind it, reads included. So a migration gives up a lock after
+`LOCK_TIMEOUT_SECONDS` and runs again after a pause, and the service waits at most that
+long. There is no statement_timeout: building an index or filling a column may take
+minutes.
 """
 
 import asyncio

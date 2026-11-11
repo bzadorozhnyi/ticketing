@@ -70,7 +70,6 @@ async def test_the_charge_takes_the_token_from_its_own_table(upstreams, http):
 
 
 async def test_an_order_without_a_token_row_is_not_charged(upstreams, http):
-    """The column still has a token, but since TIK-66 only the table is read."""
     order_id = await create_order(without_token_row=True)
 
     assert await make_runner(http).process_next() is True

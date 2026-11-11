@@ -1,3 +1,4 @@
+import hashlib
 import uuid
 from typing import Annotated
 
@@ -8,7 +9,14 @@ from core.consistency import write_position
 from core.db import SessionDep
 from core.exceptions import ConflictException, ValidationException
 from orders.dto.order import CreatedOrderDTO, OrderDTO
+from orders.models.order import Order
 from orders.repositories.order import OrderRepository, OrderRepositoryDep
+
+
+def request_fingerprint(*, hold_id: uuid.UUID, payment_token: str) -> str:
+    """What makes two requests with one Idempotency-Key the same. Migration
+    b4e9f2a7c1d5 computes it in SQL the same way."""
+    return hashlib.sha256(f"{hold_id}:{payment_token}".encode()).hexdigest()
 
 
 class CreateOrderUseCase:
@@ -28,11 +36,13 @@ class CreateOrderUseCase:
         order, and a repeat with the same key returns that order in any status. The
         consistency token lets the client read the order from the replica at once.
         """
+        fingerprint = request_fingerprint(hold_id=hold_id, payment_token=payment_token)
         await self.order_repository.insert_pending_if_absent(
             user_id=user_id,
             idempotency_key=idempotency_key,
             hold_id=hold_id,
             payment_token=payment_token,
+            request_fingerprint=fingerprint,
         )
         await self.session.commit()
 
@@ -41,12 +51,21 @@ class CreateOrderUseCase:
         )
         if order is None:
             raise ConflictException(f"Hold {hold_id} already has an active order")
-        if order.hold_id != hold_id or order.payment_token != payment_token:
+        if not self._same_request(
+            order=order, fingerprint=fingerprint, token=payment_token
+        ):
             raise ValidationException("Idempotency-Key was used with another request")
         return CreatedOrderDTO(
             order=OrderDTO.from_model(order),
             consistency_token=await write_position(self.session),
         )
+
+    @staticmethod
+    def _same_request(*, order: Order, fingerprint: str, token: str) -> bool:
+        """An order without a fingerprint is compared by its token."""
+        if order.request_fingerprint is not None:
+            return order.request_fingerprint == fingerprint
+        return order.payment_token == token
 
 
 def get_create_order_use_case(

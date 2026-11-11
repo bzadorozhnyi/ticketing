@@ -18,7 +18,7 @@ exporters:
       insecure: true
   # Prometheus scrapes the metrics from here instead of receiving them over OTLP: in the protobuf format every
   # series carries its start time, and Prometheus writes a 0 there, so rate() counts the first export of a new
-  # series. Over OTLP it ignores the start time (TIK-58). A series of a process that stopped is dropped after
+  # series. Over OTLP it ignores the start time. A series of a process that stopped is dropped after
   # metric_expiration, which stays above OTEL_METRIC_EXPORT_INTERVAL (10 s in the overlay).
   prometheus:
     endpoint: 0.0.0.0:8889

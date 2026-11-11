@@ -3,7 +3,7 @@ from datetime import timedelta
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy import func, literal, select, update
+from sqlalchemy import delete, func, literal, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,6 +38,7 @@ class OrderRepository:
         idempotency_key: str,
         hold_id: uuid.UUID,
         payment_token: str,
+        request_fingerprint: str,
     ) -> None:
         """No conflict target on purpose: either unique index refuses the row.
         Of two concurrent calls one inserts, the other waits for it and does nothing.
@@ -51,6 +52,7 @@ class OrderRepository:
                 idempotency_key=idempotency_key,
                 hold_id=hold_id,
                 payment_token=payment_token,
+                request_fingerprint=request_fingerprint,
                 status=OrderStatus.PENDING,
             )
             .on_conflict_do_nothing()
@@ -67,8 +69,8 @@ class OrderRepository:
         )
 
     async def payment_token_of(self, *, order: Order) -> str:
-        """Every order in flight has a token row since TIK-66. A missing one is a bug:
-        the step fails and is retried, rather than charging with a guess."""
+        """Every order in flight has a token row. A missing one is a bug: the step fails
+        and is retried, rather than charging with a guess."""
         token = await self.session.scalar(
             select(OrderPaymentToken.payment_token).where(
                 OrderPaymentToken.order_id == order.id
@@ -141,6 +143,7 @@ class OrderRepository:
             .where(Order.id == order_id)
             .values(status=OrderStatus.CONFIRMED, saga_step=SagaStep.DONE)
         )
+        await self._forget_payment_token(order_id=order_id)
 
     async def mark_awaiting_refund(
         self,
@@ -167,6 +170,7 @@ class OrderRepository:
             .where(Order.id == order_id)
             .values(status=OrderStatus.FAILED, saga_step=SagaStep.DONE)
         )
+        await self._forget_payment_token(order_id=order_id)
 
     async def mark_failed(self, *, order_id: uuid.UUID, reason: FailureReason) -> None:
         await self.session.execute(
@@ -177,6 +181,14 @@ class OrderRepository:
                 saga_step=SagaStep.DONE,
                 failure_reason=reason,
             )
+        )
+        await self._forget_payment_token(order_id=order_id)
+
+    async def _forget_payment_token(self, *, order_id: uuid.UUID) -> None:
+        """A final order never charges again, so it keeps no token. In the transaction
+        that makes it final, so a crash cannot leave one behind."""
+        await self.session.execute(
+            delete(OrderPaymentToken).where(OrderPaymentToken.order_id == order_id)
         )
 
     async def postpone(
