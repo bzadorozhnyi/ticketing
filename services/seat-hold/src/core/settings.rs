@@ -42,12 +42,18 @@ pub struct DbSettings {
     pub pass: String,
 }
 
+/// `lock_timeout` and `statement_timeout` bound the service's own sessions, so a lock held
+/// by someone else fails a request instead of keeping its pooled connection. 0 turns one off.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(default)]
 pub struct PoolSettings {
     pub max_connections: u32,
     #[serde(rename = "acquire_timeout_seconds", deserialize_with = "seconds")]
     pub acquire_timeout: Duration,
+    #[serde(rename = "lock_timeout_seconds", deserialize_with = "seconds")]
+    pub lock_timeout: Duration,
+    #[serde(rename = "statement_timeout_seconds", deserialize_with = "seconds")]
+    pub statement_timeout: Duration,
 }
 
 impl Default for PoolSettings {
@@ -55,6 +61,8 @@ impl Default for PoolSettings {
         Self {
             max_connections: 10,
             acquire_timeout: Duration::from_secs(5),
+            lock_timeout: Duration::from_secs(1),
+            statement_timeout: Duration::from_secs(5),
         }
     }
 }

@@ -38,6 +38,8 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
 | `DB__PORT` | 5432 | Postgres port |
 | `POOL__MAX_CONNECTIONS` | 10 | connection pool size |
 | `POOL__ACQUIRE_TIMEOUT_SECONDS` | 5 | wait for a connection; `/ready` fails after this time |
+| `POOL__LOCK_TIMEOUT_SECONDS` | 1 | Postgres `lock_timeout` of every service session: a statement waiting longer for a lock fails with 503; 0 turns it off |
+| `POOL__STATEMENT_TIMEOUT_SECONDS` | 5 | Postgres `statement_timeout`: below the gateway's timeout, so seat-hold answers first; 0 turns it off |
 | `HOLDS__TTL_SECONDS` | 300 | how long a hold lasts |
 | `HOLDS__PAYMENT_TTL_SECONDS` | 900 | how long a hold lasts once extended for a payment |
 | `HOLDS__MAX_SEATS` | 10 | seats in one request |
@@ -53,7 +55,12 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
 
 ## Notes
 
-- Migrations are SQL files in `migrations/`, embedded into the `migrate` binary.
+- Migrations are SQL files in `migrations/`, embedded into the `migrate` binary. It connects without the service's
+  timeouts (`build_migration_pool`): an index or a backfill may take minutes.
+- A lock held by someone else costs a request, not the pool: the service's sessions start with `lock_timeout` and
+  `statement_timeout`, and Postgres cancels the waiting statement (55P03, 57014), which answers 503 and gives the
+  connection back. It does not remove the lock: while a migration locks `holds`, every write to it fails, but reads and
+  `/ready` go on. `tests/session_limits.rs`; the concurrency tests run with the same limits.
 - The trace comes from the gateway: a valid `traceparent` is continued, an invalid one starts a new trace that is not
   recorded (ADR 0006: a trace starts only at the gateway). `core/telemetry/` mirrors the gateway's: a server span per
   request named by route template, `http.server.request.duration` with `error.type` = the error code, and
