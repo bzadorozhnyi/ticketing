@@ -7,7 +7,8 @@ use std::time::Duration;
 
 use axum::http::StatusCode;
 use common::service::{client, spawn_service};
-use seat_hold::core::settings::HoldSettings;
+use seat_hold::core::db::with_session_limits;
+use seat_hold::core::settings::{HoldSettings, PoolSettings};
 use seat_hold::holds::dto::hold::NewHold;
 use seat_hold::holds::repositories::hold::HoldRepository;
 use serde_json::{Value, json};
@@ -27,12 +28,14 @@ struct Attempt {
     body: Value,
 }
 
-/// `#[sqlx::test]` gives a small pool; the service needs as many connections as in production.
+/// `#[sqlx::test]` gives a small pool; the service needs as many connections as in production,
+/// with the same lock and statement timeouts, so contention that is normal never times out.
 /// A test closes the returned pool, otherwise dropping the test database waits for it.
 async fn service_for(pool: &PgPool) -> (String, PgPool) {
-    let options = pool.connect_options().as_ref().clone();
+    let settings = PoolSettings::default();
+    let options = with_session_limits(pool.connect_options().as_ref().clone(), &settings);
     let service_pool = PgPoolOptions::new()
-        .max_connections(10)
+        .max_connections(settings.max_connections)
         .connect_lazy_with(options);
     (spawn_service(service_pool.clone()).await, service_pool)
 }

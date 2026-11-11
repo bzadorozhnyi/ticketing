@@ -2,6 +2,7 @@ use axum::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use serde::{Serialize, Serializer};
+use sqlx::error::DatabaseError;
 use thiserror::Error;
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -97,14 +98,24 @@ impl ServiceError {
     }
 }
 
+/// Postgres cancelled a statement: `lock_timeout` (55P03) or `statement_timeout` (57014).
+const TIMED_OUT: [&str; 2] = ["55P03", "57014"];
+
 impl From<sqlx::Error> for ServiceError {
     fn from(error: sqlx::Error) -> Self {
         let is_outage = matches!(
             error,
             sqlx::Error::Io(_) | sqlx::Error::PoolTimedOut | sqlx::Error::PoolClosed
         );
+        let timed_out = error
+            .as_database_error()
+            .and_then(DatabaseError::code)
+            .is_some_and(|code| TIMED_OUT.contains(&code.as_ref()));
         if is_outage {
             tracing::warn!(%error, "Database is unavailable");
+            Self::Unavailable
+        } else if timed_out {
+            tracing::warn!(%error, "Database statement timed out");
             Self::Unavailable
         } else {
             tracing::error!(%error, "Database query failed");
