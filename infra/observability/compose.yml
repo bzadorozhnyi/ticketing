@@ -1,4 +1,4 @@
-# Traces and metrics: services -> OTel Collector -> Tempo and Prometheus -> Grafana. See ADR 0006.
+# Traces and metrics: services -> OTel Collector -> Tempo, and Prometheus scrapes the collector -> Grafana. See ADR 0006.
 # From the repo root: docker compose -f docker-compose.yml -f infra/observability/compose.yml up -d
 # Grafana: http://localhost:3000, dashboards without a login, Explore as admin/admin (local only).
 #   Dashboards (grafana/dashboards/): Services, Purchase, SLO. They are files: a change in the UI is not saved.
@@ -22,9 +22,9 @@ services:
     image: prom/prometheus:v3.15.1
     command:
       - --config.file=/etc/prometheus/prometheus.yaml
-      - --web.enable-otlp-receiver
       - --web.enable-remote-write-receiver
-      - --enable-feature=exemplar-storage
+      # A 0 at the start time of a new series, so rate() counts its first scrape (TIK-58).
+      - --enable-feature=exemplar-storage,created-timestamp-zero-ingestion
     volumes:
       - ./infra/observability/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
       - ./infra/observability/rules:/etc/prometheus/rules:ro

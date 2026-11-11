@@ -12,7 +12,11 @@ its time. Answering "what happened during the spike" took a script per question.
 
 - **OpenTelemetry for traces and metrics** in every service, sent over OTLP/HTTP to an **OpenTelemetry Collector**.
   The services know only the collector; where the data goes is its configuration.
-- **Prometheus** keeps metrics: the collector pushes them to its OTLP endpoint. **Tempo** keeps traces and computes
+- **Prometheus** keeps metrics: it scrapes them from the collector's Prometheus exporter in the protobuf format, with
+  `created-timestamp-zero-ingestion` (TIK-58). The first version pushed them to Prometheus's OTLP endpoint, which
+  ignores the start time of a series, so `rate()` never counted the first export of a new series: 15 answers of 503
+  in a 5 s outage were missing from the SLO. Protobuf carries the start time, and Prometheus writes a 0 there.
+  **Tempo** keeps traces and computes
   span metrics and the service graph from them. **Grafana** shows both, with links from a metric's exemplar to its trace.
 - The stack is a compose overlay, `infra/observability/`, like Toxiproxy. Without it the services run as before.
 - **Telemetry is off without a collector address.** Tests and local runs need nothing new.
@@ -42,8 +46,10 @@ its time. Answering "what happened during the spike" took a script per question.
   by the edge after the step that ended the order, so a repeated reply is not counted twice; a failed order carries
   its `failure_reason`). One availability SLO over every request let the reads, 20 times as many, hide a full outage
   of holds (TIK-56). The SLO for purchases cannot see an order that never finishes; `OrdersNotFinishing` covers that.
-- **`ProcessNotExporting`**: a process that stops has no requests left to fail, so no SLO notices it. Every OTLP
-  export brings `target_info`; a job seen in the last hour and silent for 2 minutes pages.
+- **`ProcessNotExporting`**: a process that stops has no requests left to fail, so no SLO notices it. The collector
+  exposes a `target_info` for each process while it exports, and forgets it 30 s after the last export
+  (`metric_expiration`); a job seen in the last hour and absent for 2 minutes pages. `target_info` needs
+  `service.instance.id`, which the Python SDK sets itself and the Rust services set at start.
 - **Alerts on the burn rate over two windows** (Google SRE Workbook): 14.4 over 1 h and 5 m, 6 over 6 h and 30 m.
   The long window proves the budget is really going, the short one that it still is, so an alert clears a few minutes
   after a fix. Prometheus evaluates them; there is no Alertmanager, since a laptop has nobody to page.
@@ -82,6 +88,11 @@ instead, and pool saturation is a gauge read from the SQLAlchemy pool.
 ## Consequences
 
 - Four more containers when the overlay is on.
+- A metric reaches Prometheus after the service's export (every 10 s) and the next scrape (every 10 s): up to 20 s,
+  about twice as long as the push. A stopped process pages after about 2.7 minutes instead of 2.2.
+- The flag `created-timestamp-zero-ingestion` is experimental; its successors (`st-storage`, `use-start-timestamps`)
+  are already listed, so an upgrade of Prometheus may need a new flag. The collector's exporter sends no exemplars
+  with native histograms.
 - Telemetry costs CPU in every request: at the gateway's maximum 2 % without a collector, 9 % with every request traced,
   4 % with one in ten (`docs/CLAIMS.md`). Sampling is how that cost is chosen.
 - A percentile is still an estimate, to a relative error set by the scale the histogram reaches, so a dashboard and
@@ -91,10 +102,10 @@ instead, and pool saturation is a gauge read from the SQLAlchemy pool.
 ## Known limits
 
 - One Prometheus and one Tempo with local storage: losing their volumes loses the history.
-- Prometheus ignores the start time of an OTLP series: the first export of a new series is only a baseline, so
-  `rate()` and `increase()` never count what it holds. With exports every 10 s, a new label set (the first 503 of
-  a route, every series of a Python process after a restart, which gets a new `instance`) loses up to its first 10 s.
-  A burst of errors shorter than one export, in a series that did not exist, is invisible to the SLO.
+- The first scrape of a new series counts only when its start time is near: the Python SDK starts each label set at
+  its first measurement, the Rust SDK (`opentelemetry_sdk` 0.33.1) starts every series of an instrument when the
+  process starts. A label set that first appears in a gateway or seat-hold running for hours (the first 503 of a
+  route) still loses its first scrape, up to 20 s. After a restart, and in every Python service, nothing is lost.
 - A 30-day SLO on a stack that lives for hours: the budget panels show the hours there are, not a month.
 - An SLO that counts requests weighs a slow period less: clients that wait send fewer requests. 400 ms more on every
   read halved the reads, and the fast burn would have paged after about 15 minutes instead of 9 (TIK-56).
