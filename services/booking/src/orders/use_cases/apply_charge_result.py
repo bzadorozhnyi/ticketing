@@ -31,7 +31,9 @@ class ApplyChargeResultUseCase:
                 order_id=order.id, reason=FailureReason.CARD_DECLINED
             )
             finished = FinishedOrder(
-                status=OrderStatus.FAILED, created_at=order.created_at
+                status=OrderStatus.FAILED,
+                failure_reason=FailureReason.CARD_DECLINED,
+                created_at=order.created_at,
             )
         else:
             logger.bind(order_id=str(order.id), status=result.status).error(

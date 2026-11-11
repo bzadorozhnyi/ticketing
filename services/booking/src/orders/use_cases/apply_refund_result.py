@@ -24,4 +24,8 @@ class ApplyRefundResultUseCase:
 
         await self.order_repository.mark_refund_finished(order_id=order.id)
         await self.session.commit()
-        return FinishedOrder(status=OrderStatus.FAILED, created_at=order.created_at)
+        return FinishedOrder(
+            status=OrderStatus.FAILED,
+            failure_reason=order.failure_reason,
+            created_at=order.created_at,
+        )

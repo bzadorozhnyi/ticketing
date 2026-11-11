@@ -36,10 +36,14 @@ its time. Answering "what happened during the spike" took a script per question.
   Both SDKs set it with one view; the sizes are the OpenTelemetry defaults (160 buckets, scale up to 20).
 - **Dashboards and alert rules are files** in the overlay, loaded at start: `grafana/dashboards/` (Services, Purchase,
   SLO) and `rules/slo.yaml`. A change made in the Grafana UI is not saved; it is exported into the file.
-- **Three SLOs over 30 days**, measured where the user sees the result: 99.5 % of `/api` requests through the gateway
-  without a 5xx, 99 % of its `GET`s within 300 ms, 99 % of orders confirmed or failed within 10 s of being created
-  (`booking.order.duration`, recorded by the edge after the step that ended the order, so a repeated reply is not
-  counted twice). The SLO for purchases cannot see an order that never finishes; `OrdersNotFinishing` covers that.
+- **SLOs per user journey, over 30 days**, measured where the user sees the result: 99.5 % without a 5xx for reading
+  the catalog (`/api/v1/events`) and, separately, for checkout (`/api/v1/holds`, `/api/v1/orders`); 99 % of `GET`s
+  within 300 ms; 99 % of orders confirmed or failed within 10 s of being created (`booking.order.duration`, recorded
+  by the edge after the step that ended the order, so a repeated reply is not counted twice; a failed order carries
+  its `failure_reason`). One availability SLO over every request let the reads, 20 times as many, hide a full outage
+  of holds (TIK-56). The SLO for purchases cannot see an order that never finishes; `OrdersNotFinishing` covers that.
+- **`ProcessNotExporting`**: a process that stops has no requests left to fail, so no SLO notices it. Every OTLP
+  export brings `target_info`; a job seen in the last hour and silent for 2 minutes pages.
 - **Alerts on the burn rate over two windows** (Google SRE Workbook): 14.4 over 1 h and 5 m, 6 over 6 h and 30 m.
   The long window proves the budget is really going, the short one that it still is, so an alert clears a few minutes
   after a fix. Prometheus evaluates them; there is no Alertmanager, since a laptop has nobody to page.
@@ -92,4 +96,8 @@ instead, and pool saturation is a gauge read from the SQLAlchemy pool.
   a route, every series of a Python process after a restart, which gets a new `instance`) loses up to its first 10 s.
   A burst of errors shorter than one export, in a series that did not exist, is invisible to the SLO.
 - A 30-day SLO on a stack that lives for hours: the budget panels show the hours there are, not a month.
+- An SLO that counts requests weighs a slow period less: clients that wait send fewer requests. 400 ms more on every
+  read halved the reads, and the fast burn would have paged after about 15 minutes instead of 9 (TIK-56).
+- No metric shows CPU or throttling: a process starved by its CPU limit shows only as long spans in steps of 100 ms
+  (TIK-60).
 - Grafana allows anonymous viewing; Explore needs `admin/admin`. Local only.

@@ -38,7 +38,9 @@ See ADR 0006; `core/telemetry.py` follows catalog's. One trace per order, from t
 - A trace starts only at the gateway: the polls of the saga and the relay and the health checks are not recorded.
 - Metrics: `http.server.request.duration` (FastAPI), `http.client.request.duration` (upstream, status),
   `booking.saga.steps` (step, outcome `ran`/`postponed`/`failed`), `booking.outbox.publish.delay` (how long a command
-  waited for the relay), `booking.order.duration` (creation to `confirmed` or `failed`, outcome; the purchase SLO),
+  waited for the relay, from the INSERT: `outbox.created_at` is `clock_timestamp()`, since `now()` is the start of a
+  saga step's transaction, before its calls to other services), `booking.order.duration` (creation to `confirmed` or
+  `failed`, outcome, `failure_reason` of a failed one; the purchase SLO),
   `db.client.connection.count`. Each process has its own `OTEL_SERVICE_NAME`:
   `booking`, `booking-saga`, `booking-relay`.
 - A use case that ends an order returns `FinishedOrder`, and one that changed nothing returns None, so a repeated
