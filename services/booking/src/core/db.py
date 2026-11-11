@@ -1,4 +1,5 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Annotated
 
@@ -18,6 +19,18 @@ engine = create_async_engine(
     pool_pre_ping=settings.DB.POOL_PRE_PING,
 )
 async_session = async_sessionmaker(engine, expire_on_commit=False)
+
+# Reads that may be as old as the replica's lag. Without a replica they use the primary.
+replica_engine = (
+    create_async_engine(
+        settings.DB_REPLICA.url,
+        connect_args={"timeout": settings.DB_REPLICA.CONNECT_TIMEOUT_SECONDS},
+        pool_pre_ping=settings.DB_REPLICA.POOL_PRE_PING,
+    )
+    if settings.DB_REPLICA
+    else engine
+)
+replica_session = async_sessionmaker(replica_engine, expire_on_commit=False)
 
 naming_convention = {
     "ix": "ix_%(column_0_label)s",
@@ -44,8 +57,11 @@ def is_connection_error(exc: Exception) -> bool:
     return isinstance(exc, OSError)
 
 
-async def get_session() -> AsyncIterator[AsyncSession]:
-    async with async_session() as session:
+@asynccontextmanager
+async def _guarded(
+    maker: async_sessionmaker[AsyncSession],
+) -> AsyncGenerator[AsyncSession]:
+    async with maker() as session:
         try:
             yield session
         except (OSError, DBAPIError) as exc:
@@ -55,4 +71,15 @@ async def get_session() -> AsyncIterator[AsyncSession]:
             raise
 
 
+async def get_session() -> AsyncIterator[AsyncSession]:
+    async with _guarded(async_session) as session:
+        yield session
+
+
+async def get_replica_session() -> AsyncIterator[AsyncSession]:
+    async with _guarded(replica_session) as session:
+        yield session
+
+
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+ReplicaSessionDep = Annotated[AsyncSession, Depends(get_replica_session)]

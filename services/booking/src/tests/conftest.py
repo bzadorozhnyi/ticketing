@@ -18,7 +18,7 @@ from tests.helpers.env import load_dotenv_into_environ  # noqa: E402
 load_dotenv_into_environ(".env.test", "../.env.test")
 
 from core.db import engine as core_engine  # noqa: E402
-from core.db import get_session  # noqa: E402
+from core.db import get_replica_session, get_session  # noqa: E402
 from core.settings import settings  # noqa: E402
 from main import app  # noqa: E402
 from tests.helpers.db import create_db, drop_db  # noqa: E402
@@ -91,7 +91,9 @@ async def async_client(db_session):
     async def override_get_session():
         yield db_session
 
+    # The replica sees the test's own transaction, as if it had no lag.
     app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[get_replica_session] = override_get_session
 
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://testserver"

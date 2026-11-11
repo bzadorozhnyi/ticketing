@@ -72,6 +72,12 @@ class BreakerSettings(BaseModel):
     OPEN_SECONDS: float = 10
 
 
+class ReplicationSettings(BaseModel):
+    PROBE_INTERVAL_SECONDS: float = 5
+    # Created on the primary by infra/replication/setup.sql.
+    SLOT: str = "booking_replica"
+
+
 class FaultSettings(BaseModel):
     CRASH_RATE: float = 0
 
@@ -79,6 +85,10 @@ class FaultSettings(BaseModel):
 class Settings(BaseSettings):
     SERVICE_NAME: str = "booking"
     DB: DBSettings
+    # A streaming replica for reads that may lag behind (GET /orders/{id}); without it
+    # they go to DB.
+    DB_REPLICA: DBSettings | None = None
+    REPLICATION: ReplicationSettings = ReplicationSettings()
     LOGGING: LoggingSettings = LoggingSettings()
     RABBITMQ: RabbitMQSettings = RabbitMQSettings()
     OUTBOX: OutboxSettings = OutboxSettings()

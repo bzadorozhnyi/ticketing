@@ -4,7 +4,10 @@ import pytest
 from fastapi import status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.db import get_replica_session
+from main import app
 from orders.models.order import FailureReason, Order, OrderStatus
 
 pytestmark = pytest.mark.anyio
@@ -187,6 +190,23 @@ async def test_create_without_a_user_is_refused(async_client, db_session, user):
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
     assert response.json()["code"] == "unauthorized"
     assert await count_orders(db_session) == 0
+
+
+async def test_get_reads_from_the_replica(async_client, order_factory, async_engine):
+    """Another connection does not see the test's uncommitted order, as a lagging
+    replica does not see the latest commit yet."""
+    order = await order_factory(status=OrderStatus.CONFIRMED)
+
+    async def lagging_replica():
+        async with AsyncSession(async_engine) as session:
+            yield session
+
+    app.dependency_overrides[get_replica_session] = lagging_replica
+    response = await async_client.get(
+        f"{ORDERS_URL}/{order.id}", headers={"X-User-Id": USER}
+    )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 async def test_get_returns_the_order(async_client, order_factory):

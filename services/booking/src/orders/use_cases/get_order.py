@@ -5,7 +5,7 @@ from fastapi import Depends
 
 from core.exceptions import NotFoundException
 from orders.dto.order import OrderDTO
-from orders.repositories.order import OrderRepository, OrderRepositoryDep
+from orders.repositories.order import OrderRepository, ReplicaOrderRepositoryDep
 
 
 class GetOrderUseCase:
@@ -21,7 +21,9 @@ class GetOrderUseCase:
         return OrderDTO.from_model(order)
 
 
-def get_get_order_use_case(order_repository: OrderRepositoryDep) -> GetOrderUseCase:
+def get_get_order_use_case(
+    order_repository: ReplicaOrderRepositoryDep,
+) -> GetOrderUseCase:
     return GetOrderUseCase(order_repository=order_repository)
 
 

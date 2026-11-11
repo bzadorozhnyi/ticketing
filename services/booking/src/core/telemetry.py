@@ -19,6 +19,7 @@ from opentelemetry.trace import Span, SpanKind
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from sqlalchemy.pool import QueuePool
 
+from core import replication
 from core.db import engine
 from core.logging import trace_id_var
 
@@ -71,6 +72,18 @@ def setup() -> None:
         "db.client.connection.count",
         callbacks=[_pool_connections],
         description="Pooled database connections by state",
+    )
+    meter.create_observable_gauge(
+        "db.replica.lag",
+        callbacks=[_replica_lag],
+        unit="s",
+        description="How far the replica's reads are behind the primary",
+    )
+    meter.create_observable_gauge(
+        "db.replication_slot.retained",
+        callbacks=[_retained_wal],
+        unit="By",
+        description="WAL the primary keeps for a replica that has not confirmed it",
     )
 
 
@@ -157,3 +170,13 @@ def _pool_connections(_: CallbackOptions) -> Iterable[Observation]:
         return
     yield Observation(pool.checkedout(), {"db.client.connection.state": "used"})
     yield Observation(pool.checkedin(), {"db.client.connection.state": "idle"})
+
+
+def _replica_lag(_: CallbackOptions) -> Iterable[Observation]:
+    if (lag := replication.latest.get("lag_seconds")) is not None:
+        yield Observation(lag)
+
+
+def _retained_wal(_: CallbackOptions) -> Iterable[Observation]:
+    if (retained := replication.latest.get("retained_bytes")) is not None:
+        yield Observation(retained)

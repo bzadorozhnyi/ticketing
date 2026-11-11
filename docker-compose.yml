@@ -127,11 +127,48 @@ services:
 
   booking-db:
     <<: *postgres
+    # The image's pg_hba.conf allows replication only from localhost; this one also lets the replica in.
+    command: ["postgres", "-c", "hba_file=/etc/postgresql/pg_hba.conf"]
     environment:
       <<: *postgres-env
       POSTGRES_DB: booking_db
     ports: ["127.0.0.1:5434:5432"]
-    volumes: ["booking-db-data:/var/lib/postgresql"]
+    volumes:
+      - booking-db-data:/var/lib/postgresql
+      - ./infra/replication/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+
+  # One-shot: the replication role and slot on the primary, safe to repeat (infra/replication/setup.sql).
+  booking-db-replication:
+    image: postgres:18-alpine
+    environment:
+      PGPASSWORD: password
+    command:
+      - psql
+      - --host=booking-db
+      - --username=postgres
+      - --dbname=booking_db
+      - --set=ON_ERROR_STOP=1
+      - --set=password=replicator-password
+      - --file=/setup.sql
+    volumes: ["./infra/replication/setup.sql:/setup.sql:ro"]
+    depends_on:
+      booking-db: { condition: service_healthy }
+
+  # Streaming replica of booking-db, read-only; GET /orders/{id} reads from it (DB_REPLICA__*).
+  booking-db-replica:
+    <<: *postgres
+    user: postgres
+    entrypoint: ["/bin/sh", "/replica.sh"]
+    environment:
+      PGPASSWORD: replicator-password
+      POSTGRES_USER: postgres
+      POSTGRES_DB: booking_db
+    ports: ["127.0.0.1:5437:5432"]
+    volumes:
+      - booking-db-replica-data:/var/lib/postgresql
+      - ./infra/replication/replica.sh:/replica.sh:ro
+    depends_on:
+      booking-db-replication: { condition: service_completed_successfully }
 
   booking-migrate:
     <<: *booking
@@ -141,9 +178,19 @@ services:
 
   booking:
     <<: *booking
+    environment:
+      <<: *service-db-env
+      DB__NAME: booking_db
+      DB__HOST: booking-db
+      DB_REPLICA__NAME: booking_db
+      DB_REPLICA__HOST: booking-db-replica
+      DB_REPLICA__USER: postgres
+      DB_REPLICA__PASS: password
+      OTEL_SERVICE_NAME: booking
     healthcheck: *ready-check
     depends_on:
       booking-migrate: { condition: service_completed_successfully }
+      booking-db-replica: { condition: service_started }
 
   booking-relay:
     <<: *booking
@@ -231,5 +278,6 @@ volumes:
   rabbitmq-data:
   catalog-db-data:
   booking-db-data:
+  booking-db-replica-data:
   payment-db-data:
   seat-hold-db-data:

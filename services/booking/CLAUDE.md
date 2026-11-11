@@ -48,6 +48,17 @@ See ADR 0006; `core/telemetry.py` follows catalog's. One trace per order, from t
 - A process killed with buffered spans loses up to about 5 s of them. Not measured yet: a relay crash after a publish
   should show as two publish and two consumer spans, the duplicate that at-least-once delivery allows.
 
+## Read replica
+
+See ADR 0007 and `infra/replication/README.md`. `GET /orders/{id}` reads from `booking-db-replica` (`DB_REPLICA__HOST`,
+`__NAME`, `__USER`, `__PASS`); everything else uses `DB`. Without `DB_REPLICA` those reads go to the primary.
+- Reads may be as old as the replica's lag: an order just created can answer 404. While the replica is down they answer 503.
+- Background job of the API process, only with a replica: `core/replication.py` reads the replica's lag
+  (`pg_stat_replication.replay_lag`) and the WAL its slot keeps from the primary every `REPLICATION__PROBE_INTERVAL_SECONDS`
+  (5), exported as `db.replica.lag` and `db.replication_slot.retained`.
+- Tests: `get_replica_session` is overridden like `get_session`; `test_get_reads_from_the_replica` gives it another
+  connection, which does not see the test's uncommitted order, as a lagging replica does not.
+
 ## Layout notes
 
 - Code lives in `src/` and is imported without a package prefix (`from core.db import ...`);

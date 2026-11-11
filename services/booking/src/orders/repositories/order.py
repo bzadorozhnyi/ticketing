@@ -7,7 +7,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.db import SessionDep
+from core.db import ReplicaSessionDep, SessionDep
 from orders.models.order import FailureReason, Order, OrderStatus, SagaStep
 
 
@@ -171,3 +171,13 @@ def get_order_repository(session: SessionDep) -> OrderRepository:
 
 
 OrderRepositoryDep = Annotated[OrderRepository, Depends(get_order_repository)]
+
+
+def get_replica_order_repository(session: ReplicaSessionDep) -> OrderRepository:
+    """Reads from the replica: what was committed up to the replica's lag ago."""
+    return OrderRepository(session=session)
+
+
+ReplicaOrderRepositoryDep = Annotated[
+    OrderRepository, Depends(get_replica_order_repository)
+]
