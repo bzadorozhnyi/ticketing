@@ -129,17 +129,32 @@ def make_runner(http: HttpClient, **overrides) -> SagaRunner:
     )
 
 
-async def create_order(*, token: str = "tok_ok", **fields) -> uuid.UUID:
+async def create_order(
+    *,
+    token: str = "tok_ok",
+    stored_token: str | None = None,
+    without_token_row: bool = False,
+    **fields,
+) -> uuid.UUID:
+    """As `POST /orders` makes it: the token in the order and in its own table
+    (`stored_token`, the same by default). `without_token_row` is an order from before
+    TIK-64."""
     async with async_session() as session:
         order = Order(
             user_id=USER,
             idempotency_key=str(uuid.uuid4()),
             hold_id=uuid.uuid4(),
             payment_token=token,
-            status=OrderStatus.PENDING,
-            **fields,
+            **{"status": OrderStatus.PENDING, **fields},
         )
         session.add(order)
+        await session.flush()
+        if not without_token_row:
+            session.add(
+                OrderPaymentToken(
+                    order_id=order.id, payment_token=stored_token or token
+                )
+            )
         await session.commit()
         return order.id
 
@@ -172,10 +187,3 @@ def breaker_off() -> CircuitBreaker:
     return CircuitBreaker(
         upstream="test", settings=BreakerSettings(WINDOW=10, MIN_CALLS=1000)
     )
-
-
-async def store_token(order_id: uuid.UUID, token: str) -> None:
-    """The token in its own table, as an order created since TIK-64 has it."""
-    async with async_session() as session:
-        session.add(OrderPaymentToken(order_id=order_id, payment_token=token))
-        await session.commit()

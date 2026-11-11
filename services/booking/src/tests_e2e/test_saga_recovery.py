@@ -23,7 +23,6 @@ from tests_e2e.helpers import (
     make_due,
     make_runner,
     outbox,
-    store_token,
 )
 from tests_e2e.test_saga_finish import (
     RecordedDelivery,
@@ -94,8 +93,7 @@ async def test_missing_reply_sends_the_same_charge_again(http):
 
 
 async def test_a_repeated_charge_takes_the_token_from_its_own_table(http):
-    order_id = await create_order(token="tok_in_order", **WAITING_CHARGE)
-    await store_token(order_id, "tok_apart")
+    await create_order(token="tok_in_order", stored_token="tok_apart", **WAITING_CHARGE)
 
     await make_runner(http).process_next()
 

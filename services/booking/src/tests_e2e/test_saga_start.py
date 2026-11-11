@@ -27,7 +27,6 @@ from tests_e2e.helpers import (
     make_due,
     make_runner,
     outbox,
-    store_token,
     trace_id_of,
 )
 
@@ -62,15 +61,24 @@ async def test_step_prices_the_hold_and_stores_the_charge_command(upstreams, htt
 
 
 async def test_the_charge_takes_the_token_from_its_own_table(upstreams, http):
-    """An order made before TIK-64 has no row there and is charged with the token in
-    its own row, as the test above shows."""
-    order_id = await create_order(token="tok_in_order")
-    await store_token(order_id, "tok_apart")
+    await create_order(token="tok_in_order", stored_token="tok_apart")
 
     await make_runner(http).process_next()
 
     [message] = await outbox()
     assert json.loads(message.body)["payment_token"] == "tok_apart"
+
+
+async def test_an_order_without_a_token_row_is_not_charged(upstreams, http):
+    """The column still has a token, but since TIK-66 only the table is read."""
+    order_id = await create_order(without_token_row=True)
+
+    assert await make_runner(http).process_next() is True
+
+    order = await load(order_id)
+    assert order.saga_step == SagaStep.STARTED
+    assert order.attempts == 1
+    assert await outbox() == []
 
 
 async def test_step_calls_upstreams_in_order_as_the_owner(upstreams, http):

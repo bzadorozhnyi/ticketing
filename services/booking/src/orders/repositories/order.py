@@ -67,14 +67,16 @@ class OrderRepository:
         )
 
     async def payment_token_of(self, *, order: Order) -> str:
-        """An order created before the token table existed has its token only in its
-        own row."""
+        """Every order in flight has a token row since TIK-66. A missing one is a bug:
+        the step fails and is retried, rather than charging with a guess."""
         token = await self.session.scalar(
             select(OrderPaymentToken.payment_token).where(
                 OrderPaymentToken.order_id == order.id
             )
         )
-        return token if token is not None else order.payment_token
+        if token is None:
+            raise LookupError(f"Order {order.id} has no payment token")
+        return token
 
     async def lock_next_due(self) -> Order | None:
         """An order another worker is on is skipped. The lock ends with the transaction,
