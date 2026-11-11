@@ -1,6 +1,6 @@
 # Board
 
-Next ticket: TIK-65
+Next ticket: TIK-66
 
 ## In progress
 
@@ -71,3 +71,4 @@ Next ticket: TIK-65
 - [x] TIK-58 SLO: count the first export of a new OTLP series, lost to rate() today (M6)
 - [x] TIK-61 Booking: streaming read replica, order reads from it, replica lag as a metric and an alert (M7)
 - [x] TIK-62 Experiment: replica lag breaks read-your-writes; measure, protect, measure again (M7)
+- [x] TIK-65 Read-your-writes under load: measured, the wait for the replica removed (M7)

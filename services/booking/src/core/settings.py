@@ -76,9 +76,6 @@ class ReplicationSettings(BaseModel):
     PROBE_INTERVAL_SECONDS: float = 5
     # Created on the primary by infra/replication/setup.sql.
     SLOT: str = "booking_replica"
-    # How long a read with a consistency token waits for the replica before it goes to
-    # the primary.
-    WAIT_FOR_TOKEN_SECONDS: float = 0.2
 
 
 class FaultSettings(BaseModel):

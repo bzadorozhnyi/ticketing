@@ -1,14 +1,14 @@
 """Read-your-writes on the replica, see ADR 0007.
 
 A write returns the primary's WAL position after its commit as a consistency token.
-A read that brings the token goes to the replica once the replica has applied that
-position, waiting a moment for it, and to the primary otherwise. A read without a token
-goes to the replica, and to the primary only when the replica does not have the row yet.
-A replica that cannot be reached sends every read to the primary.
+A read that brings the token goes to the replica if the replica has applied that
+position, and to the primary otherwise. It does not wait for the replica: under load,
+200 ms of waiting made reads slower and sent more of them to the primary (TIK-65).
+A read without a token goes to the replica, and to the primary only when the replica
+does not have the row yet. A replica that cannot be reached sends every read to the
+primary.
 """
 
-import asyncio
-import time
 from collections.abc import Awaitable, Callable
 from typing import Literal
 
@@ -21,7 +21,6 @@ from core.telemetry import replica_reads
 
 TOKEN_HEADER = "X-Consistency-Token"
 TOKEN_PATTERN = r"^[0-9A-F]{1,8}/[0-9A-F]{1,8}$"
-CHECK_INTERVAL_SECONDS = 0.02
 
 # Why a read went to the primary: the `reason` of `db.replica.reads`.
 PrimaryReason = Literal["behind", "miss", "replica_unavailable"]
@@ -53,18 +52,16 @@ class ReplicaReads[R]:
         replica_session: AsyncSession,
         replica: R,
         primary: R,
-        wait_seconds: float,
     ):
         self.replica_session = replica_session
         self.replica = replica
         self.primary = primary
-        self.wait_seconds = wait_seconds
 
     async def read[T](
         self, query: Callable[[R], Awaitable[T | None]], *, token: str | None
     ) -> T | None:
         try:
-            if token is not None and not await self._caught_up(token):
+            if token is not None and not await replica_has(self.replica_session, token):
                 return await self._from_primary(query, reason="behind")
             found = await query(self.replica)
         except (OSError, DBAPIError) as exc:
@@ -75,14 +72,6 @@ class ReplicaReads[R]:
             return await self._from_primary(query, reason="miss")
         replica_reads.add(1, {"source": "replica"})
         return found
-
-    async def _caught_up(self, token: str) -> bool:
-        deadline = time.monotonic() + self.wait_seconds
-        while not await replica_has(self.replica_session, token):
-            if time.monotonic() >= deadline:
-                return False
-            await asyncio.sleep(CHECK_INTERVAL_SECONDS)
-        return True
 
     async def _from_primary[T](
         self, query: Callable[[R], Awaitable[T | None]], *, reason: PrimaryReason
