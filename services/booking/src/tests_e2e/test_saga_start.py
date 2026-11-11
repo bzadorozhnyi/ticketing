@@ -138,7 +138,7 @@ async def test_definite_refusal_fails_the_order_without_a_charge(
     assert order.failure_reason == reason
     assert [name for name, _, _ in upstreams.calls] == calls
     assert await outbox() == []
-    assert finished == [OrderStatus.FAILED]
+    assert finished == [(OrderStatus.FAILED, reason)]
 
 
 @pytest.mark.parametrize(

@@ -34,7 +34,9 @@ class RecoverOrderUseCase:
                 order_id=order.id, reason=FailureReason.SAGA_TIMED_OUT
             )
             finished = FinishedOrder(
-                status=OrderStatus.FAILED, created_at=order.created_at
+                status=OrderStatus.FAILED,
+                failure_reason=FailureReason.SAGA_TIMED_OUT,
+                created_at=order.created_at,
             )
         elif order.saga_step == SagaStep.AWAITING_REFUND:
             await self._repeat_refund(order=order, overdue=overdue)

@@ -6,7 +6,7 @@ import pytest
 from aio_pika import DeliveryMode
 from aio_pika.abc import AbstractIncomingMessage, AbstractQueue
 from opentelemetry.trace import SpanKind
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
 from core.db import async_session
 from core.rabbitmq import RabbitMQClient
@@ -108,6 +108,21 @@ async def test_message_is_written_with_the_transaction_it_belongs_to():
         await session.commit()
 
     assert await outbox_bodies() == ["committed"]
+
+
+async def test_message_is_dated_by_its_insert_not_by_its_transaction():
+    """A saga step calls other services before it writes the command; that time must
+    not count as waiting in the outbox."""
+    async with async_session() as session:
+        transaction_started = await session.scalar(select(func.now()))
+        await session.execute(select(func.pg_sleep(0.3)))
+        await OutboxRepository(session=session).add(queue="q", body="late")
+        await session.commit()
+    async with async_session() as session:
+        created_at = await session.scalar(select(OutboxMessage.created_at))
+
+    assert created_at is not None and transaction_started is not None
+    assert (created_at - transaction_started).total_seconds() >= 0.3
 
 
 async def test_relay_publishes_oldest_first_and_empties_the_outbox(queue, client):

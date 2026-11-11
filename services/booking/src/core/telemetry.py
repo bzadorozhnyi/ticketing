@@ -103,10 +103,16 @@ def continue_trace(
             trace_id_var.reset(token)
 
 
-def record_finished_order(*, created_at: datetime, status: str) -> None:
-    """Called once per order, by the step that ended it, after its commit."""
+def record_finished_order(
+    *, created_at: datetime, status: str, failure_reason: str | None
+) -> None:
+    """Called once per order, by the step that ended it, after its commit. A failed
+    order carries its reason, one of a fixed set."""
     seconds = (datetime.now(UTC) - created_at).total_seconds()
-    order_duration.record(seconds, {"outcome": status})
+    attributes = {"outcome": status}
+    if failure_reason:
+        attributes["failure_reason"] = failure_reason
+    order_duration.record(seconds, attributes)
 
 
 class UpstreamCall:

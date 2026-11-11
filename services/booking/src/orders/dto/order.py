@@ -4,7 +4,7 @@ from typing import Self
 
 from pydantic import BaseModel
 
-from orders.models.order import Order, OrderStatus
+from orders.models.order import FailureReason, Order, OrderStatus
 
 
 class OrderDTO(BaseModel):
@@ -30,4 +30,5 @@ class FinishedOrder(BaseModel):
     returns None instead."""
 
     status: OrderStatus
+    failure_reason: FailureReason | None = None
     created_at: datetime

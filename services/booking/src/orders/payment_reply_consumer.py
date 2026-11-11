@@ -72,7 +72,9 @@ class PaymentReplyConsumer:
                 ).execute(result=reply)
         if finished:
             record_finished_order(
-                created_at=finished.created_at, status=finished.status
+                created_at=finished.created_at,
+                status=finished.status,
+                failure_reason=finished.failure_reason,
             )
 
     async def _retry_later(self, *, delivery: Delivery) -> None:

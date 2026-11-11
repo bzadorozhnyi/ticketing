@@ -85,12 +85,13 @@ async def http(upstreams):
 
 
 @pytest.fixture
-def finished(monkeypatch) -> list[str]:
-    """Statuses of the orders the saga and the reply consumer report as finished."""
-    statuses: list[str] = []
+def finished(monkeypatch) -> list[tuple[str, str | None]]:
+    """Status and failure reason of each order the saga and the reply consumer report
+    as finished."""
+    statuses: list[tuple[str, str | None]] = []
 
-    def record(*, created_at, status):
-        statuses.append(status)
+    def record(*, created_at, status, failure_reason):
+        statuses.append((status, failure_reason))
 
     for module in (saga_runner, payment_reply_consumer):
         monkeypatch.setattr(module, "record_finished_order", record)

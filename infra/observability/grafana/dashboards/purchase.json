@@ -26,15 +26,16 @@
     },
     {
       "type": "timeseries",
-      "title": "Orders finished by outcome",
+      "title": "Orders finished by outcome and reason",
+      "description": "A failed order carries its failure_reason: card_declined, hold_expired, saga_timed_out, ...",
       "gridPos": { "h": 8, "w": 6, "x": 6, "y": 1 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (outcome) (histogram_count(rate(booking_order_duration_seconds[$__rate_interval])))",
-          "legendFormat": "{{outcome}}"
+          "expr": "sum by (outcome, failure_reason) (histogram_count(rate(booking_order_duration_seconds[$__rate_interval])))",
+          "legendFormat": "{{outcome}} {{failure_reason}}"
         }
       ]
     },

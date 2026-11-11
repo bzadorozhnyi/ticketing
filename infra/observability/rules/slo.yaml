@@ -1,4 +1,4 @@
-# SLOs over 30 days and their burn-rate alerts, see ADR 0006. Tests: slo.test.yaml (infra/check-rules.sh).
+# SLOs over 30 days and their burn-rate alerts, see ADR 0006. Tests: slo.test.yaml (infra/check-observability.sh).
 #
 # For every SLO: the share of bad events over several windows (error_ratio_rate<window>) and the share
 # allowed (error_budget = 1 - objective). Burn rate = error ratio / error budget: 1 spends the budget
@@ -9,46 +9,91 @@
 # Without traffic a ratio is NaN and no alert fires.
 
 groups:
-  # Requests to /api through the gateway that got no 5xx. 4xx and 429 are the client's side.
-  - name: slo-gateway-availability
+  # Availability per user journey, each with its own budget: one SLO over all /api requests let the reads
+  # of the catalog hide a full outage of holds (TIK-56). A request is good without a 5xx; 4xx and 429 are
+  # the client's side.
+  # Browsing the catalog.
+  - name: slo-browse-availability
     rules:
-      - record: slo:gateway_availability:error_budget
+      - record: slo:browse_availability:error_budget
         expr: vector(0.005)
-      - record: slo:gateway_availability:error_ratio_rate5m
+      - record: slo:browse_availability:error_ratio_rate5m
         expr: |
-          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*", http_response_status_code=~"5.."}[5m]))) or vector(0))
-          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*"}[5m])))
-      - record: slo:gateway_availability:error_ratio_rate30m
+          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/events.*", http_response_status_code=~"5.."}[5m]))) or vector(0))
+          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/events.*"}[5m])))
+      - record: slo:browse_availability:error_ratio_rate30m
         expr: |
-          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*", http_response_status_code=~"5.."}[30m]))) or vector(0))
-          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*"}[30m])))
-      - record: slo:gateway_availability:error_ratio_rate1h
+          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/events.*", http_response_status_code=~"5.."}[30m]))) or vector(0))
+          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/events.*"}[30m])))
+      - record: slo:browse_availability:error_ratio_rate1h
         expr: |
-          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*", http_response_status_code=~"5.."}[1h]))) or vector(0))
-          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*"}[1h])))
-      - record: slo:gateway_availability:error_ratio_rate6h
+          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/events.*", http_response_status_code=~"5.."}[1h]))) or vector(0))
+          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/events.*"}[1h])))
+      - record: slo:browse_availability:error_ratio_rate6h
         expr: |
-          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*", http_response_status_code=~"5.."}[6h]))) or vector(0))
-          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*"}[6h])))
-      - record: slo:gateway_availability:error_ratio_rate30d
+          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/events.*", http_response_status_code=~"5.."}[6h]))) or vector(0))
+          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/events.*"}[6h])))
+      - record: slo:browse_availability:error_ratio_rate30d
         expr: |
-          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*", http_response_status_code=~"5.."}[30d]))) or vector(0))
-          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*"}[30d])))
-      - alert: GatewayAvailabilityFastBurn
+          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/events.*", http_response_status_code=~"5.."}[30d]))) or vector(0))
+          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/events.*"}[30d])))
+      - alert: BrowseAvailabilityFastBurn
         expr: |
-          slo:gateway_availability:error_ratio_rate1h / slo:gateway_availability:error_budget > 14.4
-          and slo:gateway_availability:error_ratio_rate5m / slo:gateway_availability:error_budget > 14.4
-        labels: { severity: page, slo: gateway-availability }
+          slo:browse_availability:error_ratio_rate1h / slo:browse_availability:error_budget > 14.4
+          and slo:browse_availability:error_ratio_rate5m / slo:browse_availability:error_budget > 14.4
+        labels: { severity: page, slo: browse-availability }
         annotations:
-          summary: "Gateway 5xx spend 2 % of the 30-day budget per hour; Services dashboard"
+          summary: "Catalog reads: 5xx spend 2 % of the 30-day budget per hour; Services dashboard"
           description: "Burn rate {{ $value | humanize }} over 1 h"
-      - alert: GatewayAvailabilitySlowBurn
+      - alert: BrowseAvailabilitySlowBurn
         expr: |
-          slo:gateway_availability:error_ratio_rate6h / slo:gateway_availability:error_budget > 6
-          and slo:gateway_availability:error_ratio_rate30m / slo:gateway_availability:error_budget > 6
-        labels: { severity: page, slo: gateway-availability }
+          slo:browse_availability:error_ratio_rate6h / slo:browse_availability:error_budget > 6
+          and slo:browse_availability:error_ratio_rate30m / slo:browse_availability:error_budget > 6
+        labels: { severity: page, slo: browse-availability }
         annotations:
-          summary: "Gateway 5xx spend 5 % of the 30-day budget in 6 hours; Services dashboard"
+          summary: "Catalog reads: 5xx spend 5 % of the 30-day budget in 6 hours; Services dashboard"
+          description: "Burn rate {{ $value | humanize }} over 6 h"
+
+  # Checkout: holds and orders, the requests that sell a seat; far fewer than the reads.
+  - name: slo-checkout-availability
+    rules:
+      - record: slo:checkout_availability:error_budget
+        expr: vector(0.005)
+      - record: slo:checkout_availability:error_ratio_rate5m
+        expr: |
+          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/(holds|orders).*", http_response_status_code=~"5.."}[5m]))) or vector(0))
+          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/(holds|orders).*"}[5m])))
+      - record: slo:checkout_availability:error_ratio_rate30m
+        expr: |
+          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/(holds|orders).*", http_response_status_code=~"5.."}[30m]))) or vector(0))
+          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/(holds|orders).*"}[30m])))
+      - record: slo:checkout_availability:error_ratio_rate1h
+        expr: |
+          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/(holds|orders).*", http_response_status_code=~"5.."}[1h]))) or vector(0))
+          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/(holds|orders).*"}[1h])))
+      - record: slo:checkout_availability:error_ratio_rate6h
+        expr: |
+          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/(holds|orders).*", http_response_status_code=~"5.."}[6h]))) or vector(0))
+          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/(holds|orders).*"}[6h])))
+      - record: slo:checkout_availability:error_ratio_rate30d
+        expr: |
+          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/(holds|orders).*", http_response_status_code=~"5.."}[30d]))) or vector(0))
+          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/(holds|orders).*"}[30d])))
+      - alert: CheckoutAvailabilityFastBurn
+        expr: |
+          slo:checkout_availability:error_ratio_rate1h / slo:checkout_availability:error_budget > 14.4
+          and slo:checkout_availability:error_ratio_rate5m / slo:checkout_availability:error_budget > 14.4
+        labels: { severity: page, slo: checkout-availability }
+        annotations:
+          summary: "Checkout (holds, orders): 5xx spend 2 % of the 30-day budget per hour; Services dashboard"
+          description: "Burn rate {{ $value | humanize }} over 1 h"
+      - alert: CheckoutAvailabilitySlowBurn
+        expr: |
+          slo:checkout_availability:error_ratio_rate6h / slo:checkout_availability:error_budget > 6
+          and slo:checkout_availability:error_ratio_rate30m / slo:checkout_availability:error_budget > 6
+        labels: { severity: page, slo: checkout-availability }
+        annotations:
+          summary: "Checkout (holds, orders): 5xx spend 5 % of the 30-day budget in 6 hours; Services dashboard"
           description: "Burn rate {{ $value | humanize }} over 6 h"
 
   # GET requests to /api through the gateway answered within 300 ms, errors included.
@@ -125,3 +170,18 @@ groups:
         annotations:
           summary: "Orders are created but none has finished for 10 minutes; Purchase dashboard"
           description: "The saga worker, the relay, RabbitMQ or payment may be down"
+
+  # Not an SLO: a process that stops exporting has no requests to fail, so no ratio above notices it
+  # (a stopped relay in TIK-56 showed only as a missing line). Every OTLP export brings `target_info`;
+  # a job seen in the last hour and silent for 2 minutes is down. Scraped jobs have `up` instead.
+  - name: processes
+    rules:
+      - alert: ProcessNotExporting
+        expr: |
+          group by (job) (present_over_time(target_info[1h]))
+          unless on (job) group by (job) (present_over_time(target_info[2m]))
+          unless on (job) group by (job) (up)
+        labels: { severity: page }
+        annotations:
+          summary: "{{ $labels.job }} has sent no telemetry for 2 minutes: stopped or cannot reach the collector"
+          description: "Exports come every 10 s in the overlay (OTEL_METRIC_EXPORT_INTERVAL); keep the window above it"

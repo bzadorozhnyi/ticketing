@@ -1,4 +1,4 @@
-# Unit tests of slo.yaml with synthetic series, one sample a minute: infra/check-rules.sh.
+# Unit tests of slo.yaml with synthetic series, one sample a minute: infra/check-observability.sh.
 # Native histograms, schema 0: bucket i holds values in (2^(i-1), 2^i], `offset` is the first i.
 rule_files: [slo.yaml]
 evaluation_interval: 1m
@@ -13,24 +13,30 @@ tests:
         values: '{{count:0 sum:0}}+{{count:600 sum:30}}x60 {{count:36000 sum:1800}}x19 {{count:36600 sum:1830}}+{{count:600 sum:30}}x29'
       - series: 'http_server_request_duration_seconds{job="gateway", http_route="/api/v1/events", http_response_status_code="503"}'
         values: '{{count:0 sum:0}}x60 {{count:600 sum:30}}+{{count:600 sum:30}}x19 {{count:12000 sum:600}}x29'
+      - series: 'http_server_request_duration_seconds{job="gateway", http_route="/api/v1/holds", http_response_status_code="201"}'
+        values: '{{count:0 sum:0}}+{{count:45 sum:1}}x110'
+    promql_expr_test:
+      - expr: slo:checkout_availability:error_ratio_rate5m
+        eval_time: 70m
+        exp_samples: [{ labels: 'slo:checkout_availability:error_ratio_rate5m', value: 0 }]
     alert_rule_test:
-      - alertname: GatewayAvailabilityFastBurn
+      - alertname: BrowseAvailabilityFastBurn
         eval_time: 64m
-      - alertname: GatewayAvailabilityFastBurn
+      - alertname: BrowseAvailabilityFastBurn
         eval_time: 65m
         exp_alerts:
-          - exp_labels: { severity: page, slo: gateway-availability }
+          - exp_labels: { severity: page, slo: browse-availability }
             exp_annotations:
-              summary: "Gateway 5xx spend 2 % of the 30-day budget per hour; Services dashboard"
+              summary: "Catalog reads: 5xx spend 2 % of the 30-day budget per hour; Services dashboard"
               description: "Burn rate 16.69 over 1 h"
-      - alertname: GatewayAvailabilityFastBurn
+      - alertname: BrowseAvailabilityFastBurn
         eval_time: 83m
         exp_alerts:
-          - exp_labels: { severity: page, slo: gateway-availability }
+          - exp_labels: { severity: page, slo: browse-availability }
             exp_annotations:
-              summary: "Gateway 5xx spend 2 % of the 30-day budget per hour; Services dashboard"
+              summary: "Catalog reads: 5xx spend 2 % of the 30-day budget per hour; Services dashboard"
               description: "Burn rate 67.05 over 1 h"
-      - alertname: GatewayAvailabilityFastBurn
+      - alertname: BrowseAvailabilityFastBurn
         eval_time: 84m
 
   # 4 % of requests fail from the start: burn rate 8, the budget lasts under 4 days.
@@ -42,14 +48,14 @@ tests:
       - series: 'http_server_request_duration_seconds{job="gateway", http_route="/api/v1/holds", http_response_status_code="503"}'
         values: '{{count:0 sum:0}}+{{count:24 sum:1}}x60'
     alert_rule_test:
-      - alertname: GatewayAvailabilityFastBurn
+      - alertname: CheckoutAvailabilityFastBurn
         eval_time: 40m
-      - alertname: GatewayAvailabilitySlowBurn
+      - alertname: CheckoutAvailabilitySlowBurn
         eval_time: 40m
         exp_alerts:
-          - exp_labels: { severity: page, slo: gateway-availability }
+          - exp_labels: { severity: page, slo: checkout-availability }
             exp_annotations:
-              summary: "Gateway 5xx spend 5 % of the 30-day budget in 6 hours; Services dashboard"
+              summary: "Checkout (holds, orders): 5xx spend 5 % of the 30-day budget in 6 hours; Services dashboard"
               description: "Burn rate 8 over 6 h"
 
   - name: errors outside /api and 4xx do not count
@@ -60,9 +66,9 @@ tests:
       - series: 'http_server_request_duration_seconds{job="gateway", http_route="/ready", http_response_status_code="503"}'
         values: '{{count:0 sum:0}}+{{count:600 sum:30}}x60'
     promql_expr_test:
-      - expr: slo:gateway_availability:error_ratio_rate1h
+      - expr: slo:browse_availability:error_ratio_rate1h
         eval_time: 60m
-        exp_samples: [{ labels: 'slo:gateway_availability:error_ratio_rate1h', value: 0 }]
+        exp_samples: [{ labels: 'slo:browse_availability:error_ratio_rate1h', value: 0 }]
 
   # 600 GETs a minute in (0.125 s, 0.25 s]; from 60m half of them take (0.5 s, 1 s].
   # The 1 h share of slow ones passes 14.4 x 1 % = 14.4 % after 18 minutes.
@@ -126,3 +132,60 @@ tests:
               description: "The saga worker, the relay, RabbitMQ or payment may be down"
       - alertname: PurchaseFastBurn
         eval_time: 44m
+
+  # TIK-56, round 5: a locked table made every hold fail while the reads of the catalog went on, 20 times
+  # as many. One SLO over all requests stayed at 3.75 % errors, under the 7.2 % that pages.
+  - name: a checkout outage pages although the reads around it are fine
+    interval: 1m
+    input_series:
+      - series: 'http_server_request_duration_seconds{job="gateway", http_route="/api/v1/events", http_response_status_code="200"}'
+        values: '{{count:0 sum:0}}+{{count:1200 sum:6}}x80'
+      - series: 'http_server_request_duration_seconds{job="gateway", http_route="/api/v1/holds", http_response_status_code="201"}'
+        values: '{{count:0 sum:0}}+{{count:45 sum:1}}x60 {{count:2700 sum:60}}x20'
+      - series: 'http_server_request_duration_seconds{job="gateway", http_route="/api/v1/holds", http_response_status_code="503"}'
+        values: '{{count:0 sum:0}}x60 {{count:45 sum:225}}+{{count:45 sum:225}}x19'
+    alert_rule_test:
+      - alertname: CheckoutAvailabilityFastBurn
+        eval_time: 64m
+      - alertname: CheckoutAvailabilityFastBurn
+        eval_time: 65m
+        exp_alerts:
+          - exp_labels: { severity: page, slo: checkout-availability }
+            exp_annotations:
+              summary: "Checkout (holds, orders): 5xx spend 2 % of the 30-day budget per hour; Services dashboard"
+              description: "Burn rate 16.69 over 1 h"
+      - alertname: BrowseAvailabilityFastBurn
+        eval_time: 70m
+    promql_expr_test:
+      - expr: slo:browse_availability:error_ratio_rate5m
+        eval_time: 70m
+        exp_samples: [{ labels: 'slo:browse_availability:error_ratio_rate5m', value: 0 }]
+      - expr: slo:checkout_availability:error_ratio_rate5m
+        eval_time: 70m
+        exp_samples: [{ labels: 'slo:checkout_availability:error_ratio_rate5m', value: 1 }]
+
+  # TIK-56, round 2: a stopped relay showed only as a missing line. booking restarts with a new instance
+  # and must not page; prometheus is scraped and stops sending target_info, but `up` covers it.
+  - name: a process that stops exporting pages within 2 minutes, a restart does not
+    interval: 1m
+    input_series:
+      - series: 'target_info{job="booking-relay", instance="a"}'
+        values: '1x30'
+      - series: 'target_info{job="booking", instance="old"}'
+        values: '1x30'
+      - series: 'target_info{job="booking", instance="new"}'
+        values: '_x30 1x29'
+      - series: 'target_info{job="prometheus", instance="localhost:9090"}'
+        values: '1x30'
+      - series: 'up{job="prometheus", instance="localhost:9090"}'
+        values: '1x60'
+    alert_rule_test:
+      - alertname: ProcessNotExporting
+        eval_time: 31m
+      - alertname: ProcessNotExporting
+        eval_time: 32m
+        exp_alerts:
+          - exp_labels: { severity: page, job: booking-relay }
+            exp_annotations:
+              summary: "booking-relay has sent no telemetry for 2 minutes: stopped or cannot reach the collector"
+              description: "Exports come every 10 s in the overlay (OTEL_METRIC_EXPORT_INTERVAL); keep the window above it"

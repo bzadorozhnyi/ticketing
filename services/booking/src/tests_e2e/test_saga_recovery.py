@@ -160,7 +160,7 @@ async def test_started_order_past_the_deadline_fails_without_any_call(
     assert order.failure_reason == FailureReason.SAGA_TIMED_OUT
     assert upstreams.calls == []
     assert await outbox() == []
-    assert finished == [OrderStatus.FAILED]
+    assert finished == [(OrderStatus.FAILED, FailureReason.SAGA_TIMED_OUT)]
 
 
 async def test_order_just_inside_the_deadline_still_runs(upstreams, http):
@@ -231,7 +231,7 @@ async def test_answered_refund_ends_a_timed_out_order(http, finished, refund_sta
     assert order.status == OrderStatus.FAILED
     assert order.saga_step == SagaStep.DONE
     assert order.failure_reason == FailureReason.CHARGE_TIMED_OUT
-    assert finished == [OrderStatus.FAILED]
+    assert finished == [(OrderStatus.FAILED, FailureReason.CHARGE_TIMED_OUT)]
 
 
 async def test_late_charge_result_after_giving_up_is_ignored(http):

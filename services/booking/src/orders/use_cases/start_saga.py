@@ -68,4 +68,8 @@ class StartSagaUseCase:
     async def _fail(self, *, order: Order, reason: FailureReason) -> FinishedOrder:
         await self.order_repository.mark_failed(order_id=order.id, reason=reason)
         await self.session.commit()
-        return FinishedOrder(status=OrderStatus.FAILED, created_at=order.created_at)
+        return FinishedOrder(
+            status=OrderStatus.FAILED,
+            failure_reason=reason,
+            created_at=order.created_at,
+        )

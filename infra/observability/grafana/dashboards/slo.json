@@ -47,7 +47,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (alertname, slo) (ALERTS{alertstate=\"firing\"})",
+          "expr": "sum by (alertname, slo, job) (ALERTS{alertstate=\"firing\"})",
           "format": "table",
           "instant": true
         }
@@ -55,7 +55,7 @@
     },
     {
       "type": "row",
-      "title": "Availability: 99.5 % of /api requests without 5xx",
+      "title": "Catalog reads: 99.5 % of /api/v1/events requests without 5xx",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -88,7 +88,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "1 - slo:gateway_availability:error_ratio_rate30d",
+          "expr": "1 - slo:browse_availability:error_ratio_rate30d",
           "instant": true
         }
       ]
@@ -137,7 +137,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "1 - slo:gateway_availability:error_ratio_rate30d / slo:gateway_availability:error_budget",
+          "expr": "1 - slo:browse_availability:error_ratio_rate30d / slo:browse_availability:error_budget",
           "instant": true
         }
       ]
@@ -188,29 +188,29 @@
       "targets": [
         {
           "refId": "5m",
-          "expr": "slo:gateway_availability:error_ratio_rate5m / slo:gateway_availability:error_budget",
+          "expr": "slo:browse_availability:error_ratio_rate5m / slo:browse_availability:error_budget",
           "legendFormat": "5m"
         },
         {
           "refId": "30m",
-          "expr": "slo:gateway_availability:error_ratio_rate30m / slo:gateway_availability:error_budget",
+          "expr": "slo:browse_availability:error_ratio_rate30m / slo:browse_availability:error_budget",
           "legendFormat": "30m"
         },
         {
           "refId": "1h",
-          "expr": "slo:gateway_availability:error_ratio_rate1h / slo:gateway_availability:error_budget",
+          "expr": "slo:browse_availability:error_ratio_rate1h / slo:browse_availability:error_budget",
           "legendFormat": "1h"
         },
         {
           "refId": "6h",
-          "expr": "slo:gateway_availability:error_ratio_rate6h / slo:gateway_availability:error_budget",
+          "expr": "slo:browse_availability:error_ratio_rate6h / slo:browse_availability:error_budget",
           "legendFormat": "6h"
         }
       ]
     },
     {
       "type": "row",
-      "title": "Read latency: 99 % of GETs within 300 ms",
+      "title": "Checkout: 99.5 % of holds and orders requests without 5xx",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -243,7 +243,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "1 - slo:gateway_read_latency:error_ratio_rate30d",
+          "expr": "1 - slo:checkout_availability:error_ratio_rate30d",
           "instant": true
         }
       ]
@@ -292,7 +292,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "1 - slo:gateway_read_latency:error_ratio_rate30d / slo:gateway_read_latency:error_budget",
+          "expr": "1 - slo:checkout_availability:error_ratio_rate30d / slo:checkout_availability:error_budget",
           "instant": true
         }
       ]
@@ -306,6 +306,161 @@
         "w": 16,
         "x": 8,
         "y": 14
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 6
+              },
+              {
+                "color": "red",
+                "value": 14.4
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "5m",
+          "expr": "slo:checkout_availability:error_ratio_rate5m / slo:checkout_availability:error_budget",
+          "legendFormat": "5m"
+        },
+        {
+          "refId": "30m",
+          "expr": "slo:checkout_availability:error_ratio_rate30m / slo:checkout_availability:error_budget",
+          "legendFormat": "30m"
+        },
+        {
+          "refId": "1h",
+          "expr": "slo:checkout_availability:error_ratio_rate1h / slo:checkout_availability:error_budget",
+          "legendFormat": "1h"
+        },
+        {
+          "refId": "6h",
+          "expr": "slo:checkout_availability:error_ratio_rate6h / slo:checkout_availability:error_budget",
+          "legendFormat": "6h"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Read latency: 99 % of GETs within 300 ms",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Good share, 30 days",
+      "gridPos": {
+        "h": 7,
+        "w": 4,
+        "x": 0,
+        "y": 22
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 3
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1 - slo:gateway_read_latency:error_ratio_rate30d",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Error budget left, 30 days",
+      "description": "1 - error ratio / error budget. Below 0 the objective is missed.",
+      "gridPos": {
+        "h": 7,
+        "w": 4,
+        "x": 4,
+        "y": 22
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 0.5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1 - slo:gateway_read_latency:error_ratio_rate30d / slo:gateway_read_latency:error_budget",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Burn rate by window",
+      "description": "1 spends the budget in exactly 30 days. Pages: above 14.4 over 1 h and 5 m, or above 6 over 6 h and 30 m.",
+      "gridPos": {
+        "h": 7,
+        "w": 16,
+        "x": 8,
+        "y": 22
       },
       "datasource": {
         "type": "prometheus",
@@ -371,7 +526,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 21
+        "y": 29
       },
       "panels": []
     },
@@ -382,7 +537,7 @@
         "h": 7,
         "w": 4,
         "x": 0,
-        "y": 22
+        "y": 30
       },
       "datasource": {
         "type": "prometheus",
@@ -411,7 +566,7 @@
         "h": 7,
         "w": 4,
         "x": 4,
-        "y": 22
+        "y": 30
       },
       "datasource": {
         "type": "prometheus",
@@ -460,7 +615,7 @@
         "h": 7,
         "w": 16,
         "x": 8,
-        "y": 22
+        "y": 30
       },
       "datasource": {
         "type": "prometheus",

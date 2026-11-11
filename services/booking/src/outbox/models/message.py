@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from sqlalchemy import func
 from sqlalchemy.orm import Mapped, mapped_column
@@ -21,3 +22,6 @@ class OutboxMessage(BaseModel):
     body: Mapped[str]
     # The step that wrote the message: the relay and the consumer continue its trace.
     traceparent: Mapped[str | None] = mapped_column(default=current_traceparent)
+    # The time of the INSERT, not of the transaction (now()): a saga step calls
+    # seat-hold and catalog before it writes the command, which is not outbox time.
+    created_at: Mapped[datetime] = mapped_column(server_default=func.clock_timestamp())
