@@ -1,11 +1,11 @@
 # Board
 
-Next ticket: TIK-69
+Next ticket: TIK-70
 
 ## In progress
 
 ## To do
-- [ ] TIK-68 Payment tokens out of orders, contract: stop writing the column, drop it after the deploy (M7)
+- [ ] TIK-69 Payment tokens out of orders: drop the column, once no process knows it (M7)
 - [ ] TIK-60 CPU and throttling metrics of every process, from the kubelet (M8)
 - [ ] TIK-49 Ingress: TLS and HTTP/2 at the edge; measure HTTP/2 to the gateway and its effect on balancing (M8)
 
@@ -75,3 +75,4 @@ Next ticket: TIK-69
 - [x] TIK-64 Payment tokens out of orders, expand: a table of their own, written next to the column (M7)
 - [x] TIK-66 Payment tokens out of orders, migrate: backfill, reads only from the new table (M7)
 - [x] TIK-67 Payment tokens out of orders: a request fingerprint for repeats, a token deleted once its order is final (M7)
+- [x] TIK-68 Payment tokens out of orders: stop writing and reading the column (M7)

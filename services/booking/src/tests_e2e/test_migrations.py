@@ -20,6 +20,7 @@ pytestmark = [pytest.mark.anyio, pytest.mark.usefixtures("empty_tables")]
 
 EXPAND = "5d78bac08591"
 BACKFILL = "8a1d4c6e2b7f"
+FINGERPRINT = "b4e9f2a7c1d5"
 
 
 @asynccontextmanager
@@ -34,17 +35,25 @@ async def at_revision(revision: str) -> AsyncGenerator[Config]:
 
 
 async def insert_order(
-    *, token: str, status: str = "pending", token_row: str | None = None
+    *,
+    token: str | None,
+    status: str = "pending",
+    token_row: str | None = None,
+    fingerprint: str | None = None,
 ) -> tuple[uuid.UUID, uuid.UUID]:
     order_id, hold_id = uuid.uuid4(), uuid.uuid4()
     async with async_session() as session:
         await session.execute(
             text(
                 "INSERT INTO orders (id, user_id, idempotency_key, hold_id, "
-                "payment_token, status, saga_step) VALUES (:id, 'user-1', :key, :hold, "
-                ":token, :status, :step)"
+                "payment_token, status, saga_step"
+                + (", request_fingerprint" if fingerprint else "")
+                + ") VALUES (:id, 'user-1', :key, :hold, :token, :status, :step"
+                + (", :fingerprint" if fingerprint else "")
+                + ")"
             ),
             {
+                "fingerprint": fingerprint,
                 "id": order_id,
                 "key": str(uuid.uuid4()),
                 "hold": hold_id,
@@ -101,3 +110,27 @@ async def test_every_order_gets_its_fingerprint_and_final_orders_lose_their_toke
         }
         tokens = await rows("SELECT order_id, payment_token FROM order_payment_tokens")
         assert tokens == {in_flight: "tok_a"}
+
+
+async def test_older_orders_get_a_fingerprint_and_the_column_may_be_empty():
+    async with at_revision(FINGERPRINT) as config:
+        without, hold = await insert_order(token="tok_a")
+        final, _ = await insert_order(
+            token="tok_b", status="failed", token_row="tok_b", fingerprint="kept"
+        )
+
+        await asyncio.to_thread(command.upgrade, config, "head")
+
+        fingerprints = await rows("SELECT id, request_fingerprint FROM orders")
+        assert fingerprints == {
+            without: request_fingerprint(hold_id=hold, payment_token="tok_a"),
+            final: "kept",
+        }
+        assert (
+            await rows("SELECT order_id, payment_token FROM order_payment_tokens") == {}
+        )
+        empty, _ = await insert_order(token=None, fingerprint="new")
+        column = await rows(
+            f"SELECT id, payment_token FROM orders WHERE id = '{empty}'"
+        )
+        assert column == {empty: None}

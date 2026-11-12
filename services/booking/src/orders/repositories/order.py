@@ -51,7 +51,6 @@ class OrderRepository:
                 user_id=user_id,
                 idempotency_key=idempotency_key,
                 hold_id=hold_id,
-                payment_token=payment_token,
                 request_fingerprint=request_fingerprint,
                 status=OrderStatus.PENDING,
             )
