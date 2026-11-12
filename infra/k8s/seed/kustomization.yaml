@@ -1,0 +1,6 @@
+# Demo data, after the migrations; the seed does nothing when the data is already there.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ticketing
+resources:
+  - catalog.yaml

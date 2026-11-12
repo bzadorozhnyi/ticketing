@@ -1,0 +1,10 @@
+# The services, after their migrations (infra/k8s/deploy.sh).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ticketing
+resources:
+  - catalog.yaml
+  - seat-hold.yaml
+  - payment.yaml
+  - booking.yaml
+  - gateway.yaml

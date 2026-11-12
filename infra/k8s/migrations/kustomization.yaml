@@ -1,0 +1,9 @@
+# One Job per service, run to completion before the services start (infra/k8s/deploy.sh).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ticketing
+resources:
+  - catalog.yaml
+  - booking.yaml
+  - payment.yaml
+  - seat-hold.yaml
