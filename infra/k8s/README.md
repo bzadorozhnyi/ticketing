@@ -14,7 +14,8 @@ kind delete cluster --name ticketing      # everything goes, the databases too
 
 | Directory | What | Applied |
 |---|---|---|
-| `platform/` | namespace, secrets, config maps, Postgres per service, RabbitMQ, Valkey | first; `deploy.sh` waits for every StatefulSet |
+| `metrics-server/` | metrics-server v0.9.1 in `kube-system`: CPU and memory of pods for the HPA and `kubectl top` | first |
+| `platform/` | namespace, secrets, config maps, Postgres per service, RabbitMQ, Valkey | then; `deploy.sh` waits for every StatefulSet |
 | `migrations/` | one Job per service: `alembic upgrade head`, or `migrate` for seat-hold | then; waits for every Job to complete |
 | `seed/` | catalog's demo data, a Job | then |
 | `apps/` | the services and their workers, Deployments and Services | last; waits for every rollout |
@@ -31,6 +32,11 @@ covered: a request sent on one as it closes gets 502, which the gateway retries 
 Every HTTP service runs two pods, so one can die while the other serves; each has a PodDisruptionBudget with
 `minAvailable: 1`, so a voluntary eviction such as `kubectl drain` waits rather than stop the last ready pod. A budget
 does nothing for a crash or a `kubectl delete pod`, and with one replica it would block a drain for good.
+catalog scales itself: a HorizontalPodAutoscaler keeps 2 to 6 pods at 70 % of their CPU request (`kubectl get hpa`),
+from metrics-server. It checks every 15 s, adds pods at once and removes them 5 minutes after the load falls. Its CPU
+request is one core, all that one uvicorn process can use, so one step adds at most 1.43 times the pods. The manifest
+has no `replicas`, or every `kubectl apply` would undo the autoscaler; the first apply without the field set it to 1.
+A new pod gets only new connections: the gateway keeps its pooled connections on the old pods (TIK-76).
 The liveness probe asks `/health` (the process answers), never `/ready` (its database answers): a database outage takes
 the pods out of their Service but does not restart them. The workers run one pod each: two saga workers or two relays at once are safe (`FOR UPDATE SKIP LOCKED`), each one finishes its step on SIGTERM,
 and while one is down orders wait instead of failing.

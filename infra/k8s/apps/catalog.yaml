@@ -12,8 +12,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: catalog
+# No replicas: the HorizontalPodAutoscaler below owns them, and kubectl apply would undo its choice.
 spec:
-  replicas: 2
   selector:
     matchLabels:
       app: catalog
@@ -45,7 +45,8 @@ spec:
             httpGet: { path: /health, port: 8000 }
             periodSeconds: 10
           resources:
-            requests: { cpu: 100m, memory: 128Mi }
+            # One uvicorn process uses at most one core; the autoscaler's target is a share of this.
+            requests: { cpu: 1000m, memory: 128Mi }
             limits: { memory: 256Mi }
 ---
 # A voluntary eviction, such as a node drain, waits while it would leave no pod of catalog.
@@ -58,3 +59,23 @@ spec:
   selector:
     matchLabels:
       app: catalog
+---
+# Adds pods when their average CPU passes 70 % of the request; removes them 5 minutes after it falls.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: catalog
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: catalog
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

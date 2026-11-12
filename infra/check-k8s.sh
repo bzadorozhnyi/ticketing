@@ -7,7 +7,7 @@ set -euo pipefail
 cd "$(dirname "$0")/k8s"
 cluster=ticketing-check
 image=$(grep -o 'kindest/node:[^ ]*' kind-cluster.yaml)
-phases=(platform migrations seed apps)
+phases=(metrics-server platform migrations seed apps)
 
 for phase in "${phases[@]}"; do
   kubectl kustomize "$phase" > /dev/null
