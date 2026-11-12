@@ -15,7 +15,7 @@ kind: Deployment
 metadata:
   name: gateway
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: gateway
@@ -49,3 +49,14 @@ spec:
           resources:
             requests: { cpu: 100m, memory: 32Mi }
             limits: { memory: 128Mi }
+---
+# A voluntary eviction, such as a node drain, waits while it would leave no pod of gateway.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: gateway
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: gateway

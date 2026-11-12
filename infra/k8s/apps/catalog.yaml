@@ -13,7 +13,7 @@ kind: Deployment
 metadata:
   name: catalog
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: catalog
@@ -47,3 +47,14 @@ spec:
           resources:
             requests: { cpu: 100m, memory: 128Mi }
             limits: { memory: 256Mi }
+---
+# A voluntary eviction, such as a node drain, waits while it would leave no pod of catalog.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: catalog
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: catalog

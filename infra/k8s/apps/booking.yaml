@@ -13,7 +13,7 @@ kind: Deployment
 metadata:
   name: booking
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: booking
@@ -119,3 +119,14 @@ spec:
           resources:
             requests: { cpu: 100m, memory: 96Mi }
             limits: { memory: 256Mi }
+---
+# A voluntary eviction, such as a node drain, waits while it would leave no pod of booking.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: booking
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: booking

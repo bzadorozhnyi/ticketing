@@ -13,7 +13,7 @@ kind: Deployment
 metadata:
   name: seat-hold
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: seat-hold
@@ -49,3 +49,14 @@ spec:
           resources:
             requests: { cpu: 100m, memory: 32Mi }
             limits: { memory: 128Mi }
+---
+# A voluntary eviction, such as a node drain, waits while it would leave no pod of seat-hold.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: seat-hold
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: seat-hold
