@@ -24,18 +24,6 @@ if config.config_file_name is not None:
 
 target_metadata = BaseModel.metadata
 
-# Columns the code no longer maps but a later migration has yet to drop.
-DROPPED_LATER = {("orders", "payment_token")}
-
-
-def include_object(obj, name, type_, reflected, compare_to) -> bool:
-    return not (
-        type_ == "column"
-        and compare_to is None
-        and (obj.table.name, name) in DROPPED_LATER
-    )
-
-
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
@@ -67,11 +55,7 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(
-        connection=connection,
-        target_metadata=target_metadata,
-        include_object=include_object,
-    )
+    context.configure(connection=connection, target_metadata=target_metadata)
 
     with context.begin_transaction():
         context.run_migrations()

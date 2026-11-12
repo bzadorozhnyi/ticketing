@@ -50,14 +50,11 @@ See ADR 0006; `core/telemetry.py` follows catalog's. One trace per order, from t
 
 ## Payment tokens
 
-Moving out of `orders` into `order_payment_tokens` over three releases (ADR 0008): the saga needs a token only until the
-charge, so it can be deleted once the order is final. `POST /orders` writes both in one statement, the token row only
-for an order it created (TIK-64). The saga reads only the table; the orders in flight from before got their row from a
-backfill (TIK-66), and an order without one is a bug: its step fails and is retried. Every move to `confirmed` or
-`failed` deletes the token in the same transaction, and a repeat of `POST /orders` is compared with
-`request_fingerprint`, a sha256 of the hold and the token (TIK-67). `orders.payment_token` is no longer mapped,
-written or read (TIK-68); it stays in the database, nullable, until TIK-69 drops it. Until then `DROPPED_LATER` in
-`migrations/env.py` keeps `alembic check` from reporting it.
+A token lives in `order_payment_tokens`, apart from the order: the saga needs it only until the charge, and every move
+to `confirmed` or `failed` deletes it in the same transaction. `POST /orders` writes the order and its token in one
+statement, the token only for an order it created. A repeat of `POST /orders` is compared with `request_fingerprint`,
+a sha256 of the hold and the token. An order in flight without a token row is a bug: its step fails and is retried.
+The move out of `orders.payment_token` took five releases (TIK-64, 66, 67, 68, 69; ADR 0008).
 
 ## Read replica
 
