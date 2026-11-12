@@ -78,7 +78,6 @@ class Order(BaseModel):
     user_id: Mapped[str]
     idempotency_key: Mapped[str]
     hold_id: Mapped[uuid.UUID]
-    payment_token: Mapped[str]
     # sha256 of the request's hold and payment token: a repeat with the same
     # Idempotency-Key is compared with it, since the token is deleted once the order is
     # final.

@@ -19,12 +19,14 @@ def order_factory(db_session):
         user_id = "user-1"
         idempotency_key = factory.LazyFunction(lambda: str(uuid.uuid4()))
         hold_id = factory.LazyFunction(uuid.uuid4)
-        payment_token = "tok_ok"
         request_fingerprint = factory.LazyAttribute(
             lambda order: request_fingerprint(
                 hold_id=order.hold_id, payment_token=order.payment_token
             )
         )
         status = OrderStatus.PENDING
+
+        class Params:
+            payment_token = "tok_ok"
 
     return AsyncFactory(factory_class=OrderFactory, session=db_session)

@@ -37,10 +37,14 @@ the old one. Two experiments in M7 showed what goes wrong otherwise:
   millions: batches with a commit each, inside the migration (`autocommit_block`) or, when it takes longer than a
   deploy may wait, a separate command after it. One long statement over a big table holds a transaction open: the next
   migration queues behind it, vacuum cannot clean, and a burst of WAL puts the replica behind.
-- **A removal waits for the last process that uses the old structure.** A constraint on it can add a release: the
-  column `orders.payment_token` was `NOT NULL` and compared on every repeat of `POST /orders`, so release 3 still writes
-  it and only release 4 drops it. Writes the old release still makes (tokens of the orders it finished, orders without
-  a fingerprint) are cleaned up once it is gone.
+- **A removal waits for the last process that maps the old structure**, not only for the last one that uses it: an
+  ORM lists every mapped column in its `SELECT` and `INSERT`, so dropping a column the code no longer reads still
+  breaks the release that has it in its model. Hence one release stops mapping the column (and makes it nullable),
+  and the next one drops it. A constraint can add a release: `orders.payment_token` was `NOT NULL` and compared on
+  every repeat of `POST /orders`, so it took a fingerprint first. Writes the old release still makes (tokens of the
+  orders it finished, orders without a fingerprint) are cleaned up by the next release's migration.
+- Between those two releases `alembic check` would report the column the code no longer maps; `DROPPED_LATER` in the
+  service's `migrations/env.py` names it until the drop.
 - Indexes on existing tables are built `CONCURRENTLY` (CLAUDE.md has the recipes for Alembic and sqlx).
 - Migrations live in the service that owns the database and ship with its code; tools are copied, not shared, as the
   rest of `core/` is.

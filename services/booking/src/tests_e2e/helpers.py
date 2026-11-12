@@ -132,28 +132,21 @@ def make_runner(http: HttpClient, **overrides) -> SagaRunner:
 async def create_order(
     *,
     token: str = "tok_ok",
-    stored_token: str | None = None,
     without_token_row: bool = False,
     **fields,
 ) -> uuid.UUID:
-    """As `POST /orders` makes it: the token in the order and in its own table
-    (`stored_token`, the same by default)."""
+    """As `POST /orders` makes it: the token in its own table."""
     async with async_session() as session:
         order = Order(
             user_id=USER,
             idempotency_key=str(uuid.uuid4()),
             hold_id=uuid.uuid4(),
-            payment_token=token,
             **{"status": OrderStatus.PENDING, **fields},
         )
         session.add(order)
         await session.flush()
         if not without_token_row:
-            session.add(
-                OrderPaymentToken(
-                    order_id=order.id, payment_token=stored_token or token
-                )
-            )
+            session.add(OrderPaymentToken(order_id=order.id, payment_token=token))
         await session.commit()
         return order.id
 

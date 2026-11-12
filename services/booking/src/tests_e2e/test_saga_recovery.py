@@ -93,7 +93,7 @@ async def test_missing_reply_sends_the_same_charge_again(http):
 
 
 async def test_a_repeated_charge_takes_the_token_from_its_own_table(http):
-    await create_order(token="tok_in_order", stored_token="tok_apart", **WAITING_CHARGE)
+    await create_order(token="tok_apart", **WAITING_CHARGE)
 
     await make_runner(http).process_next()
 

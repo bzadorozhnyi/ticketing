@@ -9,7 +9,6 @@ from core.consistency import write_position
 from core.db import SessionDep
 from core.exceptions import ConflictException, ValidationException
 from orders.dto.order import CreatedOrderDTO, OrderDTO
-from orders.models.order import Order
 from orders.repositories.order import OrderRepository, OrderRepositoryDep
 
 
@@ -51,21 +50,12 @@ class CreateOrderUseCase:
         )
         if order is None:
             raise ConflictException(f"Hold {hold_id} already has an active order")
-        if not self._same_request(
-            order=order, fingerprint=fingerprint, token=payment_token
-        ):
+        if order.request_fingerprint != fingerprint:
             raise ValidationException("Idempotency-Key was used with another request")
         return CreatedOrderDTO(
             order=OrderDTO.from_model(order),
             consistency_token=await write_position(self.session),
         )
-
-    @staticmethod
-    def _same_request(*, order: Order, fingerprint: str, token: str) -> bool:
-        """An order without a fingerprint is compared by its token."""
-        if order.request_fingerprint is not None:
-            return order.request_fingerprint == fingerprint
-        return order.payment_token == token
 
 
 def get_create_order_use_case(

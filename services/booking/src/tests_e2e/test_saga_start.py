@@ -61,7 +61,7 @@ async def test_step_prices_the_hold_and_stores_the_charge_command(upstreams, htt
 
 
 async def test_the_charge_takes_the_token_from_its_own_table(upstreams, http):
-    await create_order(token="tok_in_order", stored_token="tok_apart")
+    await create_order(token="tok_apart")
 
     await make_runner(http).process_next()
 

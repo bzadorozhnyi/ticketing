@@ -3,7 +3,7 @@ import uuid
 
 import pytest
 from fastapi import status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
@@ -50,9 +50,12 @@ async def test_create_stores_a_pending_order(async_client, db_session):
     order = await db_session.get(Order, uuid.UUID(body["id"]))
     assert order.user_id == USER
     assert order.idempotency_key == "key-1"
-    assert order.payment_token == "tok_ok"
     token = await db_session.get(OrderPaymentToken, order.id)
     assert token.payment_token == "tok_ok"
+    column = await db_session.scalar(
+        text("SELECT payment_token FROM orders WHERE id = :id"), {"id": order.id}
+    )
+    assert column is None
     assert order.request_fingerprint == request_fingerprint(
         hold_id=hold_id, payment_token="tok_ok"
     )
@@ -124,25 +127,6 @@ async def test_a_repeat_of_a_final_order_is_checked_without_its_token(
     order = await order_factory(
         idempotency_key="key-1", status=OrderStatus.CONFIRMED, saga_step=SagaStep.DONE
     )
-
-    response = await async_client.post(
-        ORDERS_URL, json=order_body(order.hold_id, token), headers=headers()
-    )
-
-    assert response.status_code == expected
-
-
-@pytest.mark.parametrize(
-    ("token", "expected"),
-    [
-        ("tok_ok", status.HTTP_202_ACCEPTED),
-        ("tok_another", status.HTTP_422_UNPROCESSABLE_CONTENT),
-    ],
-)
-async def test_an_order_without_a_fingerprint_is_checked_by_its_token(
-    async_client, order_factory, token, expected
-):
-    order = await order_factory(idempotency_key="key-1", request_fingerprint=None)
 
     response = await async_client.post(
         ORDERS_URL, json=order_body(order.hold_id, token), headers=headers()
