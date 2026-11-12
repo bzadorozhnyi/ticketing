@@ -1,0 +1,14 @@
+# metrics-server v0.9.1: CPU and memory of pods for the HPA and kubectl top. components.yaml is the release's, unchanged.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - components.yaml
+patches:
+  # kind's kubelet serves a certificate without the node's IP, so metrics-server cannot verify it. A local cluster only.
+  - target:
+      kind: Deployment
+      name: metrics-server
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --kubelet-insecure-tls
