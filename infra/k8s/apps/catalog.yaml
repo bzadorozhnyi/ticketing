@@ -34,6 +34,10 @@ spec:
               valueFrom: { secretKeyRef: { name: postgres, key: user } }
             - name: DB__PASS
               valueFrom: { secretKeyRef: { name: postgres, key: password } }
+          # Keeps serving while the Service stops routing here; SIGTERM comes after it.
+          lifecycle:
+            preStop:
+              sleep: { seconds: 5 }
           readinessProbe:
             httpGet: { path: /ready, port: 8000 }
             periodSeconds: 2

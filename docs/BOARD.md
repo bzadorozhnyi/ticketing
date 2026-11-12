@@ -1,15 +1,15 @@
 # Board
 
-Next ticket: TIK-75
+Next ticket: TIK-76
 
 ## In progress
 
 ## To do
-- [ ] TIK-71 Kubernetes: rolling updates with no failed request, migrations before the rollout (M8)
 - [ ] TIK-72 Kubernetes: pods killed under load, PodDisruptionBudget, a liveness probe that restarts everything (M8)
 - [ ] TIK-73 Kubernetes: autoscaling with HPA under a spike, next to load shedding (M8)
 - [ ] TIK-60 CPU and throttling metrics of every process, from the kubelet (M8)
 - [ ] TIK-49 Ingress: TLS and HTTP/2 at the edge; measure HTTP/2 to the gateway and its effect on balancing (M8)
+- [ ] TIK-75 Gateway: retry a POST that carries an Idempotency-Key after a failure on a reused connection
 
 ## Done
 - [x] TIK-1 Catalog: service skeleton (M1)
@@ -81,3 +81,4 @@ Next ticket: TIK-75
 - [x] TIK-69 Payment tokens out of orders: drop the column, once no process knows it (M7)
 - [x] TIK-70 Kubernetes: a kind cluster with every service, store and migration, deployed by one script (M8)
 - [x] TIK-74 CI: the Kubernetes manifests render and an empty cluster accepts them (M8)
+- [x] TIK-71 Kubernetes: rolling updates with no failed request, migrations before the rollout (M8)

@@ -23,6 +23,14 @@ Kubernetes keeps no order between resources; `deploy.sh` does what `depends_on` 
 images with the commit (and a timestamp when `services/` has local changes), so a Deployment sees a new image and
 rolls it out; Jobs are deleted and created again, since a Job's template cannot change.
 
+A rollout starts the new pod, waits for its readiness probe, then stops the old one (`replicas: 1` with the default
+strategy). Stopping a pod removes it from its Service and sends SIGTERM at the same time, so for a moment new connections
+still reach a process that has closed its socket. Every HTTP container has `preStop: sleep 5`: it keeps serving while the
+Service stops routing to it, and SIGTERM comes after. Connections the gateway already holds to the old pod are not
+covered: a request sent on one as it closes gets 502, which the gateway retries only for `GET` and `HEAD`.
+The workers need no such care: two saga workers or two relays at once are safe (`FOR UPDATE SKIP LOCKED`), and each
+one finishes its step on SIGTERM.
+
 CI runs `infra/check-k8s.sh`: every directory renders, and a throwaway kind cluster with the same node image accepts
 every object in a server-side dry run. It catches a misspelled field or an invalid value, not a pod that fails to start.
 The node image is pinned by digest in `kind-cluster.yaml`; a cluster made before the pin keeps its own image.
