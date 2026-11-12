@@ -8,7 +8,6 @@ Next ticket: TIK-77
 - [ ] TIK-60 CPU and throttling metrics of every process, from the kubelet (M8)
 - [ ] TIK-49 Ingress: TLS and HTTP/2 at the edge; measure HTTP/2 to the gateway and its effect on balancing (M8)
 - [ ] TIK-75 Gateway: retry a POST that carries an Idempotency-Key after a failure on a reused connection
-- [ ] TIK-76 Gateway: balance requests, not connections, across an upstream's pods, so a pod added by the HPA takes load (M8)
 
 ## Done
 - [x] TIK-1 Catalog: service skeleton (M1)
@@ -83,3 +82,4 @@ Next ticket: TIK-77
 - [x] TIK-71 Kubernetes: rolling updates with no failed request, migrations before the rollout (M8)
 - [x] TIK-72 Kubernetes: pods killed under load, PodDisruptionBudget, a liveness probe that restarts everything (M8)
 - [x] TIK-73 Kubernetes: autoscaling with HPA under a spike (M8)
+- [x] TIK-76 Gateway: balance requests, not connections, across an upstream's pods, so a pod added by the HPA takes load (M8)

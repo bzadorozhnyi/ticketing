@@ -14,7 +14,7 @@ src/
     concurrency.rs ConcurrencyLimit: one limit of work at once (bulkheads, requests in flight, connections)
     shedding.rs    the limit of requests in flight
     rate_limit/    per user: replica buckets (local.rs), then Valkey (shared.rs), joined in limiter.rs
-  resilience/      calls to upstreams: breaker.rs, retry.rs
+  resilience/      calls to upstreams: breaker.rs, retry.rs, rotation.rs (the client, replaced every pool max age)
   telemetry/       OpenTelemetry: init.rs (providers, the tracer), metrics.rs (every instrument), method.rs,
                    request.rs (server span and request metrics), upstream.rs (a span per attempt, traceparent)
   auth.rs  errors.rs  settings.rs  logging.rs  shutdown.rs
@@ -59,6 +59,7 @@ Read from the environment with the `config` crate; a wrong value stops the start
 | `CLIENT__CONNECT_TIMEOUT_SECONDS` | 2 | TCP connect to an upstream |
 | `CLIENT__REQUEST_TIMEOUT_SECONDS` | 10 | default timeout of an upstream; above catalog's DB timeout (5s), or the gateway answers 504 before catalog answers 503 |
 | `CLIENT__POOL_IDLE_TIMEOUT_SECONDS` | 3 | must stay below uvicorn's keep-alive (5s) |
+| `CLIENT__POOL_MAX_AGE_SECONDS` | 10 | a new upstream client, with new connections, this often; 0 keeps one client |
 | `RETRY__MAX_ATTEMPTS` | 3 | attempts per `GET` or `HEAD`, the first included; 1 turns retries off |
 | `RETRY__BASE_DELAY_SECONDS` | 0.05 | the pause before attempt n is random, up to this times 2^(n-2) |
 | `RETRY__BUDGET_RATIO` | 0.2 | retries allowed per request, per upstream: the most retries add to an upstream's load |
@@ -95,6 +96,10 @@ Read from the environment with the `config` crate; a wrong value stops the start
 - `GET` and `HEAD` are repeated when no answer came (refused, reset or closed connection) or the upstream answered 503,
   within the request timeout and the retry budget. The client sees only the last answer. A timeout, a 500,
   a 502 or 504 from the upstream and every other method are never repeated: `POST /orders` relies on the client's `Idempotency-Key`.
+- Background job: every `CLIENT__POOL_MAX_AGE_SECONDS` the upstream client is replaced by a new one with an empty pool
+  (`resilience/rotation.rs`). A Kubernetes Service balances connections, and kept-alive ones would stay on the pods
+  that existed when they opened: a pod added by the autoscaler got none (TIK-73). New connections reach the pods as
+  they are now. A call on the old client finishes on it. Balancing is still per connection, refreshed this often.
 - Load shedding, checked before anything else: at most `MAX_IN_FLIGHT` requests in work, from arrival until the
   response headers are sent; one more gets 503 `overloaded` with `Retry-After: 1`. `/health` and `/ready` are never
   shed: a busy replica is alive, and failing its probes would move its load to the others.
