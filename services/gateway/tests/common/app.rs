@@ -70,6 +70,7 @@ pub fn test_settings(catalog_url: &str) -> Settings {
             connect_timeout: Duration::from_secs(1),
             request_timeout: Duration::from_secs(2),
             pool_idle_timeout: Duration::from_secs(3),
+            pool_max_age: Duration::ZERO,
         },
         logging: LoggingSettings {
             format: LogFormat::Json,

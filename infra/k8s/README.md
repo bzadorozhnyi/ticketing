@@ -36,7 +36,8 @@ catalog scales itself: a HorizontalPodAutoscaler keeps 2 to 6 pods at 70 % of th
 from metrics-server. It checks every 15 s, adds pods at once and removes them 5 minutes after the load falls. Its CPU
 request is one core, all that one uvicorn process can use, so one step adds at most 1.43 times the pods. The manifest
 has no `replicas`, or every `kubectl apply` would undo the autoscaler; the first apply without the field set it to 1.
-A new pod gets only new connections: the gateway keeps its pooled connections on the old pods (TIK-76).
+A new pod gets only new connections; the gateway opens all of its connections again every 10 s
+(`CLIENT__POOL_MAX_AGE_SECONDS`), so a new pod takes load within that time.
 The liveness probe asks `/health` (the process answers), never `/ready` (its database answers): a database outage takes
 the pods out of their Service but does not restart them. The workers run one pod each: two saga workers or two relays at once are safe (`FOR UPDATE SKIP LOCKED`), each one finishes its step on SIGTERM,
 and while one is down orders wait instead of failing.

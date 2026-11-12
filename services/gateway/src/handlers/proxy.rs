@@ -66,6 +66,7 @@ pub async fn forward(
         |remaining| {
             state
                 .client
+                .get()
                 .request(method.clone(), url.clone())
                 .headers(headers.clone())
                 .body(body.clone())

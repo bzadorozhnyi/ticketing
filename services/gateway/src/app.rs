@@ -15,6 +15,7 @@ use crate::handlers::{health, proxy};
 use crate::limits::concurrency::ConcurrencyLimit;
 use crate::limits::rate_limit::limiter::{self, RateLimiter};
 use crate::limits::shedding::shed;
+use crate::resilience::rotation::RotatingClient;
 use crate::settings::{ClientSettings, RetrySettings, Settings};
 use crate::telemetry::metrics::metrics;
 use crate::telemetry::request::trace_request;
@@ -22,7 +23,7 @@ use crate::upstream::{Upstream, UpstreamLimits};
 
 #[derive(Clone)]
 pub struct AppState {
-    pub client: Client,
+    pub client: RotatingClient,
     pub retry: RetrySettings,
 }
 
@@ -45,7 +46,10 @@ pub enum BuildError {
 /// An HTTP client that cannot be built, or an invalid Valkey URL.
 pub fn build_app(settings: &Settings) -> Result<Router, BuildError> {
     let state = AppState {
-        client: build_client(&settings.client)?,
+        client: {
+            let client = settings.client.clone();
+            RotatingClient::new(move || build_client(&client), settings.client.pool_max_age)?
+        },
         retry: settings.retry.clone(),
     };
     let verifier = TokenVerifier::new(&settings.auth.jwt_secret);

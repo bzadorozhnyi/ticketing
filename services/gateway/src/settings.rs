@@ -79,6 +79,8 @@ pub struct ClientSettings {
     pub request_timeout: Duration,
     #[serde(rename = "pool_idle_timeout_seconds", deserialize_with = "seconds")]
     pub pool_idle_timeout: Duration,
+    #[serde(rename = "pool_max_age_seconds", deserialize_with = "seconds")]
+    pub pool_max_age: Duration,
 }
 
 impl Default for ClientSettings {
@@ -87,6 +89,7 @@ impl Default for ClientSettings {
             connect_timeout: Duration::from_secs(2),
             request_timeout: Duration::from_secs(10),
             pool_idle_timeout: Duration::from_secs(3),
+            pool_max_age: Duration::from_secs(10),
         }
     }
 }
