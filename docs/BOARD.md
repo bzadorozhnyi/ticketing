@@ -1,6 +1,6 @@
 # Board
 
-Next ticket: TIK-74
+Next ticket: TIK-75
 
 ## In progress
 
@@ -80,3 +80,4 @@ Next ticket: TIK-74
 - [x] TIK-68 Payment tokens out of orders: stop writing and reading the column (M7)
 - [x] TIK-69 Payment tokens out of orders: drop the column, once no process knows it (M7)
 - [x] TIK-70 Kubernetes: a kind cluster with every service, store and migration, deployed by one script (M8)
+- [x] TIK-74 CI: the Kubernetes manifests render and an empty cluster accepts them (M8)

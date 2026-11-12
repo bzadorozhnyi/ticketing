@@ -47,6 +47,8 @@ def touched_areas(paths: list[str], services: list[str]) -> set[str] | None:
             areas.add("stub")
         elif path.startswith("infra/observability/"):
             areas.add("observability")
+        elif path.startswith("infra/k8s/"):
+            areas.add("k8s")
         else:
             return None
     return areas
@@ -70,6 +72,7 @@ def plan(
         "images": sorted(python_services + rust_services),
         "contracts": areas is None or bool(python_services) or "contracts" in areas,
         "observability": areas is None or "observability" in areas,
+        "k8s": areas is None or "k8s" in areas,
     }
 
 

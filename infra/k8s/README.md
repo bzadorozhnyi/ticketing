@@ -23,6 +23,10 @@ Kubernetes keeps no order between resources; `deploy.sh` does what `depends_on` 
 images with the commit (and a timestamp when `services/` has local changes), so a Deployment sees a new image and
 rolls it out; Jobs are deleted and created again, since a Job's template cannot change.
 
+CI runs `infra/check-k8s.sh`: every directory renders, and a throwaway kind cluster with the same node image accepts
+every object in a server-side dry run. It catches a misspelled field or an invalid value, not a pod that fails to start.
+The node image is pinned by digest in `kind-cluster.yaml`; a cluster made before the pin keeps its own image.
+
 Looking inside:
 
 ```

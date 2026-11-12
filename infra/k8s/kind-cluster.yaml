@@ -4,6 +4,8 @@ apiVersion: kind.x-k8s.io/v1alpha4
 name: ticketing
 nodes:
   - role: control-plane
+    # kind's release notes ask for the digest; infra/check-k8s.sh runs this image in CI.
+    image: kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5
     extraPortMappings:
       - containerPort: 30080
         hostPort: 8000
