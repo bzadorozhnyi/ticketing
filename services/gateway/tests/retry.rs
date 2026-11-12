@@ -71,7 +71,7 @@ async fn a_get_gives_up_after_the_last_attempt_with_the_upstream_answer() {
 }
 
 #[tokio::test]
-async fn a_post_is_never_repeated() {
+async fn a_post_without_an_idempotency_key_is_never_repeated() {
     let (gateway, upstream) = gateway_for(flaky_routes("/api/v1/events", 1), |_| {}).await;
 
     let response = client()
@@ -83,6 +83,26 @@ async fn a_post_is_never_repeated() {
 
     assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(upstream.received().len(), 1);
+}
+
+#[tokio::test]
+async fn a_post_with_an_idempotency_key_is_repeated_with_the_same_key() {
+    let (gateway, upstream) = gateway_for(flaky_routes("/api/v1/events", 1), |_| {}).await;
+
+    let response = client()
+        .post(format!("{gateway}/api/v1/events"))
+        .header("idempotency-key", "order-1")
+        .body("{}")
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let received = upstream.received();
+    assert_eq!(received.len(), 2);
+    assert_eq!(received[0].headers["idempotency-key"], "order-1");
+    assert_eq!(received[1].headers["idempotency-key"], "order-1");
+    assert_eq!(received[1].body, "{}");
 }
 
 #[tokio::test]
@@ -296,7 +316,25 @@ async fn a_get_is_repeated_when_the_upstream_drops_the_connection() {
 }
 
 #[tokio::test]
-async fn a_post_is_not_repeated_when_the_upstream_drops_the_connection() {
+async fn a_post_with_an_idempotency_key_is_repeated_when_the_upstream_drops_the_connection() {
+    let (url, connections) = spawn_closing_upstream(1).await;
+    let gateway = spawn_gateway(&test_settings(&url)).await;
+
+    let response = client()
+        .post(format!("{gateway}/api/v1/events"))
+        .header("idempotency-key", "order-1")
+        .body("{}")
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(connections.load(Ordering::SeqCst), 2);
+}
+
+#[tokio::test]
+async fn a_post_without_an_idempotency_key_is_not_repeated_when_the_upstream_drops_the_connection()
+{
     let (url, connections) = spawn_closing_upstream(1).await;
     let gateway = spawn_gateway(&test_settings(&url)).await;
 

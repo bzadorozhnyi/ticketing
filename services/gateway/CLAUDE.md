@@ -93,9 +93,12 @@ Read from the environment with the `config` crate; a wrong value stops the start
   not call the upstream. Every gateway replica has its own breaker.
 - Each upstream has a bulkhead: at most `MAX_CONCURRENT` requests in flight, from the first attempt until the response
   headers arrive. One more gets 503 `bulkhead_full` with `Retry-After: 1` at once.
-- `GET` and `HEAD` are repeated when no answer came (refused, reset or closed connection) or the upstream answered 503,
-  within the request timeout and the retry budget. The client sees only the last answer. A timeout, a 500,
-  a 502 or 504 from the upstream and every other method are never repeated: `POST /orders` relies on the client's `Idempotency-Key`.
+- An idempotent request is repeated when no answer came (refused, reset or closed connection) or the upstream answered
+  503, within the request timeout and the retry budget. The client sees only the last answer. Idempotent: `GET`, `HEAD`,
+  and any request with an `Idempotency-Key`, sent again with the same key (`POST /orders`, `POST /holds`).
+  **An upstream that receives an `Idempotency-Key` must honor it**: a repeat with the key returns the first result and
+  repeats no side effect, or a retry here would do the work twice. A timeout, a 500, a 502 or 504 from the upstream
+  and a request without a key in any other method are never repeated.
 - Background job: every `CLIENT__POOL_MAX_AGE_SECONDS` the upstream client is replaced by a new one with an empty pool
   (`resilience/rotation.rs`). A Kubernetes Service balances connections, and kept-alive ones would stay on the pods
   that existed when they opened: a pod added by the autoscaler got none (TIK-73). New connections reach the pods as
