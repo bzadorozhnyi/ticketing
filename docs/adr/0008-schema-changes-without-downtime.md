@@ -43,8 +43,11 @@ the old one. Two experiments in M7 showed what goes wrong otherwise:
   and the next one drops it. A constraint can add a release: `orders.payment_token` was `NOT NULL` and compared on
   every repeat of `POST /orders`, so it took a fingerprint first. Writes the old release still makes (tokens of the
   orders it finished, orders without a fingerprint) are cleaned up by the next release's migration.
-- Between those two releases `alembic check` would report the column the code no longer maps; `DROPPED_LATER` in the
-  service's `migrations/env.py` names it until the drop.
+- Between those two releases `alembic check` reports the column the code no longer maps, and `--autogenerate` would
+  write its drop into the next migration. For that one release, `include_object` in the service's `migrations/env.py`
+  leaves the column out of the comparison; the drop removes it again (TIK-68, TIK-69).
+- A data migration is tested while it is written, against rows made the way its revision had them, and the test goes
+  once the migration has run everywhere: going back to old revisions breaks with every later migration.
 - Indexes on existing tables are built `CONCURRENTLY` (CLAUDE.md has the recipes for Alembic and sqlx).
 - Migrations live in the service that owns the database and ship with its code; tools are copied, not shared, as the
   rest of `core/` is.
@@ -57,7 +60,11 @@ the old one. Two experiments in M7 showed what goes wrong otherwise:
 
 ## Consequences
 
-- A change the old code cannot live with takes three releases, and the code writes some data twice for a while.
+- A change the old code cannot live with takes several releases, and the code writes some data twice for a while.
+  Moving `orders.payment_token` out took five: a new table written next to the column, a backfill and reads from the
+  table only, a request fingerprint and tokens deleted once final, the column no longer mapped, the column dropped.
+  Every one was deployed with the release before still running, under load, with no failed order; removing the column
+  while the release before still ran failed 14 of its 20 orders.
 - Whether the two neighbouring versions work together is tested by running them together (TIK-64: old and new API and
   saga at once, then each saga alone on the other's orders), not by unit tests alone.
 - The contract step depends on knowing that no older process runs. In compose that is a person checking; in

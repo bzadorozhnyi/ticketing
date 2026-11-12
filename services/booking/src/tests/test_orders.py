@@ -3,7 +3,7 @@ import uuid
 
 import pytest
 from fastapi import status
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
@@ -52,10 +52,6 @@ async def test_create_stores_a_pending_order(async_client, db_session):
     assert order.idempotency_key == "key-1"
     token = await db_session.get(OrderPaymentToken, order.id)
     assert token.payment_token == "tok_ok"
-    column = await db_session.scalar(
-        text("SELECT payment_token FROM orders WHERE id = :id"), {"id": order.id}
-    )
-    assert column is None
     assert order.request_fingerprint == request_fingerprint(
         hold_id=hold_id, payment_token="tok_ok"
     )
