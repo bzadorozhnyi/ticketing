@@ -28,8 +28,12 @@ strategy). Stopping a pod removes it from its Service and sends SIGTERM at the s
 still reach a process that has closed its socket. Every HTTP container has `preStop: sleep 5`: it keeps serving while the
 Service stops routing to it, and SIGTERM comes after. Connections the gateway already holds to the old pod are not
 covered: a request sent on one as it closes gets 502, which the gateway retries only for `GET` and `HEAD`.
-The workers need no such care: two saga workers or two relays at once are safe (`FOR UPDATE SKIP LOCKED`), and each
-one finishes its step on SIGTERM.
+Every HTTP service runs two pods, so one can die while the other serves; each has a PodDisruptionBudget with
+`minAvailable: 1`, so a voluntary eviction such as `kubectl drain` waits rather than stop the last ready pod. A budget
+does nothing for a crash or a `kubectl delete pod`, and with one replica it would block a drain for good.
+The liveness probe asks `/health` (the process answers), never `/ready` (its database answers): a database outage takes
+the pods out of their Service but does not restart them. The workers run one pod each: two saga workers or two relays at once are safe (`FOR UPDATE SKIP LOCKED`), each one finishes its step on SIGTERM,
+and while one is down orders wait instead of failing.
 
 CI runs `infra/check-k8s.sh`: every directory renders, and a throwaway kind cluster with the same node image accepts
 every object in a server-side dry run. It catches a misspelled field or an invalid value, not a pod that fails to start.
