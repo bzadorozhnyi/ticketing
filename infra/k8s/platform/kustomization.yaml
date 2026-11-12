@@ -1,0 +1,16 @@
+# What the services depend on: applied first, and waited for, by infra/k8s/deploy.sh.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ticketing
+resources:
+  - namespace.yaml
+  - postgres-secret.yaml
+  - secrets.yaml
+  - catalog-config.yaml
+  - config.yaml
+  - catalog-db.yaml
+  - booking-db.yaml
+  - payment-db.yaml
+  - seat-hold-db.yaml
+  - rabbitmq.yaml
+  - valkey.yaml

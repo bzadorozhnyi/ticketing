@@ -1,0 +1,117 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: booking
+spec:
+  selector:
+    app: booking
+  ports:
+    - port: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: booking
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: booking
+  template:
+    metadata:
+      labels:
+        app: booking
+    spec:
+      containers:
+        - name: booking
+          image: ticketing/booking
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef: { name: booking }
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: booking
+            - name: DB__USER
+              valueFrom: { secretKeyRef: { name: postgres, key: user } }
+            - name: DB__PASS
+              valueFrom: { secretKeyRef: { name: postgres, key: password } }
+          readinessProbe:
+            httpGet: { path: /ready, port: 8000 }
+            periodSeconds: 2
+          livenessProbe:
+            httpGet: { path: /health, port: 8000 }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 256Mi }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: booking-saga
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: booking-saga
+  template:
+    metadata:
+      labels:
+        app: booking-saga
+    spec:
+      containers:
+        - name: booking-saga
+          image: ticketing/booking
+          command: ["python", "-m", "scripts.saga"]
+          envFrom:
+            - configMapRef: { name: booking }
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: booking-saga
+            - name: DB__USER
+              valueFrom: { secretKeyRef: { name: postgres, key: user } }
+            - name: DB__PASS
+              valueFrom: { secretKeyRef: { name: postgres, key: password } }
+            - name: RABBITMQ__USER
+              valueFrom: { secretKeyRef: { name: rabbitmq, key: user } }
+            - name: RABBITMQ__PASS
+              valueFrom: { secretKeyRef: { name: rabbitmq, key: password } }
+          resources:
+            requests: { cpu: 100m, memory: 96Mi }
+            limits: { memory: 256Mi }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: booking-relay
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: booking-relay
+  template:
+    metadata:
+      labels:
+        app: booking-relay
+    spec:
+      containers:
+        - name: booking-relay
+          image: ticketing/booking
+          command: ["python", "-m", "scripts.relay"]
+          envFrom:
+            - configMapRef: { name: booking }
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: booking-relay
+            - name: DB__USER
+              valueFrom: { secretKeyRef: { name: postgres, key: user } }
+            - name: DB__PASS
+              valueFrom: { secretKeyRef: { name: postgres, key: password } }
+            - name: RABBITMQ__USER
+              valueFrom: { secretKeyRef: { name: rabbitmq, key: user } }
+            - name: RABBITMQ__PASS
+              valueFrom: { secretKeyRef: { name: rabbitmq, key: password } }
+          resources:
+            requests: { cpu: 100m, memory: 96Mi }
+            limits: { memory: 256Mi }

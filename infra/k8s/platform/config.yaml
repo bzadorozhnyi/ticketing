@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: booking
+data:
+  DB__HOST: booking-db
+  DB__NAME: booking_db
+  DB__PORT: "5432"
+  RABBITMQ__HOST: rabbitmq
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payment
+data:
+  DB__HOST: payment-db
+  DB__NAME: payment_db
+  DB__PORT: "5432"
+  RABBITMQ__HOST: rabbitmq
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: seat-hold
+data:
+  DB__HOST: seat-hold-db
+  DB__NAME: seat_hold_db
+  DB__PORT: "5432"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway
+data:
+  RATE_LIMIT__VALKEY_URL: redis://valkey:6379
+  UPSTREAMS__CATALOG_URL: http://catalog:8000
+  UPSTREAMS__SEAT_HOLD_URL: http://seat-hold:8000
+  UPSTREAMS__BOOKING_URL: http://booking:8000

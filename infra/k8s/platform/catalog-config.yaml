@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: catalog
+data:
+  DB__HOST: catalog-db
+  DB__NAME: catalog_db
+  DB__PORT: "5432"
+  OTEL_SERVICE_NAME: catalog

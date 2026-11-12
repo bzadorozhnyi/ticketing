@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: seat-hold
+spec:
+  selector:
+    app: seat-hold
+  ports:
+    - port: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seat-hold
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: seat-hold
+  template:
+    metadata:
+      labels:
+        app: seat-hold
+    spec:
+      containers:
+        - name: seat-hold
+          image: ticketing/seat-hold
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef: { name: seat-hold }
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: seat-hold
+            - name: DB__USER
+              valueFrom: { secretKeyRef: { name: postgres, key: user } }
+            - name: DB__PASS
+              valueFrom: { secretKeyRef: { name: postgres, key: password } }
+          readinessProbe:
+            httpGet: { path: /ready, port: 8000 }
+            periodSeconds: 2
+          livenessProbe:
+            httpGet: { path: /health, port: 8000 }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 32Mi }
+            limits: { memory: 128Mi }

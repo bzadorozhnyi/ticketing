@@ -117,5 +117,5 @@ docs/               board, ADRs, claims, learnings
 | M4 | Resilience: timeouts, retries, circuit breaker | Done |
 | M5 | Load spike: rate limiting, load shedding, p95 and p99 | Done |
 | M6 | Observability | Done |
-| M7 | Replica lag, expand/migrate/contract migrations | In progress |
-| M8 | Kubernetes on minikube | Planned |
+| M7 | Replica lag, expand/migrate/contract migrations | Done |
+| M8 | Kubernetes on kind | In progress |

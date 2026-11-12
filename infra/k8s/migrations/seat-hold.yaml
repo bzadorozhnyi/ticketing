@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seat-hold-migrate
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: ticketing/seat-hold
+          command: ["migrate"]
+          envFrom:
+            - configMapRef: { name: seat-hold }
+          env:
+            - name: DB__USER
+              valueFrom: { secretKeyRef: { name: postgres, key: user } }
+            - name: DB__PASS
+              valueFrom: { secretKeyRef: { name: postgres, key: password } }
