@@ -15,7 +15,7 @@ use tokio::time::Instant;
 use crate::app::AppState;
 use crate::auth::AuthenticatedUser;
 use crate::errors::GatewayError;
-use crate::resilience::retry;
+use crate::resilience::retry::{self, RequestKind};
 use crate::telemetry::request::RequestContext;
 use crate::upstream::Upstream;
 
@@ -55,13 +55,14 @@ pub async fn forward(
     let headers = request_headers(parts.headers, user.map(|user| user.0));
     let body = body?;
     let method = parts.method;
+    let kind = RequestKind::of(&method, &headers);
     let deadline = Instant::now() + upstream.timeout;
     let response = retry::send(
         &context,
         &state.retry,
         &upstream.budget,
         &upstream.breaker,
-        &method,
+        &kind,
         deadline,
         |remaining| {
             state

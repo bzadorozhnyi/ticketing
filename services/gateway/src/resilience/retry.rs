@@ -2,6 +2,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
 use opentelemetry::Context;
+use reqwest::header::HeaderMap;
 use reqwest::{Method, RequestBuilder, Response, StatusCode};
 use tokio::time::{Instant, sleep};
 
@@ -69,10 +70,30 @@ impl RetryBudget {
     }
 }
 
-/// Sends the request and repeats it while a repeat is safe and may help: only `GET` and
-/// `HEAD`, only when no answer came (refused, reset or closed connection) or the upstream
-/// answered 503, only while the budget has a token and the deadline leaves time.
-/// The client sees the last answer.
+/// The request as the retry loop sees it: its method names each attempt, and only an
+/// idempotent request is repeated.
+pub struct RequestKind<'a> {
+    pub method: &'a Method,
+    pub idempotent: bool,
+}
+
+impl<'a> RequestKind<'a> {
+    /// `GET` and `HEAD` are idempotent by definition; any other request is when it carries
+    /// an `Idempotency-Key`, which an upstream that receives one must honor: a repeat with
+    /// the same key gets the first result and repeats no side effect.
+    #[must_use]
+    pub fn of(method: &'a Method, headers: &HeaderMap) -> Self {
+        let idempotent = method == Method::GET
+            || method == Method::HEAD
+            || headers.contains_key("idempotency-key");
+        Self { method, idempotent }
+    }
+}
+
+/// Sends the request and repeats it while a repeat is safe and may help: only an
+/// idempotent request, only when no answer came (refused, reset or closed connection) or
+/// the upstream answered 503, only while the budget has a token and the deadline leaves
+/// time. The client sees the last answer.
 ///
 /// The breaker is asked before every attempt and told the result after it. When it is
 /// open, the first attempt is not made at all, and a retry returns the last answer.
@@ -84,7 +105,7 @@ pub async fn send(
     settings: &RetrySettings,
     budget: &RetryBudget,
     breaker: &CircuitBreaker,
-    method: &Method,
+    kind: &RequestKind<'_>,
     deadline: Instant,
     request: impl Fn(Duration) -> RequestBuilder,
 ) -> Result<Response, SendError> {
@@ -95,7 +116,7 @@ pub async fn send(
     let mut attempt = 1;
     loop {
         let remaining = deadline.saturating_duration_since(Instant::now());
-        let span = UpstreamAttempt::start(parent, breaker.name(), method, attempt);
+        let span = UpstreamAttempt::start(parent, breaker.name(), kind.method, attempt);
         let result = span.propagate(request(remaining)).send().await;
         span.finish(&result);
         call.finish(is_failure(&result));
@@ -103,7 +124,7 @@ pub async fn send(
             Ok(response) => (Some(response.status()), false),
             Err(error) => (None, !error.is_timeout()),
         };
-        if attempt >= settings.max_attempts || !worth_retrying(method, status, no_answer) {
+        if attempt >= settings.max_attempts || !worth_retrying(kind.idempotent, status, no_answer) {
             return result.map_err(SendError::Upstream);
         }
         let pause = pause_before(attempt, settings.base_delay);
@@ -133,8 +154,7 @@ fn is_failure(result: &Result<Response, reqwest::Error>) -> bool {
 /// what idempotent means. A timeout is not: the attempt had the rest of the deadline,
 /// and a slow upstream gets no extra load. A 500 is most likely a bug, and a 502 or 504
 /// from the upstream is the answer of another proxy.
-fn worth_retrying(method: &Method, status: Option<StatusCode>, no_answer: bool) -> bool {
-    let idempotent = method == Method::GET || method == Method::HEAD;
+fn worth_retrying(idempotent: bool, status: Option<StatusCode>, no_answer: bool) -> bool {
     idempotent && (no_answer || status == Some(StatusCode::SERVICE_UNAVAILABLE))
 }
 
@@ -158,25 +178,33 @@ mod tests {
     }
 
     #[test]
-    fn only_safe_methods_and_transient_failures_are_repeated() {
+    fn safe_methods_and_requests_with_an_idempotency_key_are_idempotent() {
+        let none = HeaderMap::new();
+        let mut keyed = HeaderMap::new();
+        keyed.insert("idempotency-key", "order-1".parse().unwrap());
+        assert!(RequestKind::of(&Method::GET, &none).idempotent);
+        assert!(RequestKind::of(&Method::HEAD, &none).idempotent);
+        assert!(RequestKind::of(&Method::POST, &keyed).idempotent);
+        assert!(RequestKind::of(&Method::DELETE, &keyed).idempotent);
+        assert!(!RequestKind::of(&Method::POST, &none).idempotent);
+        assert!(!RequestKind::of(&Method::DELETE, &none).idempotent);
+    }
+
+    #[test]
+    fn only_idempotent_requests_and_transient_failures_are_repeated() {
         let unavailable = Some(StatusCode::SERVICE_UNAVAILABLE);
-        assert!(worth_retrying(&Method::GET, unavailable, false));
-        assert!(worth_retrying(&Method::HEAD, None, true));
-        assert!(!worth_retrying(&Method::POST, unavailable, false));
-        assert!(!worth_retrying(&Method::POST, None, true));
-        assert!(!worth_retrying(&Method::DELETE, unavailable, false));
-        assert!(!worth_retrying(&Method::GET, None, false));
+        assert!(worth_retrying(true, unavailable, false));
+        assert!(worth_retrying(true, None, true));
+        assert!(!worth_retrying(false, unavailable, false));
+        assert!(!worth_retrying(false, None, true));
+        assert!(!worth_retrying(true, None, false));
         assert!(!worth_retrying(
-            &Method::GET,
+            true,
             Some(StatusCode::INTERNAL_SERVER_ERROR),
             false
         ));
-        assert!(!worth_retrying(&Method::GET, Some(StatusCode::OK), false));
-        assert!(!worth_retrying(
-            &Method::GET,
-            Some(StatusCode::BAD_GATEWAY),
-            false
-        ));
+        assert!(!worth_retrying(true, Some(StatusCode::OK), false));
+        assert!(!worth_retrying(true, Some(StatusCode::BAD_GATEWAY), false));
     }
 
     #[test]
