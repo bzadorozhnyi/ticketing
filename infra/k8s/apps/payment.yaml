@@ -29,6 +29,7 @@ spec:
             - containerPort: 8000
           envFrom:
             - configMapRef: { name: payment }
+            - configMapRef: { name: telemetry }
           env:
             - name: OTEL_SERVICE_NAME
               value: payment
@@ -70,6 +71,7 @@ spec:
           command: ["python", "-m", "scripts.consume"]
           envFrom:
             - configMapRef: { name: payment }
+            - configMapRef: { name: telemetry }
           env:
             - name: OTEL_SERVICE_NAME
               value: payment-consumer

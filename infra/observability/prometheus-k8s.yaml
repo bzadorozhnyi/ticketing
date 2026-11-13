@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Tempo writes its span metrics here, and samples can arrive late.
+storage:
+  tsdb:
+    out_of_order_time_window: 30m
+
+rule_files: [rules/slo.yaml]
+
+# The cluster adds the kubelet's container metrics, which compose has no source for.
+scrape_config_files: [scrape/services.yaml, scrape/kubelet.yaml]

@@ -1,0 +1,212 @@
+{
+  "uid": "containers",
+  "title": "Containers",
+  "description": "CPU, throttling and memory of every container, from the kubelet (infra/observability/scrape/kubelet.yaml). Kubernetes only: compose has no source for these metrics, so the dashboard is empty there.",
+  "tags": [
+    "ticketing"
+  ],
+  "schemaVersion": 41,
+  "editable": false,
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "refresh": "10s",
+  "templating": {
+    "list": [
+      {
+        "name": "container",
+        "label": "Container",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values(container_cpu_usage_seconds_total, container)",
+          "refId": "container"
+        },
+        "definition": "label_values(container_cpu_usage_seconds_total, container)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "text": [
+            "catalog",
+            "gateway"
+          ],
+          "value": [
+            "catalog",
+            "gateway"
+          ]
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "CPU",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU used, cores",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{container=~\"$container\"}[$__rate_interval]))",
+          "legendFormat": "{{pod}}"
+        }
+      ],
+      "description": "What the kernel gave each container. A uvicorn process cannot pass about 1 core."
+    },
+    {
+      "type": "timeseries",
+      "title": "Throttled share of CPU periods",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pod) (rate(container_cpu_cfs_throttled_periods_total{container=~\"$container\"}[$__rate_interval])) / sum by (pod) (rate(container_cpu_cfs_periods_total{container=~\"$container\"}[$__rate_interval]))",
+          "legendFormat": "{{pod}}"
+        }
+      ],
+      "description": "Share of 100 ms periods in which the container used up its CPU limit and was paused until the next one. Only a container with a CPU limit has periods; ours have none unless an experiment sets one."
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU limit, cores (only where set)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pod) (container_spec_cpu_quota{container=~\"$container\"} / container_spec_cpu_period{container=~\"$container\"}) > 0",
+          "legendFormat": "{{pod}}"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Memory",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Working set",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pod) (container_memory_working_set_bytes{container=~\"$container\"})",
+          "legendFormat": "{{pod}}"
+        }
+      ],
+      "description": "The memory the out-of-memory killer counts."
+    },
+    {
+      "type": "timeseries",
+      "title": "Working set, share of the memory limit",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (pod) (container_memory_working_set_bytes{container=~\"$container\"}) / (sum by (pod) (container_spec_memory_limit_bytes{container=~\"$container\"}) > 0)",
+          "legendFormat": "{{pod}}"
+        }
+      ],
+      "description": "At 100 % the container is killed and restarted."
+    }
+  ]
+}

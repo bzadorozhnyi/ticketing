@@ -7,10 +7,15 @@ set -euo pipefail
 cd "$(dirname "$0")/k8s"
 cluster=ticketing-check
 image=$(grep -o 'kindest/node:[^ ]*' kind-cluster.yaml)
-phases=(metrics-server platform migrations seed apps)
+phases=(metrics-server platform observability migrations seed apps)
+
+# observability reads its config files from infra/observability, outside its own directory.
+render() {
+  kubectl kustomize --load-restrictor=LoadRestrictionsNone "$1"
+}
 
 for phase in "${phases[@]}"; do
-  kubectl kustomize "$phase" > /dev/null
+  render "$phase" > /dev/null
 done
 
 # A kubeconfig of its own, so the current kubectl context stays on whatever cluster it was.
@@ -22,5 +27,5 @@ kind create cluster --name "$cluster" --image "$image" --wait 120s
 # A dry run creates nothing, so the namespace every other object lives in has to exist for real.
 kubectl apply -f platform/namespace.yaml
 for phase in "${phases[@]}"; do
-  kubectl apply --dry-run=server --validate=strict -k "$phase"
+  render "$phase" | kubectl apply --dry-run=server --validate=strict -f -
 done

@@ -29,6 +29,7 @@ spec:
             - containerPort: 8000
           envFrom:
             - configMapRef: { name: booking }
+            - configMapRef: { name: telemetry }
           env:
             - name: OTEL_SERVICE_NAME
               value: booking
@@ -70,6 +71,7 @@ spec:
           command: ["python", "-m", "scripts.saga"]
           envFrom:
             - configMapRef: { name: booking }
+            - configMapRef: { name: telemetry }
           env:
             - name: OTEL_SERVICE_NAME
               value: booking-saga
@@ -105,6 +107,7 @@ spec:
           command: ["python", "-m", "scripts.relay"]
           envFrom:
             - configMapRef: { name: booking }
+            - configMapRef: { name: telemetry }
           env:
             - name: OTEL_SERVICE_NAME
               value: booking-relay

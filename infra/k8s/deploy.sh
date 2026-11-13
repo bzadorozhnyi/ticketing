@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds the services' images, loads them into the kind cluster and applies infra/k8s in order:
-# metrics-server -> platform (stores and config) -> migrations -> seed -> apps, waiting for each before the next.
+# metrics-server -> platform (stores and config) and observability -> migrations -> seed -> apps, waiting for each before the next.
 # Kubernetes keeps no order between resources, so this script does what depends_on did in compose.
 set -euo pipefail
 
@@ -29,6 +29,7 @@ with_tag() {
 
 kubectl apply -k metrics-server
 kubectl apply -k platform
+kubectl kustomize --load-restrictor=LoadRestrictionsNone observability | kubectl apply -f -
 for statefulset in $(kubectl -n ticketing get statefulset -o name); do
   kubectl -n ticketing rollout status "$statefulset" --timeout=300s
 done

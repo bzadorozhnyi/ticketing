@@ -1,0 +1,92 @@
+# Finds the nodes through the Kubernetes API and reads each kubelet's container metrics (scrape/kubelet.yaml).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ticketing-prometheus
+rules:
+  - apiGroups: [""]
+    resources: [nodes]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [nodes/metrics]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ticketing-prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ticketing-prometheus
+subjects:
+  - kind: ServiceAccount
+    name: prometheus
+    namespace: ticketing
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+spec:
+  selector:
+    app: prometheus
+  ports:
+    - { name: http, port: 9090 }
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: prometheus
+spec:
+  serviceName: prometheus
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      serviceAccountName: prometheus
+      securityContext: { fsGroup: 65534 }
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v3.15.1
+          args:
+            - --config.file=/etc/prometheus/prometheus.yaml
+            - --web.enable-remote-write-receiver
+            - --enable-feature=exemplar-storage,created-timestamp-zero-ingestion
+          ports:
+            - containerPort: 9090
+          readinessProbe:
+            httpGet: { path: /-/ready, port: 9090 }
+            periodSeconds: 5
+          volumeMounts:
+            - { name: config, mountPath: /etc/prometheus/prometheus.yaml, subPath: prometheus.yaml }
+            - { name: rules, mountPath: /etc/prometheus/rules }
+            - { name: scrape, mountPath: /etc/prometheus/scrape }
+            - { name: data, mountPath: /prometheus }
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 1Gi }
+      volumes:
+        - name: config
+          configMap: { name: prometheus }
+        - name: rules
+          configMap: { name: prometheus-rules }
+        - name: scrape
+          configMap: { name: prometheus-scrape }
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests: { storage: 2Gi }

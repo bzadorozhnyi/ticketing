@@ -29,6 +29,7 @@ spec:
             - containerPort: 8000
           envFrom:
             - configMapRef: { name: catalog }
+            - configMapRef: { name: telemetry }
           env:
             - name: DB__USER
               valueFrom: { secretKeyRef: { name: postgres, key: user } }
