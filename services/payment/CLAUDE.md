@@ -54,6 +54,9 @@ use cases and answers in `payment.replies`. Order: process, commit, send the rep
 
 - A malformed command or a conflict goes straight to `payment.commands.dead`. A temporary failure retries with a growing
   pause, and after `RABBITMQ__DELIVERY_LIMIT` it goes there too.
+- A reply booking rejects, or one delivered 20 times, goes to `payment.replies.dead`. That queue's dead letters come from a
+  broker policy (`infra/rabbitmq/policies.sh`), not from arguments: `payment.replies` existed before, and a queue's arguments
+  cannot change (redeclaring it fails with PRECONDITION_FAILED). Both services declare the dead queue.
 - `core/rabbitmq.py` is the only place that knows the broker library: `RabbitMQClient` holds the connection, `Delivery` settles a message.
   A class per queue (`payments/queues/`) is built on the client.
 - Retry with `reject(requeue=True)`, never `nack`: a `nack` requeue does not count towards the delivery limit.
