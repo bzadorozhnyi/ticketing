@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from core.faults import crash_point
 from core.rabbitmq import Delivery
 from core.settings import SagaSettings
-from core.telemetry import continue_trace, record_finished_order
+from core.telemetry import continue_trace, mark_span_failed, record_finished_order
 from orders.dto.messages import REPLY_ADAPTER, ChargeResult, Reply
 from orders.repositories.order import OrderRepository
 from orders.use_cases.apply_charge_result import ApplyChargeResultUseCase
@@ -46,6 +46,7 @@ class PaymentReplyConsumer:
             reply = REPLY_ADAPTER.validate_json(delivery.body)
         except ValidationError as exc:
             logger.bind(error=repr(exc)).error("Malformed reply")
+            mark_span_failed(exc)
             await delivery.dead_letter()
             return
 
@@ -54,6 +55,7 @@ class PaymentReplyConsumer:
                 await self._process(reply=reply)
         except Exception as exc:
             logger.bind(error=repr(exc)).warning("Reply failed, will retry")
+            mark_span_failed(exc)
             await self._retry_later(delivery=delivery)
         else:
             crash_point("after_reply_commit")

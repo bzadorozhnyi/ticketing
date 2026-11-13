@@ -5,7 +5,7 @@
 # Prometheus: http://localhost:9090, SLO alerts on /alerts (rules/slo.yaml; checked by infra/check-observability.sh).
 services:
   otel-collector:
-    image: otel/opentelemetry-collector:0.164.0
+    image: otel/opentelemetry-collector-contrib:0.164.0
     command: ["--config=/etc/otelcol/config.yaml"]
     volumes: ["./infra/observability/otel-collector.yaml:/etc/otelcol/config.yaml:ro"]
     ports: ["127.0.0.1:4318:4318"]

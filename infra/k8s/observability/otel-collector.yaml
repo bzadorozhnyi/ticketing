@@ -16,6 +16,8 @@ metadata:
   name: otel-collector
 spec:
   replicas: 1
+  # Tail sampling needs every span of a trace in one collector: a rolling update would run two for a while.
+  strategy: { type: Recreate }
   selector:
     matchLabels:
       app: otel-collector
@@ -26,7 +28,7 @@ spec:
     spec:
       containers:
         - name: otel-collector
-          image: otel/opentelemetry-collector:0.164.0
+          image: otel/opentelemetry-collector-contrib:0.164.0
           args: ["--config=/etc/otelcol/config.yaml"]
           ports:
             - containerPort: 4318

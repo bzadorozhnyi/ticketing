@@ -13,7 +13,7 @@ from opentelemetry.sdk.metrics.view import ExponentialBucketHistogramAggregation
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ParentBased
-from opentelemetry.trace import Span, SpanKind
+from opentelemetry.trace import Span, SpanKind, Status, StatusCode
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from sqlalchemy.pool import QueuePool
 
@@ -86,6 +86,15 @@ def continue_trace(
             yield span
         finally:
             trace_id_var.reset(token)
+
+
+def mark_span_failed(exc: BaseException) -> None:
+    """For a failure the code handles itself, such as a message sent back to be retried.
+    A span ends in error only when an exception leaves it, so without this the trace
+    shows a success, and tail sampling, which keeps traces with an error, drops it."""
+    span = trace.get_current_span()
+    span.record_exception(exc)
+    span.set_status(Status(StatusCode.ERROR, type(exc).__name__))
 
 
 def _pool_connections(_: CallbackOptions) -> Iterable[Observation]:

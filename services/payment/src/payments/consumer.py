@@ -10,7 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from core.exceptions import ConflictException
 from core.rabbitmq import Delivery
 from core.settings import FaultSettings, RabbitMQSettings
-from core.telemetry import commands, continue_trace, current_traceparent
+from core.telemetry import (
+    commands,
+    continue_trace,
+    current_traceparent,
+    mark_span_failed,
+)
 from payments.dto.messages import (
     COMMAND_ADAPTER,
     ChargeCommand,
@@ -77,6 +82,7 @@ class CommandConsumer:
             command = COMMAND_ADAPTER.validate_json(delivery.body)
         except ValidationError as exc:
             logger.bind(error=repr(exc)).error("Malformed command")
+            mark_span_failed(exc)
             await delivery.dead_letter()
             count_command(outcome="malformed")
             return
@@ -91,10 +97,12 @@ class CommandConsumer:
                 )
         except ConflictException as exc:
             logger.bind(error=repr(exc)).error("Command can never succeed")
+            mark_span_failed(exc)
             await delivery.dead_letter()
             count_command(outcome="dead_letter", command_type=command.type)
         except Exception as exc:
             logger.bind(error=repr(exc)).warning("Command failed, will retry")
+            mark_span_failed(exc)
             await self._retry_later(delivery=delivery)
             count_command(outcome="retry", command_type=command.type)
         else:
