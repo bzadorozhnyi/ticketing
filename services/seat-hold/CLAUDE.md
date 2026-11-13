@@ -63,8 +63,10 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
   retries (`core/migrations.rs`, `tests/migration_locks.rs`).
 - A lock held by someone else costs a request, not the pool: the service's sessions start with `lock_timeout` and
   `statement_timeout`, and Postgres cancels the waiting statement (55P03, 57014), which answers 503 and gives the
-  connection back. It does not remove the lock: while a migration locks `holds`, every write to it fails, but reads and
-  `/ready` go on. `tests/session_limits.rs`; the concurrency tests run with the same limits.
+  connection back. A deadlock or serialization victim, a database that is shutting down, starting or out of
+  connections, and a lost connection answer 503 too (`core/errors.rs`, `tests/database_errors.rs`). It does not remove
+  the lock: while a migration locks `holds`, every write to it fails, but reads and `/ready` go on.
+  `tests/session_limits.rs`; the concurrency tests run with the same limits.
 - The trace comes from the gateway: a valid `traceparent` is continued, an invalid one starts a new trace that is not
   recorded (ADR 0006: a trace starts only at the gateway). `core/telemetry/` mirrors the gateway's: a server span per
   request named by route template, `http.server.request.duration` with `error.type` = the error code, and
@@ -80,9 +82,10 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
 - A user holds at most `HOLDS__MAX_SEATS_PER_USER` seats of one event; more get 409 `hold_limit_reached`. The requests of one user
   for one event take turns on an advisory lock inside the transaction, so two of them cannot count the same free places;
   other users never wait for it.
-- `POST /api/v1/holds` takes an optional `Idempotency-Key`, per user. A repeat of a success returns the first response from
-  `hold_requests`, even after the hold ended. The key is written first in the same transaction: a concurrent repeat waits on it,
-  and a refused request rolls it back, so it can be tried again. The same key with another request gets 422.
+- `POST /api/v1/holds` takes an optional `Idempotency-Key`, per user. A repeat of a success returns the first response
+  from `hold_requests`, even after the hold ended and another user took the seats: the key is looked up before the
+  seats. The key is written first in the same transaction: a concurrent repeat waits on it, and a refused request
+  rolls it back, so it can be tried again. The same key with another request gets 422.
 - `GET /internal/v1/holds/{hold_id}`, `POST .../extend` and `.../confirm` are for booking. The gateway does not route `/internal`:
   a client must not confirm a hold without paying. Both are safe to repeat, and both answer 409 when the hold is gone.
 - Only the first `extend` adds time (`extended_at`); later ones return the time left. A declined card keeps the hold, but new

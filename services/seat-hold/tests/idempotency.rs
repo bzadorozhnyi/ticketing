@@ -193,6 +193,32 @@ async fn a_repeat_after_a_release_returns_the_first_result_and_takes_nothing() {
 }
 
 #[tokio::test]
+async fn a_repeat_returns_the_first_result_after_another_user_took_the_seats() {
+    let service = spawn_service(TestPool::new().await).await;
+    let body = new_body();
+    let first: Value = hold(&service, USER, Some(KEY), &body)
+        .await
+        .json()
+        .await
+        .unwrap();
+    let hold_id = first["hold_id"].as_str().unwrap();
+    client()
+        .delete(format!("{service}/api/v1/holds/{hold_id}"))
+        .header("x-user-id", USER)
+        .send()
+        .await
+        .unwrap();
+    let other = hold(&service, "user-2", None, &body).await;
+    assert_eq!(other.status(), StatusCode::CREATED);
+
+    let repeat = hold(&service, USER, Some(KEY), &body).await;
+
+    assert_eq!(repeat.status(), StatusCode::CREATED);
+    let repeat: Value = repeat.json().await.unwrap();
+    assert_eq!(repeat, first);
+}
+
+#[tokio::test]
 async fn an_invalid_key_is_refused() {
     let service = spawn_service(TestPool::new().await).await;
     let long = "x".repeat(256);

@@ -101,16 +101,21 @@ impl ServiceError {
 /// Postgres cancelled a statement: `lock_timeout` (55P03) or `statement_timeout` (57014).
 const TIMED_OUT: [&str; 2] = ["55P03", "57014"];
 
+/// Worth trying again: a deadlock or serialization victim (40P01, 40001), a server that
+/// is shutting down, crashed or starting (57P01, 57P02, 57P03), too many connections
+/// (53300). Every connection exception (class 08) is one too.
+const TRANSIENT: [&str; 6] = ["40P01", "40001", "57P01", "57P02", "57P03", "53300"];
+
 impl From<sqlx::Error> for ServiceError {
     fn from(error: sqlx::Error) -> Self {
+        let code = error.as_database_error().and_then(DatabaseError::code);
+        let code = code.as_deref();
         let is_outage = matches!(
             error,
             sqlx::Error::Io(_) | sqlx::Error::PoolTimedOut | sqlx::Error::PoolClosed
-        );
-        let timed_out = error
-            .as_database_error()
-            .and_then(DatabaseError::code)
-            .is_some_and(|code| TIMED_OUT.contains(&code.as_ref()));
+        ) || code
+            .is_some_and(|code| TRANSIENT.contains(&code) || code.starts_with("08"));
+        let timed_out = code.is_some_and(|code| TIMED_OUT.contains(&code));
         if is_outage {
             tracing::warn!(%error, "Database is unavailable");
             Self::Unavailable
