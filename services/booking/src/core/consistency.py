@@ -4,7 +4,7 @@ A write returns the primary's WAL position after its commit as a consistency tok
 A read that brings the token goes to the replica if the replica has applied that
 position, and to the primary otherwise. A read without a token goes to the replica, and
 to the primary only when the replica does not have the row yet. A replica that cannot be
-reached sends every read to the primary.
+reached, or that cancels the read, sends it to the primary.
 """
 
 from collections.abc import Awaitable, Callable
@@ -21,7 +21,11 @@ TOKEN_HEADER = "X-Consistency-Token"
 TOKEN_PATTERN = r"^[0-9A-F]{1,8}/[0-9A-F]{1,8}$"
 
 # Why a read went to the primary: the `reason` of `db.replica.reads`.
-PrimaryReason = Literal["behind", "miss", "replica_unavailable"]
+PrimaryReason = Literal["behind", "miss", "replica_unavailable", "conflict"]
+
+# A replica cancels a query that holds rows its WAL replay must remove, once
+# max_standby_streaming_delay has passed.
+RECOVERY_CONFLICT = "40001"
 
 
 async def write_position(session: AsyncSession) -> str:
@@ -63,9 +67,10 @@ class ReplicaReads[R]:
                 return await self._from_primary(query, reason="behind")
             found = await query(self.replica)
         except (OSError, DBAPIError) as exc:
-            if not is_connection_error(exc):
+            reason = _fallback_reason(exc)
+            if reason is None:
                 raise
-            return await self._from_primary(query, reason="replica_unavailable")
+            return await self._from_primary(query, reason=reason)
         if found is None and token is None:
             return await self._from_primary(query, reason="miss")
         replica_reads.add(1, {"source": "replica"})
@@ -76,3 +81,11 @@ class ReplicaReads[R]:
     ) -> T | None:
         replica_reads.add(1, {"source": "primary", "reason": reason})
         return await query(self.primary)
+
+
+def _fallback_reason(exc: Exception) -> PrimaryReason | None:
+    if is_connection_error(exc):
+        return "replica_unavailable"
+    if getattr(getattr(exc, "orig", None), "sqlstate", None) == RECOVERY_CONFLICT:
+        return "conflict"
+    return None

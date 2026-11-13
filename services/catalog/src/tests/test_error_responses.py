@@ -3,10 +3,12 @@ import socket
 import pytest
 from fastapi import status
 from sqlalchemy import text
+from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from core.db import SessionDep, is_connection_error
+from core.settings import settings
 from events.use_cases.list_events import get_list_events_use_case
 from main import app
 
@@ -114,3 +116,64 @@ async def test_wrong_method_uses_error_format_and_keeps_allow_header(async_clien
 )
 def test_is_connection_error(error, expected):
     assert is_connection_error(error) is expected
+
+
+REFUSED_ROLE = "refused_connections_test"
+
+
+@pytest.fixture
+async def refused_role_url(async_engine):
+    """A role Postgres refuses at login with 53300, as when the server is full."""
+    async with async_engine.begin() as conn:
+        await conn.execute(text(f"DROP ROLE IF EXISTS {REFUSED_ROLE}"))
+        await conn.execute(
+            text(f"CREATE ROLE {REFUSED_ROLE} LOGIN PASSWORD 'p' CONNECTION LIMIT 0")
+        )
+    yield make_url(settings.DB.url).set(username=REFUSED_ROLE, password="p")
+    async with async_engine.begin() as conn:
+        await conn.execute(text(f"DROP ROLE {REFUSED_ROLE}"))
+
+
+@pytest.mark.anyio
+async def test_a_database_refusing_the_login_returns_503(
+    real_session_client, refused_role_url, monkeypatch
+):
+    engine = create_async_engine(refused_role_url)
+    monkeypatch.setattr("core.db.async_session", async_sessionmaker(engine))
+
+    response = await real_session_client.get("/api/v1/events")
+    await engine.dispose()
+
+    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("sqlstate", "expected"),
+    [
+        ("57P01", True),
+        ("57P02", True),
+        ("57P03", True),
+        ("53300", True),
+        ("08006", True),
+        ("40001", False),
+        ("23505", False),
+    ],
+    ids=[
+        "shutdown",
+        "crash",
+        "starting",
+        "no-connections",
+        "connection-failure",
+        "serialization",
+        "unique",
+    ],
+)
+async def test_is_connection_error_by_sqlstate(db_session, sqlstate, expected):
+    raise_error = (
+        f"DO $$ BEGIN RAISE EXCEPTION 'test' USING ERRCODE = '{sqlstate}'; END $$"
+    )
+    with pytest.raises(DBAPIError) as raised:
+        await db_session.execute(text(raise_error))
+
+    assert is_connection_error(raised.value) is expected
