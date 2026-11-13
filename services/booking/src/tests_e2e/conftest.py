@@ -15,6 +15,10 @@ from tests.helpers.env import load_dotenv_into_environ
 load_dotenv_into_environ(".env.test", "../.env.test")
 os.environ["DB__NAME"] = "testing_booking_e2e_db"
 
+from tests.helpers.spans import SPANS, record_spans  # noqa: E402
+
+record_spans()
+
 from core.db import async_session, engine  # noqa: E402
 from core.http import HttpClient  # noqa: E402
 from core.settings import UpstreamSettings, settings  # noqa: E402
@@ -26,6 +30,11 @@ from tests.helpers.db import create_db, drop_db  # noqa: E402
 from tests_e2e.helpers import Upstreams, breaker_off  # noqa: E402
 
 ALEMBIC_INI_PATH = Path(__file__).resolve().parent.parent / "alembic.ini"
+
+
+@pytest.fixture(autouse=True)
+def clear_spans():
+    SPANS.clear()
 
 
 @pytest.fixture(scope="session")

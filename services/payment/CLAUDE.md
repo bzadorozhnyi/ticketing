@@ -30,7 +30,8 @@ docker compose up -d --wait --build                     # db -> payment-migrate 
 
 See ADR 0006; `core/telemetry.py` follows booking's. The consumer handles each command in a span continuing the
 relay's `traceparent`, and the reply carries that span's own `traceparent`. `payment.commands` counts commands by type
-and `outcome` (`handled`, `retry`, `dead_letter`, `malformed`); a handled one also has its `result` (`succeeded`, `declined`, ...). `OTEL_SERVICE_NAME` is `payment` for the
+and `outcome` (`handled`, `retry`, `dead_letter`, `malformed`); every outcome but `handled` calls `mark_span_failed()`, so the
+span ends in error (ADR 0010); a handled one also has its `result` (`succeeded`, `declined`, ...). `OTEL_SERVICE_NAME` is `payment` for the
 API and `payment-consumer` for the worker.
 
 ## Layout notes

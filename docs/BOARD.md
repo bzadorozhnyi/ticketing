@@ -5,7 +5,6 @@ Next ticket: TIK-78
 ## In progress
 
 ## To do
-- [ ] TIK-77 Tracing: sample traces instead of tracing every request; keep the gateway's probes out of Tempo (M8)
 - [ ] TIK-49 Ingress: TLS and HTTP/2 at the edge; measure HTTP/2 to the gateway and its effect on balancing (M8)
 
 ## Done
@@ -84,3 +83,4 @@ Next ticket: TIK-78
 - [x] TIK-76 Gateway: balance requests, not connections, across an upstream's pods, so a pod added by the HPA takes load (M8)
 - [x] TIK-75 Gateway: retry a POST that carries an Idempotency-Key after a failure on a reused connection
 - [x] TIK-60 CPU and throttling metrics of every process, from the kubelet; observability in the cluster (M8)
+- [x] TIK-77 Tracing: tail sampling in the collector; probes out of Tempo; handled failures marked in spans (M8)

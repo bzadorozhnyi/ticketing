@@ -36,6 +36,8 @@ See ADR 0006; `core/telemetry.py` follows catalog's. One trace per order, from t
 - `HttpClient` makes a client span per call to seat-hold or catalog and sends its `traceparent`; it uses aiohttp,
   which has no instrumentation here.
 - A trace starts only at the gateway: the polls of the saga and the relay and the health checks are not recorded.
+- A failure caught to retry (a saga step, a reply) calls `mark_span_failed()`, so its span ends in error: the collector keeps
+  traces by that (ADR 0010). A breaker that postpones a step is not a failure of the step.
 - Metrics: `http.server.request.duration` (FastAPI), `http.client.request.duration` (upstream, status),
   `booking.saga.steps` (step, outcome `ran`/`postponed`/`failed`), `booking.outbox.publish.delay` (how long a command
   waited for the relay, from the INSERT: `outbox.created_at` is `clock_timestamp()`, since `now()` is the start of a

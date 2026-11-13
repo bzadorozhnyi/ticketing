@@ -10,6 +10,46 @@ processors:
     limit_percentage: 80
     spike_limit_percentage: 25
   batch: {}
+  # Tail sampling (ADR 0010): every span of a trace waits here until decision_wait has passed since its first one,
+  # then the whole trace is kept or dropped. A drop policy wins; otherwise any keep policy keeps it.
+  # A span that ends later follows that decision: one with an error in a dropped trace is lost (measured), so a
+  # flow that can fail late has to be kept at once. Metrics are never sampled. All spans of a trace must reach
+  # the same collector: one replica.
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 50000
+    expected_new_traces_per_sec: 1000
+    decision_cache:
+      sampled_cache_size: 100000
+    policies:
+      - name: probes
+        type: drop
+        drop:
+          drop_sub_policy:
+            - name: probe-routes
+              type: string_attribute
+              string_attribute: { key: http.route, values: [/health, /ready] }
+      - name: errors
+        type: status_code
+        status_code: { status_codes: [ERROR] }
+      - name: slow
+        type: latency
+        latency: { threshold_ms: 500 }
+      # A purchase goes on in a saga after the gateway answered, for seconds or minutes: keeping it at once
+      # keeps whatever its later spans turn out to be.
+      - name: purchases
+        type: and
+        and:
+          and_sub_policy:
+            - name: post
+              type: string_attribute
+              string_attribute: { key: http.request.method, values: [POST] }
+            - name: purchase-routes
+              type: string_attribute
+              string_attribute: { key: http.route, values: [/api/v1/holds, /api/v1/orders] }
+      - name: baseline
+        type: probabilistic
+        probabilistic: { sampling_percentage: 5 }
 
 exporters:
   otlp/tempo:
@@ -28,7 +68,7 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
+      processors: [memory_limiter, tail_sampling, batch]
       exporters: [otlp/tempo]
     metrics:
       receivers: [otlp]

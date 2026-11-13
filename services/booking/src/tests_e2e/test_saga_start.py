@@ -4,6 +4,7 @@ from datetime import timedelta
 
 import pytest
 from fastapi import status
+from opentelemetry.trace import StatusCode
 from sqlalchemy import text, update
 
 from core.db import async_session
@@ -13,6 +14,7 @@ from orders.models.order import FailureReason, Order, OrderStatus, SagaStep
 from orders.repositories.order import OrderRepository
 from orders.saga_runner import SagaRunner
 from outbox.repositories.message import OutboxRepository
+from tests.helpers.spans import SPANS
 from tests_e2e.helpers import (
     COMMANDS_QUEUE,
     EVENT_ID,
@@ -218,6 +220,10 @@ async def test_unreachable_upstream_postpones_the_order(http, upstreams):
     await closed.close()
 
     assert (await load(order_id)).attempts == 1
+    [step] = [
+        span for span in SPANS.get_finished_spans() if span.name.startswith("saga ")
+    ]
+    assert step.status.status_code is StatusCode.ERROR
 
 
 async def test_retry_pause_doubles_up_to_the_limit(http):

@@ -11,6 +11,10 @@ from alembic.config import Config
 from tests.helpers.env import load_dotenv_into_environ
 
 load_dotenv_into_environ(".env.test", "../.env.test")
+
+from tests.helpers.spans import SPANS, record_spans  # noqa: E402
+
+record_spans()
 os.environ["DB__NAME"] = "testing_payment_e2e_db"
 
 from core.db import async_session, engine  # noqa: E402
@@ -18,6 +22,11 @@ from core.settings import settings  # noqa: E402
 from tests.helpers.db import create_db, drop_db  # noqa: E402
 
 ALEMBIC_INI_PATH = Path(__file__).resolve().parent.parent / "alembic.ini"
+
+
+@pytest.fixture(autouse=True)
+def clear_spans():
+    SPANS.clear()
 
 
 @pytest.fixture(scope="session")

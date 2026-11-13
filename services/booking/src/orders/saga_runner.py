@@ -9,7 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from core.breaker import CircuitOpenError
 from core.settings import SagaSettings
-from core.telemetry import continue_trace, record_finished_order, saga_steps
+from core.telemetry import (
+    continue_trace,
+    mark_span_failed,
+    record_finished_order,
+    saga_steps,
+)
 from orders.clients.catalog import CatalogClient
 from orders.clients.seat_hold import SeatHoldClient
 from orders.dto.order import FinishedOrder
@@ -103,6 +108,7 @@ class SagaRunner:
             logger.bind(error=repr(exc), order_id=str(order_id)).log(
                 "ERROR" if overdue else "WARNING", "Saga step failed, will retry"
             )
+            mark_span_failed(exc)
             await session.rollback()
             await repository.postpone(
                 order_id=order_id,

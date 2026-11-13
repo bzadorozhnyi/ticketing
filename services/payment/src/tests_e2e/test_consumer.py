@@ -9,6 +9,7 @@ from pathlib import Path
 
 import aio_pika
 import pytest
+from opentelemetry.trace import StatusCode
 
 from core.rabbitmq import RabbitMQClient
 from core.settings import FaultSettings, RabbitMQSettings, settings
@@ -22,6 +23,7 @@ from payments.services.provider import (
     TOKEN_SLOW,
 )
 from tests.helpers.ledger import money_held, operations
+from tests.helpers.spans import finished_spans
 from tests_e2e.helpers import (
     Broker,
     bodies,
@@ -185,6 +187,19 @@ async def test_a_handler_timeout_retries_and_succeeds(broker, session_maker):
     assert reply is not None
     assert json.loads(reply.body)["status"] == "succeeded"
     assert await count_charges(session_maker, order_id) == 1
+
+
+async def test_a_timed_out_attempt_marks_its_span_as_failed(broker, session_maker):
+    await start_consumer(broker, session_maker, HANDLER_TIMEOUT_SECONDS=0.1)
+
+    await broker.publish(charge_command(uuid.uuid4(), token=TOKEN_SLOW))
+
+    assert await broker.take(broker.replies, timeout=0.8) is not None
+    spans = await finished_spans("process payment command", count=2)
+    assert [span.status.status_code for span in spans] == [
+        StatusCode.ERROR,
+        StatusCode.UNSET,
+    ]
 
 
 async def test_a_command_that_keeps_failing_ends_in_the_dead_queue(broker):

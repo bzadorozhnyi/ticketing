@@ -9,6 +9,7 @@ import aio_pika
 import pytest
 from fastapi import status
 from loguru import logger
+from opentelemetry.trace import StatusCode
 
 from core.db import async_session
 from core.rabbitmq import Delivery, RabbitMQClient
@@ -20,6 +21,7 @@ from orders.queues.replies import PaymentRepliesQueue
 from orders.repositories.order import OrderRepository
 from orders.use_cases.apply_charge_result import ApplyChargeResultUseCase
 from outbox.repositories.message import OutboxRepository
+from tests.helpers.spans import spans_named
 from tests_e2e.helpers import (
     COMMANDS_QUEUE,
     TRACE_ID,
@@ -258,6 +260,30 @@ async def test_failed_reply_is_retried_and_not_acknowledged(monkeypatch):
 
     assert settled == ["retry"]
     assert (await load(order_id)).saga_step == SagaStep.AWAITING_CHARGE
+
+
+async def test_failed_reply_marks_its_span_as_failed(monkeypatch):
+    order_id = await create_order(saga_step=SagaStep.AWAITING_CHARGE)
+
+    async def crash(self, *, result):
+        raise SimulatedCrash
+
+    monkeypatch.setattr(ApplyChargeResultUseCase, "execute", crash)
+
+    await deliver(charge_result(order_id, ChargeStatus.SUCCEEDED))
+
+    [span] = spans_named("process payment reply")
+    assert span.status.status_code is StatusCode.ERROR
+    assert [event.name for event in span.events] == ["exception"]
+
+
+async def test_handled_reply_leaves_its_span_unmarked(http):
+    order_id = await create_order(saga_step=SagaStep.AWAITING_CHARGE)
+
+    await deliver(charge_result(order_id, ChargeStatus.SUCCEEDED))
+
+    [span] = spans_named("process payment reply")
+    assert span.status.status_code is StatusCode.UNSET
 
 
 async def test_retry_pauses_before_the_message_goes_back(monkeypatch):
