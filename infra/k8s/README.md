@@ -16,6 +16,7 @@ kind delete cluster --name ticketing      # everything goes, the databases too
 |---|---|---|
 | `metrics-server/` | metrics-server v0.9.1 in `kube-system`: CPU and memory of pods for the HPA and `kubectl top` | first |
 | `platform/` | namespace, secrets, config maps, Postgres per service, RabbitMQ, Valkey | then; `deploy.sh` waits for every StatefulSet |
+| `observability/` | collector, Tempo, Prometheus, Grafana, built from `infra/observability` | with `platform` |
 | `migrations/` | one Job per service: `alembic upgrade head`, or `migrate` for seat-hold | then; waits for every Job to complete |
 | `seed/` | catalog's demo data, a Job | then |
 | `apps/` | the services and their workers, Deployments and Services | last; waits for every rollout |
@@ -45,6 +46,18 @@ and while one is down orders wait instead of failing.
 CI runs `infra/check-k8s.sh`: every directory renders, and a throwaway kind cluster with the same node image accepts
 every object in a server-side dry run. It catches a misspelled field or an invalid value, not a pod that fails to start.
 The node image is pinned by digest in `kind-cluster.yaml`; a cluster made before the pin keeps its own image.
+
+Observability, the same files as the compose overlay (ADR 0006): every service exports to `otel-collector`, and
+Prometheus also reads every container's CPU, throttling and memory from the kubelet (`scrape/kubelet.yaml`).
+
+```
+kubectl -n ticketing port-forward service/grafana 3000:3000        # http://localhost:3000, the Containers dashboard
+kubectl -n ticketing port-forward service/prometheus 9090:9090
+```
+
+Tempo needs more than 512 MiB: it read about 1 GiB back from its write-ahead log after a restart, and at 512 MiB it was
+killed while doing so, again and again; the collector then held what it could not send and spent 7.5 cores on garbage
+collection, slowing the whole node. Every request is traced, so tracing grows with the traffic.
 
 Looking inside:
 

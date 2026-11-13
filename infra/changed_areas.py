@@ -46,7 +46,8 @@ def touched_areas(paths: list[str], services: list[str]) -> set[str] | None:
         elif path.startswith(f"{STUB}/"):
             areas.add("stub")
         elif path.startswith("infra/observability/"):
-            areas.add("observability")
+            # The cluster's observability phase is built from these files too.
+            areas.update(("observability", "k8s"))
         elif path.startswith("infra/k8s/"):
             areas.add("k8s")
         else:

@@ -54,7 +54,8 @@ Calls to seat-hold are synchronous HTTP. Delivery is at least once, so every con
 ## Observability
 
 See ADR 0006. OpenTelemetry traces and metrics over OTLP to an OpenTelemetry Collector, then Prometheus (scrapes the
-metrics from the collector), Tempo (traces) and Grafana, all in the `infra/observability/` compose overlay. Telemetry is off without
+metrics from the collector), Tempo (traces) and Grafana, all in the `infra/observability/` compose overlay; the kind cluster runs the same files (`infra/k8s/observability/`)
+and adds the kubelet's container CPU and memory. Telemetry is off without
 `OTEL_EXPORTER_OTLP_ENDPOINT`. Instrumentation stays at the edges, never in use cases; labels come from small fixed sets.
 
 ## Services

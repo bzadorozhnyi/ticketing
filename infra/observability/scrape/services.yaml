@@ -1,0 +1,20 @@
+# Every scrape job but the kubelet's: shared by prometheus.yaml (compose) and prometheus-k8s.yaml (the cluster).
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: [localhost:9090]
+  - job_name: otel-collector
+    static_configs:
+      - targets: [otel-collector:8888]
+  # The services' metrics, exposed by the collector (see otel-collector.yaml). Protobuf carries the start time of
+  # each series and native histograms; honor_labels keeps the services' job and instance instead of the collector's.
+  - job_name: services
+    scrape_interval: 10s
+    scrape_protocols: [PrometheusProto]
+    scrape_native_histograms: true
+    honor_labels: true
+    static_configs:
+      - targets: [otel-collector:8889]
+  - job_name: tempo
+    static_configs:
+      - targets: [tempo:3200]

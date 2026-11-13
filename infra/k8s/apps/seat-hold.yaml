@@ -29,6 +29,7 @@ spec:
             - containerPort: 8000
           envFrom:
             - configMapRef: { name: seat-hold }
+            - configMapRef: { name: telemetry }
           env:
             - name: OTEL_SERVICE_NAME
               value: seat-hold

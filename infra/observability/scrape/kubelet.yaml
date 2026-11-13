@@ -1,0 +1,27 @@
+# CPU and memory of every container in the ticketing namespace, from the kubelet's cAdvisor endpoint, which reads the
+# containers' cgroups. Prometheus finds the nodes through the Kubernetes API and calls each kubelet with its service
+# account token (RBAC in infra/k8s/observability/prometheus.yaml).
+scrape_configs:
+  - job_name: kubelet-cadvisor
+    scheme: https
+    metrics_path: /metrics/cadvisor
+    authorization:
+      credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    # kind's kubelet serves a certificate without the node's IP. A local cluster only.
+    tls_config:
+      insecure_skip_verify: true
+    kubernetes_sd_configs:
+      - role: node
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: container_cpu_usage_seconds_total|container_cpu_cfs_periods_total|container_cpu_cfs_throttled_periods_total|container_memory_working_set_bytes|container_spec_cpu_quota|container_spec_cpu_period|container_spec_memory_limit_bytes
+        action: keep
+      - source_labels: [namespace]
+        regex: ticketing
+        action: keep
+      # An empty container is the pod's own cgroup: the sum of its containers.
+      - source_labels: [container]
+        regex: ""
+        action: drop
+      - regex: id|name|image
+        action: labeldrop

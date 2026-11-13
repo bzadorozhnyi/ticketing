@@ -1,0 +1,38 @@
+# The observability overlay of compose in the cluster (ADR 0006): the same config files, read from
+# infra/observability, so it needs `kubectl kustomize --load-restrictor=LoadRestrictionsNone`.
+# A changed file gives its ConfigMap a new name, and the pods that mount it restart.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ticketing
+resources:
+  - otel-collector.yaml
+  - tempo.yaml
+  - prometheus.yaml
+  - grafana.yaml
+configMapGenerator:
+  - name: otel-collector
+    files:
+      - config.yaml=../../observability/otel-collector.yaml
+  - name: tempo
+    files:
+      - tempo.yaml=../../observability/tempo.yaml
+  - name: prometheus
+    files:
+      - prometheus.yaml=../../observability/prometheus-k8s.yaml
+  - name: prometheus-scrape
+    files:
+      - ../../observability/scrape/services.yaml
+      - ../../observability/scrape/kubelet.yaml
+  - name: prometheus-rules
+    files:
+      - slo.yaml=../../observability/rules/slo.yaml
+  - name: grafana-provisioning
+    files:
+      - datasources.yaml=../../observability/grafana/datasources.yaml
+      - dashboards.yaml=../../observability/grafana/dashboards.yaml
+  - name: grafana-dashboards
+    files:
+      - ../../observability/grafana/dashboards/services.json
+      - ../../observability/grafana/dashboards/purchase.json
+      - ../../observability/grafana/dashboards/slo.json
+      - ../../observability/grafana/dashboards/containers.json
