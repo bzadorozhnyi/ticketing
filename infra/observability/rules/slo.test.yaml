@@ -164,6 +164,44 @@ tests:
         eval_time: 70m
         exp_samples: [{ labels: 'slo:checkout_availability:error_ratio_rate5m', value: 1 }]
 
+  # From 60m no gateway pod is ready: Envoy answers 503 to every request, and the gateway gets none, so its counters
+  # stop and its ratios have nothing to divide. At 65m 5 of the last 60 minutes failed: 8.33 % / 0.5 % = 16.67.
+  - name: 503s that Envoy answers itself page at the edge, the gateway sees nothing
+    interval: 1m
+    input_series:
+      - series: 'envoy_http_downstream_rq_total{job="envoy", pod="a"}'
+        values: '0+600x80'
+      - series: 'envoy_http_downstream_rq_xx{job="envoy", pod="a", envoy_response_code_class="2"}'
+        values: '0+600x60 36000x20'
+      - series: 'envoy_http_downstream_rq_xx{job="envoy", pod="a", envoy_response_code_class="5"}'
+        values: '0x60 600+600x19'
+      - series: 'http_server_request_duration_seconds{job="gateway", http_route="/api/v1/events", http_response_status_code="200"}'
+        values: '{{count:0 sum:0}}+{{count:600 sum:30}}x60 {{count:36000 sum:1800}}x20'
+    alert_rule_test:
+      - alertname: EdgeAvailabilityFastBurn
+        eval_time: 64m
+      - alertname: EdgeAvailabilityFastBurn
+        eval_time: 65m
+        exp_alerts:
+          - exp_labels: { severity: page, slo: edge-availability }
+            exp_annotations:
+              summary: "Envoy at the edge: 5xx spend 2 % of the 30-day budget per hour; Services dashboard, Edge"
+              description: "Burn rate 16.67 over 1 h"
+      - alertname: BrowseAvailabilityFastBurn
+        eval_time: 70m
+
+  - name: 4xx at the edge do not count
+    interval: 1m
+    input_series:
+      - series: 'envoy_http_downstream_rq_total{job="envoy", pod="a"}'
+        values: '0+600x60'
+      - series: 'envoy_http_downstream_rq_xx{job="envoy", pod="a", envoy_response_code_class="4"}'
+        values: '0+600x60'
+    promql_expr_test:
+      - expr: slo:edge_availability:error_ratio_rate1h
+        eval_time: 60m
+        exp_samples: [{ labels: 'slo:edge_availability:error_ratio_rate1h', value: 0 }]
+
   # booking restarts with a new instance and must not page; prometheus is scraped and stops sending
   # target_info, but `up` covers it.
   - name: a process that stops exporting pages within 2 minutes, a restart does not

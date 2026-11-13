@@ -23,6 +23,7 @@ configMapGenerator:
     files:
       - ../../observability/scrape/services.yaml
       - ../../observability/scrape/kubelet.yaml
+      - ../../observability/scrape/envoy.yaml
   - name: prometheus-rules
     files:
       - slo.yaml=../../observability/rules/slo.yaml

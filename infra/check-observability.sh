@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # Checks the observability overlay: the collector and both Prometheus configs (compose and the cluster), the unit tests of the SLO rules
 # (infra/observability/rules/slo.test.yaml) and that every dashboard is valid JSON.
-# The tools come from the images the overlay runs, so the versions cannot differ.
+# The tools come from the images the overlay runs, so the versions cannot differ; the cluster must run the same images.
 set -euo pipefail
 
 cd "$(dirname "$0")/observability"
+compose_images=$(awk '$1 == "image:" {print $2}' compose.yml)
+for used in $(awk '$1 == "image:" {print $2}' ../k8s/observability/*.yaml); do
+  grep -qxF "$used" <<< "$compose_images" || { echo "infra/k8s/observability runs $used, compose.yml does not"; exit 1; }
+done
 image=$(grep -o 'prom/prometheus:[^" ]*' compose.yml)
 collector=$(grep -o 'otel/opentelemetry-collector-contrib:[^" ]*' compose.yml)
 

@@ -3,9 +3,12 @@ global:
   evaluation_interval: 15s
 
 # Tempo writes its span metrics here, and samples can arrive late.
+# The SLOs look back 30 days (rules/slo.yaml); the default retention is 15.
 storage:
   tsdb:
     out_of_order_time_window: 30m
+    retention:
+      time: 31d
 
 rule_files: [rules/slo.yaml]
 

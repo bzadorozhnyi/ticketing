@@ -51,7 +51,20 @@ every object in a server-side dry run. It catches a misspelled field or an inval
 The node image is pinned by digest in `kind-cluster.yaml`; a cluster made before the pin keeps its own image.
 
 Observability, the same files as the compose overlay (ADR 0006): every service exports to `otel-collector`, and
-Prometheus also reads every container's CPU, throttling and memory from the kubelet (`scrape/kubelet.yaml`).
+Prometheus also reads every container's CPU, throttling and memory from the kubelet (`scrape/kubelet.yaml`), and
+Envoy's requests from its pods (`scrape/envoy.yaml`): an availability SLO at the edge sees the 503s Envoy answers
+itself, which never reach the gateway. `infra/check-observability.sh` fails when these manifests run another image
+than compose.
+
+Prometheus keeps 31 days for the 30-day SLOs, in a 4Gi volume. A StatefulSet's volume template cannot change, so a
+cluster created with the old 2Gi refuses the apply (`Forbidden: updates to statefulset spec`). Delete the StatefulSet
+but not its pod or volume, then deploy; the data stays. kind's volumes do not enforce their size, so the old volume
+keeps working.
+
+```
+kubectl -n ticketing delete statefulset prometheus --cascade=orphan
+infra/k8s/deploy.sh
+```
 
 ```
 kubectl -n ticketing port-forward service/grafana 3000:3000        # http://localhost:3000, the Containers dashboard
