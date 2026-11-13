@@ -10,4 +10,8 @@ manifest=$(mktemp)
 trap 'rm -f "$manifest"' EXIT
 curl -sSfL -o "$manifest" "https://github.com/envoyproxy/gateway/releases/download/$version/install.yaml"
 echo "$sha256  $manifest" | shasum -a 256 -c - > /dev/null
+# The certgen Job's template cannot change: a new version would be refused without deleting the old Job first.
+kubectl -n envoy-gateway-system delete job eg-gateway-helm-certgen --ignore-not-found > /dev/null
 kubectl apply --server-side -f "$manifest" > /dev/null
+# Objects of the new kinds are refused until their CRDs are served.
+kubectl wait --for=condition=Established --timeout=60s crd --all > /dev/null

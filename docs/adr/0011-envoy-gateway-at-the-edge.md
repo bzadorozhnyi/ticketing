@@ -15,8 +15,11 @@ for browsers (ALPN). ingress-nginx, the usual answer, was retired in March 2026.
   HTTP/1.1 or HTTP/2 with clients, and picks a gateway pod for every request (least request), over HTTP/1.1.
 - **Installed from the release's `install.yaml`**, checked against its sha256 (`infra/k8s/edge/install-envoy-gateway.sh`):
   4 MB of CRDs and the controller, too much to review or to keep in the repository. Helm would add nothing we use.
-- **Two Envoy pods**, as every HTTP service has (ADR 0009). Their Service takes the NodePort 30080 that kind maps to
+- **Two Envoy pods** with a PodDisruptionBudget and memory requests and limits, as every HTTP service has (ADR 0009). Their Service takes the NodePort 30080 that kind maps to
   `localhost:8000`, set with a patch, as the API has no field for it. The gateway's Service is a ClusterIP.
+- **Envoy's hop to the gateway is tuned to the gateway** (`BackendTrafficPolicy`): it closes idle connections after
+  20 s, before the gateway's 30 s, and its connection and request limits (4096) sit above the gateway's load shedding
+  (1000 per replica), so the gateway sheds first, with its JSON answer.
 - **A self-signed certificate** for `localhost`, made by `deploy.sh` once, kept only in the Secret `edge-tls`.
 - **HTTP/2 only at the edge.** Inside, kube-proxy balances connections: one HTTP/2 connection from the gateway to
   catalog would put a gateway pod's whole load on one catalog pod, the problem TIK-76 just fixed. uvicorn speaks
