@@ -1,10 +1,19 @@
 # Board
 
-Next ticket: TIK-85
+Next ticket: TIK-95
 
 ## In progress
 
 ## To do
+- [ ] TIK-86 Postgres failover for booking: automatic promotion, data lost (RPO) and time to recover (RTO) under load
+- [ ] TIK-87 Seat-hold: record histories under faults and check them for a seat held twice (Jepsen-style)
+- [ ] TIK-88 Catalog: a cache in Valkey and the stampede of misses at the start of a sale
+- [ ] TIK-89 Seat-hold: one hot event, partitioning and its limits
+- [ ] TIK-90 A read model of available seats built from seat-hold's events (CQRS), rebuilt by replay
+- [ ] TIK-91 Canary deploys with an automatic rollback on the SLO burn rate
+- [ ] TIK-92 Service mesh: mTLS between services and balancing per request inside the cluster
+- [ ] TIK-93 Reconciliation of payment's ledger with booking's orders: no money lost or taken twice
+- [ ] TIK-94 Investigate the unexplained ~40 ms in p99 and the L4 hop in front of Envoy
 
 ## Done
 - [x] TIK-1 Catalog: service skeleton (M1)
@@ -91,3 +100,4 @@ Next ticket: TIK-85
 - [x] TIK-80 Gateway: retry any request that never reached the upstream (refused or timed-out connect), any method; no retry without time left for it
 - [x] TIK-79 Observability: Envoy's metrics and an availability SLI at the edge; Prometheus retention for the 30-day SLOs; the CI checks use the images the cluster runs
 - [x] TIK-84 Python services: a database that is starting, refusing connections or cancelling replica reads answers 503 or falls back, not 500
+- [x] TIK-85 Sales-start spike on today's stack: do the first to arrive get the seats? Decides on a waiting room
