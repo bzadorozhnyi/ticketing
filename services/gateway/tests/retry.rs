@@ -140,9 +140,40 @@ async fn a_timeout_is_not_repeated() {
     assert_eq!(upstream.received().len(), 1);
 }
 
+/// Answers 503 after `first` to the first call, and 200 after `later` to every other.
+fn slow_after_the_first(first: Duration, later: Duration) -> Router {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let reply = move || {
+        let calls = calls.clone();
+        async move {
+            if calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                tokio::time::sleep(first).await;
+                StatusCode::SERVICE_UNAVAILABLE
+            } else {
+                tokio::time::sleep(later).await;
+                StatusCode::OK
+            }
+        }
+    };
+    Router::new().route("/api/v1/events", any(reply))
+}
+
+#[tokio::test]
+async fn no_repeat_without_the_time_the_attempt_took() {
+    let routes = answering(StatusCode::SERVICE_UNAVAILABLE, Duration::from_millis(600));
+    let (gateway, upstream) = gateway_for(routes, |settings| {
+        settings.client.request_timeout = Duration::from_secs(1);
+        settings.retry.max_attempts = 10;
+    })
+    .await;
+
+    assert_eq!(get(&gateway).await, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(upstream.received().len(), 1);
+}
+
 #[tokio::test]
 async fn a_retry_gets_only_the_rest_of_the_request_timeout() {
-    let routes = answering(StatusCode::SERVICE_UNAVAILABLE, Duration::from_millis(600));
+    let routes = slow_after_the_first(Duration::from_millis(100), Duration::from_secs(3));
     let (gateway, upstream) = gateway_for(routes, |settings| {
         settings.client.request_timeout = Duration::from_secs(1);
         settings.retry.max_attempts = 10;
@@ -347,6 +378,40 @@ async fn a_post_without_an_idempotency_key_is_not_repeated_when_the_upstream_dro
 
     assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
     assert_eq!(connections.load(Ordering::SeqCst), 1);
+}
+
+async fn count_and_create(State(arrived): State<Arc<AtomicUsize>>) -> StatusCode {
+    arrived.fetch_add(1, Ordering::SeqCst);
+    StatusCode::CREATED
+}
+
+#[tokio::test]
+async fn a_post_without_a_key_is_repeated_when_the_connection_was_refused() {
+    let url = dead_upstream_url().await;
+    let addr = url.trim_start_matches("http://").to_owned();
+    let mut settings = test_settings(&url);
+    settings.retry.max_attempts = 10;
+    settings.retry.base_delay = Duration::from_millis(100);
+    let gateway = spawn_gateway(&settings).await;
+    let arrived = Arc::new(AtomicUsize::new(0));
+    let routes = Router::new()
+        .route("/api/v1/events", any(count_and_create))
+        .with_state(arrived.clone());
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(30)).await;
+        let listener = TcpListener::bind(&addr).await.expect("the freed port");
+        axum::serve(listener, routes).await
+    });
+
+    let response = client()
+        .post(format!("{gateway}/api/v1/events"))
+        .body("{}")
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+    assert_eq!(arrived.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]

@@ -90,10 +90,10 @@ impl<'a> RequestKind<'a> {
     }
 }
 
-/// Sends the request and repeats it while a repeat is safe and may help: only an
-/// idempotent request, only when no answer came (refused, reset or closed connection) or
-/// the upstream answered 503, only while the budget has a token and the deadline leaves
-/// time. The client sees the last answer.
+/// Sends the request and repeats it while a repeat is safe and may help (`worth_retrying`),
+/// while the budget has a token, and while the time left after the pause is at least what
+/// the attempt took: with less, a repeat would only end in a timeout and turn the
+/// upstream's answer into a 504. The client sees the last answer.
 ///
 /// The breaker is asked before every attempt and told the result after it. When it is
 /// open, the first attempt is not made at all, and a retry returns the last answer.
@@ -117,18 +117,18 @@ pub async fn send(
     loop {
         let remaining = deadline.saturating_duration_since(Instant::now());
         let span = UpstreamAttempt::start(parent, breaker.name(), kind.method, attempt);
+        let started = Instant::now();
         let result = span.propagate(request(remaining)).send().await;
+        let took = started.elapsed();
         span.finish(&result);
         call.finish(is_failure(&result));
-        let (status, no_answer) = match &result {
-            Ok(response) => (Some(response.status()), false),
-            Err(error) => (None, !error.is_timeout()),
-        };
-        if attempt >= settings.max_attempts || !worth_retrying(kind.idempotent, status, no_answer) {
+        if attempt >= settings.max_attempts
+            || !worth_retrying(kind.idempotent, Outcome::of(&result))
+        {
             return result.map_err(SendError::Upstream);
         }
         let pause = pause_before(attempt, settings.base_delay);
-        if Instant::now() + pause >= deadline || !budget.withdraw() {
+        if Instant::now() + pause + took >= deadline || !budget.withdraw() {
             return result.map_err(SendError::Upstream);
         }
         sleep(pause).await;
@@ -150,12 +150,43 @@ fn is_failure(result: &Result<Response, reqwest::Error>) -> bool {
     }
 }
 
-/// A lost connection is repeated even if the upstream may have done the work: that is
-/// what idempotent means. A timeout is not: the attempt had the rest of the deadline,
-/// and a slow upstream gets no extra load. A 500 is most likely a bug, and a 502 or 504
-/// from the upstream is the answer of another proxy.
-fn worth_retrying(idempotent: bool, status: Option<StatusCode>, no_answer: bool) -> bool {
-    idempotent && (no_answer || status == Some(StatusCode::SERVICE_UNAVAILABLE))
+/// What an attempt says about trying again.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Outcome {
+    /// No connection was made, refused or not in time: the upstream got nothing.
+    NotSent,
+    /// Sent, then the connection was reset or closed before an answer.
+    NoAnswer,
+    /// No complete answer within the time the attempt had.
+    TimedOut,
+    Answered(StatusCode),
+}
+
+impl Outcome {
+    /// reqwest reports a connect timeout as both a connect error and a timeout, so the
+    /// connect check comes first.
+    fn of(result: &Result<Response, reqwest::Error>) -> Self {
+        match result {
+            Ok(response) => Self::Answered(response.status()),
+            Err(error) if error.is_connect() => Self::NotSent,
+            Err(error) if error.is_timeout() => Self::TimedOut,
+            Err(_) => Self::NoAnswer,
+        }
+    }
+}
+
+/// A request that never left is repeated whatever its method. A lost connection is
+/// repeated only for an idempotent request, since the upstream may have done the work.
+/// A timeout is not: the attempt had the rest of the deadline, and a slow upstream gets
+/// no extra load. A 500 is most likely a bug, and a 502 or 504 from the upstream is the
+/// answer of another proxy.
+fn worth_retrying(idempotent: bool, outcome: Outcome) -> bool {
+    match outcome {
+        Outcome::NotSent => true,
+        Outcome::NoAnswer => idempotent,
+        Outcome::Answered(status) => idempotent && status == StatusCode::SERVICE_UNAVAILABLE,
+        Outcome::TimedOut => false,
+    }
 }
 
 /// Full jitter: a random pause up to `base * 2^(attempt - 1)`, so the repeats of many
@@ -191,20 +222,26 @@ mod tests {
     }
 
     #[test]
+    fn a_request_that_never_left_is_repeated_whatever_its_method() {
+        assert!(worth_retrying(true, Outcome::NotSent));
+        assert!(worth_retrying(false, Outcome::NotSent));
+    }
+
+    #[test]
     fn only_idempotent_requests_and_transient_failures_are_repeated() {
-        let unavailable = Some(StatusCode::SERVICE_UNAVAILABLE);
-        assert!(worth_retrying(true, unavailable, false));
-        assert!(worth_retrying(true, None, true));
-        assert!(!worth_retrying(false, unavailable, false));
-        assert!(!worth_retrying(false, None, true));
-        assert!(!worth_retrying(true, None, false));
-        assert!(!worth_retrying(
-            true,
-            Some(StatusCode::INTERNAL_SERVER_ERROR),
-            false
-        ));
-        assert!(!worth_retrying(true, Some(StatusCode::OK), false));
-        assert!(!worth_retrying(true, Some(StatusCode::BAD_GATEWAY), false));
+        let unavailable = Outcome::Answered(StatusCode::SERVICE_UNAVAILABLE);
+        assert!(worth_retrying(true, unavailable));
+        assert!(worth_retrying(true, Outcome::NoAnswer));
+        assert!(!worth_retrying(false, unavailable));
+        assert!(!worth_retrying(false, Outcome::NoAnswer));
+        assert!(!worth_retrying(true, Outcome::TimedOut));
+        for status in [
+            StatusCode::INTERNAL_SERVER_ERROR,
+            StatusCode::OK,
+            StatusCode::BAD_GATEWAY,
+        ] {
+            assert!(!worth_retrying(true, Outcome::Answered(status)));
+        }
     }
 
     #[test]
