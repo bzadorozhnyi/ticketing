@@ -64,7 +64,8 @@ See ADR 0007 and `infra/replication/README.md`. `GET /orders/{id}` reads from `b
 `__NAME`, `__USER`, `__PASS`); everything else uses `DB`. Without `DB_REPLICA` those reads go to the primary.
 - Read-your-writes (`core/consistency.py`): `POST /orders` returns `X-Consistency-Token`; a `GET` that sends it reads
   from the replica if it has that write, else from the primary; it does not wait (TIK-65). Without a token, an order the replica does not have yet is read from the primary. A replica that cannot be
-  reached sends reads to the primary. `db.replica.reads` (source, reason) counts it.
+  reached sends reads to the primary, and so does a read the replica cancels for a conflict with its WAL replay
+  (40001, reason `conflict`). `db.replica.reads` (source, reason) counts it.
 - `pg_lsn` parameters go to asyncpg as text and are cast in SQL: asyncpg would encode a `pg_lsn` as an integer.
 - Background job of the API process, only with a replica: `core/replication.py` reads the replica's lag
   (`pg_stat_replication.replay_lag`) and the WAL its slot keeps from the primary every `REPLICATION__PROBE_INTERVAL_SECONDS`

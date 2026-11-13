@@ -5,7 +5,6 @@ Next ticket: TIK-85
 ## In progress
 
 ## To do
-- [ ] TIK-84 Python services: a database that is starting, refusing connections or cancelling replica reads answers 503 or falls back, not 500
 
 ## Done
 - [x] TIK-1 Catalog: service skeleton (M1)
@@ -91,3 +90,4 @@ Next ticket: TIK-85
 - [x] TIK-78 Edge: Envoy's idle timeout to the gateway below its 30 s, Envoy's limits above the gateway's shedding, Envoy pod resources and PDB, CRDs waited for; deploy.sh pinned to the kind-ticketing context
 - [x] TIK-80 Gateway: retry any request that never reached the upstream (refused or timed-out connect), any method; no retry without time left for it
 - [x] TIK-79 Observability: Envoy's metrics and an availability SLI at the edge; Prometheus retention for the 30-day SLOs; the CI checks use the images the cluster runs
+- [x] TIK-84 Python services: a database that is starting, refusing connections or cancelling replica reads answers 503 or falls back, not 500

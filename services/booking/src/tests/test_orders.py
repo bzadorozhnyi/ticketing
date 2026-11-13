@@ -3,7 +3,7 @@ import uuid
 
 import pytest
 from fastapi import status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
@@ -311,6 +311,27 @@ async def test_with_a_token_a_replica_that_has_it_answers_alone(
 async def test_an_unreachable_replica_sends_reads_to_the_primary(
     async_client, order_factory, unreachable_replica
 ):
+    order = await order_factory()
+
+    response = await get_order(async_client, order.id, token="0/1")
+
+    assert response.status_code == status.HTTP_200_OK
+
+
+async def test_a_read_the_replica_cancels_goes_to_the_primary(
+    async_client, order_factory, lagging_replica, monkeypatch
+):
+    """A replica cancels a query that holds rows its WAL replay must remove."""
+
+    async def cancelled(session, token):
+        await session.execute(
+            text(
+                "DO $$ BEGIN RAISE EXCEPTION 'conflict with recovery' "
+                "USING ERRCODE = '40001'; END $$"
+            )
+        )
+
+    monkeypatch.setattr(consistency, "replica_has", cancelled)
     order = await order_factory()
 
     response = await get_order(async_client, order.id, token="0/1")

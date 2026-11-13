@@ -48,12 +48,24 @@ class BaseModel(DeclarativeBase):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
+# The server refused the session or is going away: shutting down, crashed, starting up,
+# out of connections. Class 08 is a lost or refused connection.
+UNAVAILABLE_SQLSTATES = frozenset({"57P01", "57P02", "57P03", "53300"})
+
+
 def is_connection_error(exc: Exception) -> bool:
-    """asyncpg raises plain OSError subclasses while connecting; SQLAlchemy only
-    wraps failures on an already open connection.
+    """asyncpg raises plain OSError subclasses when the socket fails; SQLAlchemy
+    marks a lost open connection as invalidated. A server that answers the login
+    with an error (starting up, too many connections) gives neither: only its
+    SQLSTATE tells.
     """
     if isinstance(exc, DBAPIError):
-        return exc.connection_invalidated
+        sqlstate = getattr(exc.orig, "sqlstate", None) or ""
+        return (
+            exc.connection_invalidated
+            or sqlstate in UNAVAILABLE_SQLSTATES
+            or sqlstate.startswith("08")
+        )
     return isinstance(exc, OSError)
 
 
