@@ -1,4 +1,4 @@
-# One node is enough for the services and their stores; localhost:8000 reaches the gateway's NodePort.
+# One node is enough for the services and their stores; localhost:8000 reaches Envoy's NodePort (infra/k8s/edge).
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: ticketing

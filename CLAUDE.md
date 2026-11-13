@@ -194,7 +194,7 @@ GitHub Actions on pull requests into `main` and on pushes to `main` (`.github/wo
 - `infra/check-observability.sh`: the collector and Prometheus configs, `promtool test rules` for the SLO alerts,
   valid dashboard JSON.
 - `infra/check-k8s.sh`: every kustomization in `infra/k8s` renders, and an empty kind cluster with the node image of
-  `kind-cluster.yaml` accepts every object in a server-side dry run (an unknown field or invalid value fails).
+  `kind-cluster.yaml` (and Envoy Gateway's CRDs) accepts every object in a server-side dry run (an unknown field or invalid value fails).
 - All Docker images build, with the layers cached between runs.
 
 `infra/changed_areas.py` decides what runs in a pull request: only documentation is skipped, a service runs its own checks,

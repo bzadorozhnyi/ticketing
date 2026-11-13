@@ -8,7 +8,8 @@ infra/k8s/deploy.sh                       # creates the cluster if needed, build
 kubectl config current-context            # kind-ticketing; your other clusters keep their own contexts
 kubectl -n ticketing get pods             # every pod and its state
 TOKEN=$(kubectl -n ticketing exec deploy/gateway -- issue-token user-1)
-curl -H "Authorization: Bearer $TOKEN" localhost:8000/api/v1/events
+kubectl -n ticketing get secret edge-tls -o jsonpath='{.data.tls\.crt}' | base64 -d > edge.crt   # the self-signed certificate
+curl --cacert edge.crt -H "Authorization: Bearer $TOKEN" https://localhost:8000/api/v1/events   # --http2 works too
 kind delete cluster --name ticketing      # everything goes, the databases too
 ```
 
@@ -19,7 +20,8 @@ kind delete cluster --name ticketing      # everything goes, the databases too
 | `observability/` | collector, Tempo, Prometheus, Grafana, built from `infra/observability` | with `platform` |
 | `migrations/` | one Job per service: `alembic upgrade head`, or `migrate` for seat-hold | then; waits for every Job to complete |
 | `seed/` | catalog's demo data, a Job | then |
-| `apps/` | the services and their workers, Deployments and Services | last; waits for every rollout |
+| `apps/` | the services and their workers, Deployments and Services | then; waits for every rollout |
+| `edge/` | Envoy Gateway's `Gateway` (HTTPS) and `HTTPRoute` to the gateway; Envoy Gateway itself from `install-envoy-gateway.sh` | last, as it takes the gateway's old NodePort; waits until Envoy has the config |
 
 Kubernetes keeps no order between resources; `deploy.sh` does what `depends_on` did in compose. Every deploy tags the
 images with the commit (and a timestamp when `services/` has local changes), so a Deployment sees a new image and
@@ -69,5 +71,7 @@ kubectl -n ticketing port-forward service/catalog 8001:8000   # a tunnel from lo
 ```
 
 How a request from the Mac reaches the gateway: kind maps `127.0.0.1:8000` to port 30080 of its node container
-(`kind-cluster.yaml`), and the gateway's Service is a NodePort on 30080. Inside the cluster services call each other by
-their Service names, as in compose.
+(`kind-cluster.yaml`), Envoy's Service is a NodePort on 30080, and Envoy ends TLS (HTTP/1.1 or HTTP/2, ALPN) and sends
+each request to a gateway pod of its own choice, over HTTP/1.1 (ADR 0011). The gateway's Service is a ClusterIP.
+Inside the cluster services call each other by their Service names, as in compose: kube-proxy balances connections,
+not requests, which is why the gateway renews its upstream connections every 10 s and nothing inside speaks HTTP/2.

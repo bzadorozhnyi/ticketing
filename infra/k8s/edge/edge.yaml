@@ -1,0 +1,62 @@
+# Envoy's own Deployment and Service, made by Envoy Gateway in envoy-gateway-system. kind maps localhost:8000 to the
+# node's port 30080 (kind-cluster.yaml), so the Service takes that port; the API has no field for it, hence the patch.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: edge
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyDeployment:
+        replicas: 2
+      envoyService:
+        type: NodePort
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              ports:
+                - port: 443
+                  nodePort: 30080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: envoy
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+  parametersRef:
+    group: gateway.envoyproxy.io
+    kind: EnvoyProxy
+    name: edge
+    namespace: ticketing
+---
+# HTTPS only, with the certificate deploy.sh makes once (Secret edge-tls); clients may speak HTTP/1.1 or HTTP/2.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: edge
+spec:
+  gatewayClassName: envoy
+  listeners:
+    - name: https
+      protocol: HTTPS
+      port: 443
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: edge-tls
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: gateway
+spec:
+  parentRefs:
+    - name: edge
+  rules:
+    - backendRefs:
+        - name: gateway
+          port: 8000
