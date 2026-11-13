@@ -10,6 +10,12 @@ spec:
     kubernetes:
       envoyDeployment:
         replicas: 2
+        container:
+          resources:
+            requests: { cpu: 100m, memory: 64Mi }
+            limits: { memory: 256Mi }
+      envoyPDB:
+        minAvailable: 1
       envoyService:
         type: NodePort
         patch:
@@ -60,3 +66,24 @@ spec:
     - backendRefs:
         - name: gateway
           port: 8000
+---
+# Envoy's side of the hop to the gateway. The gateway closes a kept-alive connection idle for 30 s
+# (LIMITS__HEADER_TIMEOUT_SECONDS), so Envoy drops its own sooner and never sends on one being closed. Its connection
+# and request limits (1024 by default) sit above the gateway's load shedding, 1000 per replica, with room for one
+# Envoy pod carrying all of it: the gateway sheds first, with its own JSON answer.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: gateway
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: gateway
+  timeout:
+    http:
+      connectionIdleTimeout: 20s
+  circuitBreaker:
+    maxConnections: 4096
+    maxPendingRequests: 4096
+    maxParallelRequests: 4096

@@ -16,6 +16,12 @@ fi
 
 kind get clusters | grep -qx "$cluster" || kind create cluster --config kind-cluster.yaml
 
+# A kubeconfig of its own, holding only this cluster: whatever context kubectl is on, nothing lands in another cluster.
+KUBECONFIG=$(mktemp)
+export KUBECONFIG
+trap 'rm -f "$KUBECONFIG"' EXIT
+kind get kubeconfig --name "$cluster" > "$KUBECONFIG"
+
 for service in "${services[@]}"; do
   echo "Image ticketing/$service:$tag"
   docker build --quiet --tag "ticketing/$service:$tag" "../../services/$service" >/dev/null

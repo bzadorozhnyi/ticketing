@@ -4,7 +4,8 @@ Every service, store and migration in a local kind cluster, see ADR 0009. The co
 `localhost:8000`, so run one at a time: `docker compose down` first (volumes stay).
 
 ```
-infra/k8s/deploy.sh                       # creates the cluster if needed, builds and loads the images, deploys
+infra/k8s/deploy.sh                       # creates the cluster if needed, builds and loads the images, deploys;
+                                          # it uses its own kubeconfig, so the current kubectl context does not matter
 kubectl config current-context            # kind-ticketing; your other clusters keep their own contexts
 kubectl -n ticketing get pods             # every pod and its state
 TOKEN=$(kubectl -n ticketing exec deploy/gateway -- issue-token user-1)
