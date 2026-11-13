@@ -18,7 +18,7 @@ kind delete cluster --name ticketing      # everything goes, the databases too
 | `metrics-server/` | metrics-server v0.9.1 in `kube-system`: CPU and memory of pods for the HPA and `kubectl top` | first |
 | `platform/` | namespace, secrets, config maps, Postgres per service, RabbitMQ, Valkey | then; `deploy.sh` waits for every StatefulSet |
 | `observability/` | collector, Tempo, Prometheus, Grafana, built from `infra/observability` | with `platform` |
-| `migrations/` | one Job per service: `alembic upgrade head`, or `migrate` for seat-hold | then; waits for every Job to complete |
+| `migrations/` | one Job per service: `alembic upgrade head`, or `migrate` for seat-hold; and RabbitMQ's policies (`infra/rabbitmq/policies.sh`) | then; waits for every Job to complete |
 | `seed/` | catalog's demo data, a Job | then |
 | `apps/` | the services and their workers, Deployments and Services | then; waits for every rollout |
 | `edge/` | Envoy Gateway's `Gateway` (HTTPS) and `HTTPRoute` to the gateway; Envoy Gateway itself from `install-envoy-gateway.sh` | last, as it takes the gateway's old NodePort; waits until Envoy has the config |

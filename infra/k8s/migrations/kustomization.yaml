@@ -1,4 +1,5 @@
-# One Job per service, run to completion before the services start (infra/k8s/deploy.sh).
+# One Job per service, and one for RabbitMQ's policies, run to completion before the services start (infra/k8s/deploy.sh).
+# The policies script lives in infra/rabbitmq, for compose too: render with --load-restrictor=LoadRestrictionsNone.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: ticketing
@@ -7,3 +8,8 @@ resources:
   - booking.yaml
   - payment.yaml
   - seat-hold.yaml
+  - rabbitmq-policies.yaml
+configMapGenerator:
+  - name: rabbitmq-policies
+    files:
+      - ../../rabbitmq/policies.sh

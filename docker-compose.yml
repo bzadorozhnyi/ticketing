@@ -81,6 +81,18 @@ services:
       timeout: 5s
       retries: 20
 
+
+  rabbitmq-policies:
+    image: rabbitmq:4.4.0-management-alpine
+    entrypoint: ["sh", "/policies.sh"]
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ticketing
+      RABBITMQ_PASS: password
+    volumes: ["./infra/rabbitmq/policies.sh:/policies.sh:ro"]
+    depends_on:
+      rabbitmq: { condition: service_healthy }
+
   valkey:
     image: valkey/valkey:9.1.3-alpine
     command: ["valkey-server", "--save", "", "--appendonly", "no"]
@@ -219,6 +231,7 @@ services:
     depends_on:
       booking-migrate: { condition: service_completed_successfully }
       rabbitmq: { condition: service_healthy }
+      rabbitmq-policies: { condition: service_completed_successfully }
 
   payment-consumer:
     <<: *payment

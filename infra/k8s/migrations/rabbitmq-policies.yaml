@@ -1,0 +1,25 @@
+# RabbitMQ's policies (infra/rabbitmq/policies.sh), with the migrations: the queues may exist already.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rabbitmq-policies
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: policies
+          image: rabbitmq:4.4.0-management-alpine
+          command: ["sh", "/scripts/policies.sh"]
+          env:
+            - { name: RABBITMQ_HOST, value: rabbitmq }
+            - name: RABBITMQ_USER
+              valueFrom: { secretKeyRef: { name: rabbitmq, key: user } }
+            - name: RABBITMQ_PASS
+              valueFrom: { secretKeyRef: { name: rabbitmq, key: password } }
+          volumeMounts:
+            - { name: scripts, mountPath: /scripts }
+      volumes:
+        - name: scripts
+          configMap: { name: rabbitmq-policies }

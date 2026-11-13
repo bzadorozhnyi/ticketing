@@ -50,6 +50,10 @@ Features are secondary; failure experiments and evidence are the point.
 
 See ADR 0005. booking and payment talk through RabbitMQ, with a transactional outbox on the sending side.
 Calls to seat-hold are synchronous HTTP. Delivery is at least once, so every consumer is idempotent.
+Queue declarations in code carry only the name, durability and type. Everything else (dead letters, delivery limits, TTL,
+max length) is a policy in `infra/rabbitmq/policies.sh`, applied by the `rabbitmq-policies` service in compose and a Job in
+the cluster: a queue's arguments cannot change once it exists (PRECONDITION_FAILED). The payment commands queue predates
+this rule and keeps its arguments; changing them means a new queue.
 
 ## Observability
 

@@ -22,6 +22,11 @@ for service in "${services[@]}"; do
   kind load docker-image "ticketing/$service:$tag" --name "$cluster" >/dev/null
 done
 
+# migrations and observability read files from outside their directory (infra/rabbitmq, infra/observability).
+render() {
+  kubectl kustomize --load-restrictor=LoadRestrictionsNone "$1"
+}
+
 # The manifests name images without a tag; this one is what was just built.
 with_tag() {
   sed -E "s#image: (ticketing/[a-z-]+)\$#image: \1:$tag#"
@@ -30,16 +35,16 @@ with_tag() {
 kubectl apply -k metrics-server
 edge/install-envoy-gateway.sh
 kubectl apply -k platform
-kubectl kustomize --load-restrictor=LoadRestrictionsNone observability | kubectl apply -f -
+render observability | kubectl apply -f -
 for statefulset in $(kubectl -n ticketing get statefulset -o name); do
   kubectl -n ticketing rollout status "$statefulset" --timeout=300s
 done
 
 # A Job's template cannot change, and every deploy runs its migrations again: delete, then create.
 for phase in migrations seed; do
-  kubectl kustomize "$phase" | kubectl delete --ignore-not-found --wait -f -
-  kubectl kustomize "$phase" | with_tag | kubectl apply -f -
-  kubectl kustomize "$phase" | kubectl wait --for=condition=complete --timeout=300s -f -
+  render "$phase" | kubectl delete --ignore-not-found --wait -f -
+  render "$phase" | with_tag | kubectl apply -f -
+  kubectl -n ticketing wait --for=condition=complete --timeout=300s job --all
 done
 
 kubectl kustomize apps | with_tag | kubectl apply -f -
