@@ -139,7 +139,7 @@ async def test_lost_reply_is_healed_by_the_repeated_charge(upstreams, http):
     assert [body["type"] for body in await bodies()] == ["charge"]
 
 
-async def test_crash_while_repeating_changes_nothing(http, monkeypatch):
+async def test_failure_while_repeating_rolls_the_repeat_back(http, monkeypatch):
     order_id = await create_order(**WAITING_CHARGE)
     runner = make_runner(http)
 
@@ -148,10 +148,11 @@ async def test_crash_while_repeating_changes_nothing(http, monkeypatch):
 
     with monkeypatch.context() as patch:
         patch.setattr(OrderRepository, "postpone", crash)
-        with pytest.raises(SimulatedCrash):
-            await runner.process_next()
+        await runner.process_next()
 
-    assert (await load(order_id)).attempts == 0
+    order = await load(order_id)
+    assert order.saga_step == SagaStep.AWAITING_CHARGE
+    assert order.attempts == 1
     assert await outbox() == []
 
 

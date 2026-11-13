@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from typing import Literal
@@ -17,7 +18,7 @@ from core.telemetry import (
 )
 from orders.clients.catalog import CatalogClient
 from orders.clients.seat_hold import SeatHoldClient
-from orders.dto.order import FinishedOrder
+from orders.dto.order import FinishedOrder, SagaPosition
 from orders.models.order import Order, SagaStep
 from orders.repositories.order import OrderRepository
 from orders.services.payment_commands import PaymentCommands
@@ -89,6 +90,7 @@ class SagaRunner:
         probe through, not on its own schedule.
         """
         order_id, attempts = order.id, order.attempts
+        seen = SagaPosition.of(order)
         overdue = self._is_overdue(order=order)
         try:
             finished = await self._run_step(
@@ -99,8 +101,12 @@ class SagaRunner:
                 "Saga step postponed, the circuit is open"
             )
             await session.rollback()
-            await repository.postpone(
-                order_id=order_id, attempts=attempts, delay_seconds=exc.retry_after
+            await self._postpone(
+                repository=repository,
+                order_id=order_id,
+                seen=seen,
+                attempts=attempts,
+                delay_seconds=exc.retry_after,
             )
             await session.commit()
             return "postponed"
@@ -110,8 +116,10 @@ class SagaRunner:
             )
             mark_span_failed(exc)
             await session.rollback()
-            await repository.postpone(
+            await self._postpone(
+                repository=repository,
                 order_id=order_id,
+                seen=seen,
                 attempts=attempts + 1,
                 delay_seconds=self._retry_delay(attempts=attempts),
             )
@@ -156,6 +164,23 @@ class SagaRunner:
             payment_commands=payment_commands,
             settings=self.settings,
         ).execute(order=order, overdue=overdue)
+
+    async def _postpone(
+        self,
+        *,
+        repository: OrderRepository,
+        order_id: uuid.UUID,
+        seen: SagaPosition,
+        attempts: int,
+        delay_seconds: float,
+    ) -> None:
+        postponed = await repository.postpone_if_unchanged(
+            order_id=order_id, seen=seen, attempts=attempts, delay_seconds=delay_seconds
+        )
+        if not postponed:
+            logger.bind(order_id=str(order_id)).info(
+                "Saga step not postponed: the order moved on meanwhile"
+            )
 
     def _is_overdue(self, *, order: Order) -> bool:
         give_up_at = order.created_at + timedelta(

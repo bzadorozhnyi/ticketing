@@ -4,7 +4,7 @@ from typing import Self
 
 from pydantic import BaseModel
 
-from orders.models.order import FailureReason, Order, OrderStatus
+from orders.models.order import FailureReason, Order, OrderStatus, SagaStep
 
 
 class OrderDTO(BaseModel):
@@ -37,3 +37,19 @@ class FinishedOrder(BaseModel):
 class CreatedOrderDTO(BaseModel):
     order: OrderDTO
     consistency_token: str
+
+
+class SagaPosition(BaseModel):
+    """Where a due order stood when a saga worker locked it."""
+
+    step: SagaStep
+    attempts: int
+    next_attempt_at: datetime
+
+    @classmethod
+    def of(cls, order: Order) -> Self:
+        return cls(
+            step=order.saga_step,
+            attempts=order.attempts,
+            next_attempt_at=order.next_attempt_at,
+        )

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.consistency import ReplicaReads
 from core.db import ReplicaSessionDep, SessionDep
+from orders.dto.order import SagaPosition
 from orders.models.order import FailureReason, Order, OrderStatus, SagaStep
 from orders.models.payment_token import OrderPaymentToken
 
@@ -201,6 +202,34 @@ class OrderRepository:
                 next_attempt_at=func.now() + timedelta(seconds=delay_seconds),
             )
         )
+
+    async def postpone_if_unchanged(
+        self,
+        *,
+        order_id: uuid.UUID,
+        seen: SagaPosition,
+        attempts: int,
+        delay_seconds: float,
+    ) -> bool:
+        """For a step that failed and rolled back, which released its lock: meanwhile
+        another worker or a payment reply may have moved the order, and that change
+        wins. Postpones only an order still where `seen` found it; returns whether it
+        did."""
+        result = await self.session.execute(
+            update(Order)
+            .where(
+                Order.id == order_id,
+                Order.saga_step == seen.step,
+                Order.attempts == seen.attempts,
+                Order.next_attempt_at == seen.next_attempt_at,
+            )
+            .values(
+                attempts=attempts,
+                next_attempt_at=func.now() + timedelta(seconds=delay_seconds),
+            )
+            .returning(Order.id)
+        )
+        return result.scalar_one_or_none() is not None
 
 
 def get_order_repository(session: SessionDep) -> OrderRepository:

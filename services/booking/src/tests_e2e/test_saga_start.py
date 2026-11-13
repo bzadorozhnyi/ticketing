@@ -1,11 +1,11 @@
 import asyncio
 import json
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi import status
 from opentelemetry.trace import StatusCode
-from sqlalchemy import text, update
+from sqlalchemy import func, text, update
 
 from core.db import async_session
 from core.http import HttpClient
@@ -232,6 +232,35 @@ async def test_retry_pause_doubles_up_to_the_limit(http):
     delays = [runner._retry_delay(attempts=n) for n in (0, 1, 2, 5, 6, 5000)]
 
     assert delays == [0.5, 1, 2, 16, 30, 30]
+
+
+async def test_a_failed_step_keeps_a_change_committed_after_its_rollback(
+    upstreams, http, monkeypatch
+):
+    order_id = await create_order()
+    upstreams.hold = Reply(status=status.HTTP_503_SERVICE_UNAVAILABLE)
+    postpone = OrderRepository.postpone_if_unchanged
+
+    async def charged_meanwhile(self, **kwargs):
+        async with async_session() as other:
+            await other.execute(
+                update(Order)
+                .where(Order.id == order_id)
+                .values(
+                    saga_step=SagaStep.CHARGED, attempts=0, next_attempt_at=func.now()
+                )
+            )
+            await other.commit()
+        return await postpone(self, **kwargs)
+
+    monkeypatch.setattr(OrderRepository, "postpone_if_unchanged", charged_meanwhile)
+
+    await make_runner(http).process_next()
+
+    order = await load(order_id)
+    assert order.saga_step == SagaStep.CHARGED
+    assert order.attempts == 0
+    assert order.next_attempt_at <= datetime.now(UTC)
 
 
 async def test_broken_order_does_not_stop_the_ones_behind_it(upstreams, http):
