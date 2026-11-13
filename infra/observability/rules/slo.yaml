@@ -33,10 +33,6 @@ groups:
         expr: |
           (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/events.*", http_response_status_code=~"5.."}[6h]))) or vector(0))
           / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/events.*"}[6h])))
-      - record: slo:browse_availability:error_ratio_rate30d
-        expr: |
-          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/events.*", http_response_status_code=~"5.."}[30d]))) or vector(0))
-          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/events.*"}[30d])))
       - alert: BrowseAvailabilityFastBurn
         expr: |
           slo:browse_availability:error_ratio_rate1h / slo:browse_availability:error_budget > 14.4
@@ -75,10 +71,6 @@ groups:
         expr: |
           (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/(holds|orders).*", http_response_status_code=~"5.."}[6h]))) or vector(0))
           / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/(holds|orders).*"}[6h])))
-      - record: slo:checkout_availability:error_ratio_rate30d
-        expr: |
-          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/(holds|orders).*", http_response_status_code=~"5.."}[30d]))) or vector(0))
-          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/(holds|orders).*"}[30d])))
       - alert: CheckoutAvailabilityFastBurn
         expr: |
           slo:checkout_availability:error_ratio_rate1h / slo:checkout_availability:error_budget > 14.4
@@ -96,6 +88,47 @@ groups:
           summary: "Checkout (holds, orders): 5xx spend 5 % of the 30-day budget in 6 hours; Services dashboard"
           description: "Burn rate {{ $value | humanize }} over 6 h"
 
+  # Every request at Envoy, the edge of the cluster (infra/k8s/edge), as the client got it. The gateway's metrics miss
+  # what Envoy answers itself: 503 when no gateway pod is ready or its circuit breaker is full. A 5xx of the gateway
+  # counts here too, so an outage behind the gateway pages twice, once here and once for its user journey.
+  # Compose has no Envoy: the ratio is empty there and nothing fires.
+  - name: slo-edge-availability
+    rules:
+      - record: slo:edge_availability:error_budget
+        expr: vector(0.005)
+      - record: slo:edge_availability:error_ratio_rate5m
+        expr: |
+          (sum(rate(envoy_http_downstream_rq_xx{job="envoy", envoy_response_code_class="5"}[5m])) or vector(0))
+          / sum(rate(envoy_http_downstream_rq_total{job="envoy"}[5m]))
+      - record: slo:edge_availability:error_ratio_rate30m
+        expr: |
+          (sum(rate(envoy_http_downstream_rq_xx{job="envoy", envoy_response_code_class="5"}[30m])) or vector(0))
+          / sum(rate(envoy_http_downstream_rq_total{job="envoy"}[30m]))
+      - record: slo:edge_availability:error_ratio_rate1h
+        expr: |
+          (sum(rate(envoy_http_downstream_rq_xx{job="envoy", envoy_response_code_class="5"}[1h])) or vector(0))
+          / sum(rate(envoy_http_downstream_rq_total{job="envoy"}[1h]))
+      - record: slo:edge_availability:error_ratio_rate6h
+        expr: |
+          (sum(rate(envoy_http_downstream_rq_xx{job="envoy", envoy_response_code_class="5"}[6h])) or vector(0))
+          / sum(rate(envoy_http_downstream_rq_total{job="envoy"}[6h]))
+      - alert: EdgeAvailabilityFastBurn
+        expr: |
+          slo:edge_availability:error_ratio_rate1h / slo:edge_availability:error_budget > 14.4
+          and slo:edge_availability:error_ratio_rate5m / slo:edge_availability:error_budget > 14.4
+        labels: { severity: page, slo: edge-availability }
+        annotations:
+          summary: "Envoy at the edge: 5xx spend 2 % of the 30-day budget per hour; Services dashboard, Edge"
+          description: "Burn rate {{ $value | humanize }} over 1 h"
+      - alert: EdgeAvailabilitySlowBurn
+        expr: |
+          slo:edge_availability:error_ratio_rate6h / slo:edge_availability:error_budget > 6
+          and slo:edge_availability:error_ratio_rate30m / slo:edge_availability:error_budget > 6
+        labels: { severity: page, slo: edge-availability }
+        annotations:
+          summary: "Envoy at the edge: 5xx spend 5 % of the 30-day budget in 6 hours; Services dashboard, Edge"
+          description: "Burn rate {{ $value | humanize }} over 6 h"
+
   # GET requests to /api through the gateway answered within 300 ms, errors included.
   # histogram_fraction interpolates inside the bucket that holds 300 ms.
   - name: slo-gateway-read-latency
@@ -110,8 +143,6 @@ groups:
         expr: 1 - histogram_fraction(0, 0.3, sum(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*", http_request_method="GET"}[1h])))
       - record: slo:gateway_read_latency:error_ratio_rate6h
         expr: 1 - histogram_fraction(0, 0.3, sum(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*", http_request_method="GET"}[6h])))
-      - record: slo:gateway_read_latency:error_ratio_rate30d
-        expr: 1 - histogram_fraction(0, 0.3, sum(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*", http_request_method="GET"}[30d])))
       - alert: GatewayReadLatencyFastBurn
         expr: |
           slo:gateway_read_latency:error_ratio_rate1h / slo:gateway_read_latency:error_budget > 14.4
@@ -143,8 +174,6 @@ groups:
         expr: 1 - histogram_fraction(0, 10, sum(rate(booking_order_duration_seconds[1h])))
       - record: slo:purchase:error_ratio_rate6h
         expr: 1 - histogram_fraction(0, 10, sum(rate(booking_order_duration_seconds[6h])))
-      - record: slo:purchase:error_ratio_rate30d
-        expr: 1 - histogram_fraction(0, 10, sum(rate(booking_order_duration_seconds[30d])))
       - alert: PurchaseFastBurn
         expr: |
           slo:purchase:error_ratio_rate1h / slo:purchase:error_budget > 14.4
@@ -170,6 +199,29 @@ groups:
         annotations:
           summary: "Orders are created but none has finished for 10 minutes; Purchase dashboard"
           description: "The saga worker, the relay, RabbitMQ or payment may be down"
+
+  # The share of bad events over the whole 30 days, for the SLO dashboard; no alert reads it. A rate over 30 days
+  # reads every sample of the window, so it runs less often. A recorded sample stays visible to a query for 5 minutes
+  # (the lookback), so the interval stays below that.
+  - name: slo-30-days
+    interval: 2m
+    rules:
+      - record: slo:browse_availability:error_ratio_rate30d
+        expr: |
+          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/events.*", http_response_status_code=~"5.."}[30d]))) or vector(0))
+          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/events.*"}[30d])))
+      - record: slo:checkout_availability:error_ratio_rate30d
+        expr: |
+          (sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/(holds|orders).*", http_response_status_code=~"5.."}[30d]))) or vector(0))
+          / sum(histogram_count(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/v1/(holds|orders).*"}[30d])))
+      - record: slo:gateway_read_latency:error_ratio_rate30d
+        expr: 1 - histogram_fraction(0, 0.3, sum(rate(http_server_request_duration_seconds{job="gateway", http_route=~"/api/.*", http_request_method="GET"}[30d])))
+      - record: slo:edge_availability:error_ratio_rate30d
+        expr: |
+          (sum(rate(envoy_http_downstream_rq_xx{job="envoy", envoy_response_code_class="5"}[30d])) or vector(0))
+          / sum(rate(envoy_http_downstream_rq_total{job="envoy"}[30d]))
+      - record: slo:purchase:error_ratio_rate30d
+        expr: 1 - histogram_fraction(0, 10, sum(rate(booking_order_duration_seconds[30d])))
 
   # Not an SLO: a process that stops exporting has no requests to fail, so no ratio above notices it.
   # The collector exposes a `target_info` for each process while it exports; a job seen in the last hour

@@ -46,6 +46,10 @@ its time. Answering "what happened during the spike" took a script per question.
   by the edge after the step that ended the order, so a repeated reply is not counted twice; a failed order carries
   its `failure_reason`). One availability SLO over every request let the reads, 20 times as many, hide a full outage
   of holds (TIK-56). The SLO for purchases cannot see an order that never finishes; `OrdersNotFinishing` covers that.
+- **Availability at the edge**, in the cluster only: 99.5 % of the requests at Envoy (ADR 0011) without a 5xx. The
+  gateway's metrics miss what Envoy answers itself, such as 503 when the gateway's Service has no pod to send to, while
+  the gateway's processes run and export (TIK-79). It counts the gateway's 5xx too, so an outage behind the gateway
+  pages twice: here and for its user journey. Prometheus reads Envoy's pods directly (`scrape/envoy.yaml`).
 - **`ProcessNotExporting`**: a process that stops has no requests left to fail, so no SLO notices it. The collector
   exposes a `target_info` for each process while it exports, and forgets it 30 s after the last export
   (`metric_expiration`); a job seen in the last hour and absent for 2 minutes pages. `target_info` needs
@@ -106,7 +110,9 @@ instead, and pool saturation is a gauge read from the SQLAlchemy pool.
   its first measurement, the Rust SDK (`opentelemetry_sdk` 0.33.1) starts every series of an instrument when the
   process starts. A label set that first appears in a gateway or seat-hold running for hours (the first 503 of a
   route) still loses its first scrape, up to 20 s. After a restart, and in every Python service, nothing is lost.
-- A 30-day SLO on a stack that lives for hours: the budget panels show the hours there are, not a month.
+- A 30-day SLO on a stack that lives for hours: the budget panels show the hours there are, not a month. Prometheus
+  keeps 31 days; in the cluster at most 3 GiB of its 4 GiB volume (about 1.5 GB for 31 days idle), and past that the
+  oldest days go and the window gets shorter without a warning. The 30-day ratios read the whole window, so they run every 2 minutes, not every 15 s.
 - An SLO that counts requests weighs a slow period less: clients that wait send fewer requests. 400 ms more on every
   read halved the reads, and the fast burn would have paged after about 15 minutes instead of 9 (TIK-56).
 - No metric shows CPU or throttling: a process starved by its CPU limit shows only as long spans in steps of 100 ms

@@ -1,4 +1,5 @@
-# Finds the nodes through the Kubernetes API and reads each kubelet's container metrics (scrape/kubelet.yaml).
+# Finds the nodes through the Kubernetes API and reads each kubelet's container metrics (scrape/kubelet.yaml),
+# and Envoy's pods to read their metrics (scrape/envoy.yaml).
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -15,6 +16,9 @@ rules:
   - apiGroups: [""]
     resources: [nodes/metrics]
     verbs: [get]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list, watch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -89,4 +93,4 @@ spec:
       spec:
         accessModes: [ReadWriteOnce]
         resources:
-          requests: { storage: 2Gi }
+          requests: { storage: 4Gi }

@@ -3,11 +3,17 @@ global:
   evaluation_interval: 15s
 
 # Tempo writes its span metrics here, and samples can arrive late.
+# The SLOs look back 30 days (rules/slo.yaml); the default retention is 15. The size keeps the 4Gi volume
+# (infra/k8s/observability/prometheus.yaml) from filling: past it the oldest blocks go, and the 30 days get shorter.
+# The cluster wrote about 47 MB a day while idle, 1.5 GB in 31 days.
 storage:
   tsdb:
     out_of_order_time_window: 30m
+    retention:
+      time: 31d
+      size: 3GB
 
 rule_files: [rules/slo.yaml]
 
-# The cluster adds the kubelet's container metrics, which compose has no source for.
-scrape_config_files: [scrape/services.yaml, scrape/kubelet.yaml]
+# The cluster adds the kubelet's container metrics and Envoy at the edge, which compose has no source for.
+scrape_config_files: [scrape/services.yaml, scrape/kubelet.yaml, scrape/envoy.yaml]
