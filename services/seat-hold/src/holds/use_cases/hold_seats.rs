@@ -32,12 +32,14 @@ impl<D: DbPool> HoldSeatsUseCase<D> {
 
     /// All seats or none: if any seat is taken, the transaction is rolled back, and the
     /// key with it, so a refused request can be tried again. With a key, a repeat of a
-    /// successful request returns the first result, even after the hold has ended.
+    /// successful request returns the first result, even after the hold has ended and
+    /// another user took the seats: the stored result is looked up before the seats.
     ///
     /// A seat held by another user is refused after a read, before any lock: on a hot
     /// seat every refusal would otherwise queue on its row lock and hold a pooled
     /// connection while it waits. The read only refuses; the insert below still decides.
-    /// A seat held by the same user goes the full way, so a repeat with a key replays.
+    /// Two requests with one key at once both pass the lookup; the second then waits on
+    /// the key's row in `reserve` and replays.
     ///
     /// A user holds at most `max_seats_per_user` seats of one event at once. The requests
     /// of one user for one event take turns on a lock, so two of them cannot both count
@@ -52,6 +54,11 @@ impl<D: DbPool> HoldSeatsUseCase<D> {
         let hold_id = Uuid::now_v7();
         let ttl = self.settings.ttl;
         let mut conn = self.db.get_conn().await?;
+        if let Some(key) = idempotency_key
+            && let Some(stored) = HoldRequestRepository::get(&mut conn, &hold.owner_id, key).await?
+        {
+            return Self::replay(stored, &hold);
+        }
         let holders = HoldRepository::holders(&mut conn, hold.event_id, &hold.seat_ids).await?;
         if holders.iter().any(|seat| seat.owner_id != hold.owner_id) {
             let taken = hold
