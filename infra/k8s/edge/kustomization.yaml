@@ -1,0 +1,7 @@
+# The way in: Envoy Gateway (installed by install-envoy-gateway.sh) runs Envoy, which ends TLS and HTTP/2 from clients
+# and sends every request to a gateway pod of its own choice. Applied after apps, which frees the gateway's NodePort.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ticketing
+resources:
+  - edge.yaml

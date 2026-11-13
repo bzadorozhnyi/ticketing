@@ -7,7 +7,7 @@ set -euo pipefail
 cd "$(dirname "$0")/k8s"
 cluster=ticketing-check
 image=$(grep -o 'kindest/node:[^ ]*' kind-cluster.yaml)
-phases=(metrics-server platform observability migrations seed apps)
+phases=(metrics-server platform observability migrations seed apps edge)
 
 # observability reads its config files from infra/observability, outside its own directory.
 render() {
@@ -24,8 +24,10 @@ export KUBECONFIG
 trap 'kind delete cluster --name "$cluster"; rm -f "$KUBECONFIG"' EXIT
 kind create cluster --name "$cluster" --image "$image" --wait 120s
 
-# A dry run creates nothing, so the namespace every other object lives in has to exist for real.
+# A dry run creates nothing, so the namespace every other object lives in has to exist for real,
+# and so do the Gateway API and Envoy Gateway kinds that edge uses.
 kubectl apply -f platform/namespace.yaml
+edge/install-envoy-gateway.sh
 for phase in "${phases[@]}"; do
   render "$phase" | kubectl apply --dry-run=server --validate=strict -f -
 done
