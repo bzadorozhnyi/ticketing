@@ -5,7 +5,6 @@ Next ticket: TIK-100
 ## In progress
 
 ## To do
-- [ ] TIK-87 Seat-hold: record histories under faults and check them for a seat held twice (Jepsen-style)
 - [ ] TIK-88 Catalog: a cache in Valkey and the stampede of misses at the start of a sale
 - [ ] TIK-89 Seat-hold: one hot event, partitioning and its limits
 - [ ] TIK-90 A read model of available seats built from seat-hold's events (CQRS), rebuilt by replay
@@ -106,3 +105,4 @@ Next ticket: TIK-100
 - [x] TIK-98 booking failover: a primary that wakes after a failover takes no commits (smart shutdown window, pooled connections to a frozen primary); why a replica reached it
 - [x] TIK-99 booking: synchronous replication at the start of a sale; p99 of orders, bulkhead refusals and the pool, with and without 1 ms to the replicas
 - [x] TIK-93 payment checks every minute that each charge which kept money has its order, and pages a person if not
+- [x] TIK-87 Seat-hold: record histories under faults and check them for a seat held twice (Jepsen-style)
