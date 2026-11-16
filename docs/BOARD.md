@@ -1,11 +1,11 @@
 # Board
 
-Next ticket: TIK-98
+Next ticket: TIK-99
 
 ## In progress
 
 ## To do
-- [ ] TIK-97 booking failover: a hung primary or replica (SIGSTOP) instead of a dead one; never two primaries, and no failover held for good
+- [ ] TIK-98 booking failover: a primary that wakes after a failover takes no commits (smart shutdown window, pooled connections to a frozen primary); why a replica reached it
 - [ ] TIK-87 Seat-hold: record histories under faults and check them for a seat held twice (Jepsen-style)
 - [ ] TIK-88 Catalog: a cache in Valkey and the stampede of misses at the start of a sale
 - [ ] TIK-89 Seat-hold: one hot event, partitioning and its limits
@@ -104,3 +104,4 @@ Next ticket: TIK-98
 - [x] TIK-86 booking's Postgres in the cluster run by CloudNativePG: a primary and two replicas, reads from them
 - [x] TIK-95 booking failover with asynchronous replication: the primary killed under load; time to recover (RTO), orders lost (RPO), money reconciled
 - [x] TIK-96 booking failover with synchronous replication: no loss? The cost per commit; writes with the replicas down
+- [x] TIK-97 booking failover: a hung primary or replica instead of a dead one; found two primaries after a 60 s hang

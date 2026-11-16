@@ -77,4 +77,10 @@ and it stayed so until someone started the database again. Failing over by hand,
   the same key returns it.
 - If the primary and a replica fail together and the primary does not come back, booking takes no writes until a
   person promotes the replica (`kubectl cnpg promote`) and accepts what it may lack.
-- A replica whose WAL receiver hangs holds the failover until it ends (TIK-97).
+- A primary that hangs longer than the failover takes (about 57 s here) can come back as a second primary: on the
+  thaw its smart shutdown served the sessions already open for about 40 s, booking's pooled connections were still
+  there, and a replica followed it and confirmed its commits. 478 and 480 confirmed orders were lost in 2 runs, and a
+  replica stayed on the erased timeline until its volume was deleted (TIK-97). Shorter hangs (10 and 25 s) caused
+  no failover and lost nothing.
+- A replica whose WAL receiver hangs holds the failover until it ends: no promotion and no new primary pod for as long
+  as it lasts (TIK-97). A replica hung as a whole, beside a lost primary, stops the promotion too, through the quorum.
