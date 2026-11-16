@@ -92,5 +92,8 @@ and it stayed so until someone started the database again. Failing over by hand,
   waits and is served when it wakes; a replica connects without a connect timeout, which the operator sets. Even with
   the fast shutdown, a replica ended on the old primary's timeline in 1 of 3 runs and had to be rebuilt by deleting its
   volume (`infra/k8s/README.md`).
+- A replica left on an erased timeline is not just useless: in one run the next failover promoted it, and the 500
+  orders confirmed since the previous failover were lost with the timeline it lacked (found by the check of ADR 0013).
+  It must be rebuilt as soon as `BookingReplicaNotStreaming` fires, before anything else fails.
 - A replica whose WAL receiver hangs holds the failover until it ends: no promotion and no new primary pod for as long
   as it lasts (TIK-97). A replica hung as a whole, beside a lost primary, stops the promotion too, through the quorum.

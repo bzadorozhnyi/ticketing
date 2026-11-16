@@ -74,8 +74,9 @@ happened once (TIK-96), and `select pg_reload_conf()` on the primary fixed it.
 
 A replica that ended on a timeline the primary does not have (after a primary hung and woke, TIK-97) retries for good
 while the cluster reports itself healthy; its log repeats "forked off", "is not a child of" or "not in this server's
-history", and `BookingReplicaNotStreaming` fires. Delete its volume and pod, and the operator copies the primary into a
-new one (about 25 s here):
+history", and `BookingReplicaNotStreaming` fires. Rebuild it at once: the next failover may promote it, and booking
+then loses everything since its timeline split (TIK-93). Delete its volume and pod, and the operator copies the primary
+into a new one (about 25 s here):
 
 ```
 kubectl -n ticketing delete pvc booking-db-2 --wait=false

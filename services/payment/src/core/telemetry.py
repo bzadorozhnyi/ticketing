@@ -29,6 +29,17 @@ meter = metrics.get_meter("payment")
 commands = meter.create_counter(
     "payment.commands", description="Commands handled, by type and outcome"
 )
+charge_checks = meter.create_counter(
+    "payment.charge_checks",
+    description="Runs of the check for charges without an order, by outcome",
+)
+# The latest check's count; None until one succeeds, or after one failed.
+_charges_without_order: int | None = None
+
+
+def set_charges_without_order(count: int | None) -> None:
+    global _charges_without_order
+    _charges_without_order = count
 
 
 def setup() -> None:
@@ -52,6 +63,11 @@ def setup() -> None:
     trace.set_tracer_provider(tracer_provider)
 
     AsyncPGInstrumentor().instrument()
+    meter.create_observable_gauge(
+        "payment.charges.without_order",
+        callbacks=[_charges_without_order_count],
+        description="Charges that kept money for an order booking does not have",
+    )
     meter.create_observable_gauge(
         "db.client.connection.count",
         callbacks=[_pool_connections],
@@ -103,3 +119,8 @@ def _pool_connections(_: CallbackOptions) -> Iterable[Observation]:
         return
     yield Observation(pool.checkedout(), {"db.client.connection.state": "used"})
     yield Observation(pool.checkedin(), {"db.client.connection.state": "idle"})
+
+
+def _charges_without_order_count(_: CallbackOptions) -> Iterable[Observation]:
+    if _charges_without_order is not None:
+        yield Observation(_charges_without_order)

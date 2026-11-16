@@ -24,6 +24,12 @@ class OrderRepository:
         )
         return result.scalar_one_or_none()
 
+    async def existing_ids(self, *, order_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+        result = await self.session.scalars(
+            select(Order.id).where(Order.id.in_(order_ids))
+        )
+        return set(result)
+
     async def get_by_key(self, *, user_id: str, idempotency_key: str) -> Order | None:
         result = await self.session.execute(
             select(Order).where(

@@ -73,3 +73,14 @@ uv run pytest src/tests_e2e                      # needs rabbitmq; real commits,
 Faults come from the payment token (`tok_declined`, `tok_slow`, `tok_crash_before_commit`, `tok_crash_after_commit`)
 or from random rates: `FAULTS__DECLINE_RATE`, `FAULTS__CRASH_BEFORE_COMMIT_RATE`, `FAULTS__CRASH_AFTER_COMMIT_RATE`,
 `FAULTS__SLOW_SECONDS`. A crash is `os._exit`, a real one. Delays and crashes fire on the first delivery only.
+
+## Charges without an order
+
+Background job of `payment-consumer` (`payments/coherence_job.py`, ADR 0013): every `COHERENCE__INTERVAL_SECONDS` (60)
+it takes the charges that kept money and were not refunded, from `COHERENCE__LOOKBACK_SECONDS` (86400) to
+`COHERENCE__GRACE_SECONDS` (60) old, and asks booking which of their orders exist (`COHERENCE__BOOKING_URL`,
+`POST /internal/v1/orders/existing`, `COHERENCE__BATCH_SIZE` orders a request, `COHERENCE__TIMEOUT_SECONDS`). Without
+`COHERENCE__BOOKING_URL` it does not run. It only reports: `payment.charges.without_order` and the orders in the log
+(error); `payment.charge_checks` counts runs by `outcome`, and a failed run exports no count. `ChargesWithoutOrder` and
+`ChargeCheckFailing` page. The connection goes back to the pool before booking is asked. `payments/clients/booking.py`
+is the only place that knows aiohttp; tests put a real aiohttp server in booking's place.

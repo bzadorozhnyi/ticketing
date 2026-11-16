@@ -10,6 +10,7 @@ from core.logging import configure_logging
 from core.rabbitmq import RabbitMQClient
 from core.settings import settings
 from core.telemetry import setup as setup_telemetry
+from payments import coherence_job
 from payments.consumer import CommandConsumer
 from payments.queues.commands import PaymentCommandsQueue
 from payments.queues.replies import PaymentRepliesQueue
@@ -39,8 +40,14 @@ async def main() -> None:
     loop = asyncio.get_running_loop()
     for signal_number in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(signal_number, stop.set)
+    check = asyncio.create_task(
+        coherence_job.run(
+            session_maker=async_session, settings=settings.COHERENCE, stop=stop
+        )
+    )
     await stop.wait()
 
+    await check
     await subscription.stop()
     await client.close()
     await engine.dispose()
