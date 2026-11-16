@@ -81,8 +81,6 @@ class BreakerSettings(BaseModel):
 
 class ReplicationSettings(BaseModel):
     PROBE_INTERVAL_SECONDS: float = 5
-    # Created on the primary by infra/replication/setup.sql.
-    SLOT: str = "booking_replica"
 
 
 class FaultSettings(BaseModel):

@@ -251,6 +251,29 @@ tests:
       - alertname: BookingReplicaNotStreaming
         eval_time: 6m
 
+  # Two replicas; the second stops at 2m while the first streams on.
+  - name: one of two replicas that stops streaming pages
+    interval: 1m
+    input_series:
+      - series: 'db_replica_lag_seconds{job="booking", db_replication_slot="a"}'
+        values: '0x6'
+      - series: 'db_replication_slot_retained_bytes{job="booking", db_replication_slot="a"}'
+        values: '0x6'
+      - series: 'db_replica_lag_seconds{job="booking", db_replication_slot="b"}'
+        values: '0 0 0 stale'
+      - series: 'db_replication_slot_retained_bytes{job="booking", db_replication_slot="b"}'
+        values: '0 0 0 1048576 2097152 3145728 4194304'
+    alert_rule_test:
+      - alertname: BookingReplicaNotStreaming
+        eval_time: 4m
+      - alertname: BookingReplicaNotStreaming
+        eval_time: 5m
+        exp_alerts:
+          - exp_labels: { severity: page }
+            exp_annotations:
+              summary: "booking's replica is not streaming; the primary keeps 3MiB of WAL for it"
+              description: "Order reads fail while it is down; a slot without its replica fills the primary's disk"
+
   # The replica stops at 2m: its lag is gone, the slot keeps growing.
   - name: a replica that stops streaming pages while its slot keeps WAL
     interval: 1m

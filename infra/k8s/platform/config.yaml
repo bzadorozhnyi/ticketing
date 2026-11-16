@@ -3,7 +3,8 @@ kind: ConfigMap
 metadata:
   name: booking
 data:
-  DB__HOST: booking-db
+  # The primary, wherever the operator runs it (platform/booking-db.yaml).
+  DB__HOST: booking-db-rw
   DB__NAME: booking_db
   DB__PORT: "5432"
   RABBITMQ__HOST: rabbitmq

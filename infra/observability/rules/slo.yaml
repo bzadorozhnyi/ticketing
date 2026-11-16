@@ -248,10 +248,10 @@ groups:
         annotations:
           summary: "booking's replica applies WAL {{ $value | humanize }} s behind the primary; order reads are that old"
           description: "Services dashboard, Replication; GET /orders/{id} may answer 404 for an order just created"
-      # The slot still holds WAL but the replica does not stream: it is down or cut off, and the WAL it has not
-      # taken stays on the primary's disk.
+      # A slot still holds WAL but its replica does not stream: it is down or cut off, and the WAL it has not
+      # taken stays on the primary's disk. Per slot, so one replica down beside one streaming still pages.
       - alert: BookingReplicaNotStreaming
-        expr: max(db_replication_slot_retained_bytes) unless on () max(db_replica_lag_seconds)
+        expr: max(db_replication_slot_retained_bytes unless on (db_replication_slot) db_replica_lag_seconds)
         for: 2m
         labels: { severity: page }
         annotations:
