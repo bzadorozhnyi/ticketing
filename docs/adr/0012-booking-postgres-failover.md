@@ -31,6 +31,11 @@ and it stayed so until someone started the database again. Failing over by hand,
   stopped, and it brings the loss back for that time.
 - **`failoverQuorum`**: the operator promotes a replica only when the replicas it can reach must include one with
   every confirmed commit (R + W > N). With the primary and one replica gone it waits instead.
+- **A stopping instance ends its sessions at once** (`smartShutdownTimeout: 0`, a fast shutdown). With the default
+  smart shutdown (180 s) a primary that woke after its failover went on committing on the sessions already open for
+  about 40 s, and a replica confirmed those commits: two primaries (TIK-97). With the fast one the same test lost
+  nothing in 3 runs (TIK-98). A planned stop of a primary rolls back its unfinished transactions; booking repeats them
+  with their keys.
 - **The quorum size W is a trade between writes and failover**, not a safety margin: `failoverQuorum` already keeps
   every confirmed commit with W = 1. With N replicas, writes go on with N - W of them down, and a failover can happen
   with W - 1 of them down beside the primary; the two always add up to N - 1. A larger W also makes each commit wait for
@@ -77,10 +82,13 @@ and it stayed so until someone started the database again. Failing over by hand,
   the same key returns it.
 - If the primary and a replica fail together and the primary does not come back, booking takes no writes until a
   person promotes the replica (`kubectl cnpg promote`) and accepts what it may lack.
-- A primary that hangs longer than the failover takes (about 57 s here) can come back as a second primary: on the
-  thaw its smart shutdown served the sessions already open for about 40 s, booking's pooled connections were still
-  there, and a replica followed it and confirmed its commits. 478 and 480 confirmed orders were lost in 2 runs, and a
-  replica stayed on the erased timeline until its volume was deleted (TIK-97). Shorter hangs (10 and 25 s) caused
-  no failover and lost nothing.
+- A primary that hangs longer than the failover takes (about 57 s here) wakes into kubelet's SIGTERM. With a smart
+  shutdown it served the sessions already open for about 40 s, booking's pooled connections were still there, and a
+  replica followed it and confirmed its commits: 478 and 480 confirmed orders lost in 2 runs (TIK-97). With a fast
+  shutdown none were lost in 3 runs (TIK-98). Shorter hangs (10 and 25 s) caused no failover and lost nothing.
+- A frozen pod's kernel still completes TCP handshakes, so a connection opened to the old primary while it was frozen
+  waits and is served when it wakes; a replica connects without a connect timeout, which the operator sets. Even with
+  the fast shutdown, a replica ended on the old primary's timeline in 1 of 3 runs and had to be rebuilt by deleting its
+  volume (`infra/k8s/README.md`).
 - A replica whose WAL receiver hangs holds the failover until it ends: no promotion and no new primary pod for as long
   as it lasts (TIK-97). A replica hung as a whole, beside a lost primary, stops the promotion too, through the quorum.

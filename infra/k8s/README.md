@@ -72,6 +72,16 @@ replicas down booking's writes wait. If the replicas stay `async` after synchron
 running cluster (`select sync_state from pg_stat_replication`), the primary has not reloaded its configuration; it
 happened once (TIK-96), and `select pg_reload_conf()` on the primary fixed it.
 
+A replica that ended on a timeline the primary does not have (after a primary hung and woke, TIK-97) retries for good
+while the cluster reports itself healthy; its log repeats "forked off", "is not a child of" or "not in this server's
+history", and `BookingReplicaNotStreaming` fires. Delete its volume and pod, and the operator copies the primary into a
+new one (about 25 s here):
+
+```
+kubectl -n ticketing delete pvc booking-db-2 --wait=false
+kubectl -n ticketing delete pod booking-db-2
+```
+
 A cluster created before it still has booking-db as a StatefulSet; delete it with its Service and volume once
 (`kubectl -n ticketing delete statefulset/booking-db service/booking-db pvc/data-booking-db-0`), then deploy. Its
 orders go with it.
