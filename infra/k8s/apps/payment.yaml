@@ -75,6 +75,9 @@ spec:
           env:
             - name: OTEL_SERVICE_NAME
               value: payment-consumer
+            # Checks every minute that each charge which kept money has its order (ADR 0013).
+            - name: COHERENCE__BOOKING_URL
+              value: http://booking:8000
             - name: DB__USER
               valueFrom: { secretKeyRef: { name: postgres, key: user } }
             - name: DB__PASS

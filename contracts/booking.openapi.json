@@ -219,6 +219,58 @@
         }
       }
     },
+    "/internal/v1/orders/existing": {
+      "post": {
+        "tags": [
+          "internal"
+        ],
+        "summary": "Find Existing Orders",
+        "description": "Which of these orders booking has: payment checks its charges against them.",
+        "operationId": "find_existing_orders_internal_v1_orders_existing_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExistingOrdersIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExistingOrdersOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -325,6 +377,42 @@
           "details"
         ],
         "title": "ErrorOut"
+      },
+      "ExistingOrdersIn": {
+        "properties": {
+          "order_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Order Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "order_ids"
+        ],
+        "title": "ExistingOrdersIn"
+      },
+      "ExistingOrdersOut": {
+        "properties": {
+          "order_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Order Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "order_ids"
+        ],
+        "title": "ExistingOrdersOut"
       },
       "OrderOut": {
         "properties": {

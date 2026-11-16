@@ -11,7 +11,6 @@ Next ticket: TIK-100
 - [ ] TIK-90 A read model of available seats built from seat-hold's events (CQRS), rebuilt by replay
 - [ ] TIK-91 Canary deploys with an automatic rollback on the SLO burn rate
 - [ ] TIK-92 Service mesh: mTLS between services and balancing per request inside the cluster
-- [ ] TIK-93 Reconciliation of payment's ledger with booking's orders: no money lost or taken twice
 - [ ] TIK-94 Investigate the unexplained ~40 ms in p99 and the L4 hop in front of Envoy
 
 ## Done
@@ -106,3 +105,4 @@ Next ticket: TIK-100
 - [x] TIK-97 booking failover: a hung primary or replica instead of a dead one; found two primaries after a 60 s hang
 - [x] TIK-98 booking failover: a primary that wakes after a failover takes no commits (smart shutdown window, pooled connections to a frozen primary); why a replica reached it
 - [x] TIK-99 booking: synchronous replication at the start of a sale; p99 of orders, bulkhead refusals and the pool, with and without 1 ms to the replicas
+- [x] TIK-93 payment checks every minute that each charge which kept money has its order, and pages a person if not

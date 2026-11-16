@@ -1,13 +1,15 @@
 import uuid
+from datetime import timedelta
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy import select, update
+from sqlalchemy import exists, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import SessionDep
-from payments.models.charge import Charge
+from payments.models.charge import Charge, ChargeStatus
+from payments.models.refund import Refund
 
 
 class ChargeRepository:
@@ -45,6 +47,24 @@ class ChargeRepository:
             .returning(Charge.id)
         )
         return result.scalar_one_or_none() is not None
+
+    async def taken_without_refund(
+        self, *, older_than: timedelta, newer_than: timedelta
+    ) -> list[uuid.UUID]:
+        """Orders of charges that took money and were not refunded, created within the
+        window, by the database's clock.
+        """
+        result = await self.session.scalars(
+            select(Charge.order_id)
+            .where(
+                Charge.status == ChargeStatus.SUCCEEDED,
+                Charge.created_at < func.now() - older_than,
+                Charge.created_at >= func.now() - newer_than,
+                ~exists().where(Refund.charge_id == Charge.id),
+            )
+            .order_by(Charge.created_at)
+        )
+        return list(result)
 
     async def finish(self, *, order_id: uuid.UUID, status: str) -> None:
         await self.session.execute(

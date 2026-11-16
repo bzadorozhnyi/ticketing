@@ -75,6 +75,11 @@ In the cluster CloudNativePG runs the primary (`booking-db-rw`) and two replicas
 - Tests: `get_replica_session` is overridden like `get_session`; the `lagging_replica` fixture gives it another
   connection, which does not see the test's uncommitted order, as a lagging replica does not.
 
+## Internal API
+
+`POST /internal/v1/orders/existing` (`orders/endpoints/internal/`): which of the given orders exist, up to 1,000 a
+request, read from the primary. payment checks its charges against it (ADR 0013). The gateway does not route `/internal`.
+
 ## Layout notes
 
 - Code lives in `src/` and is imported without a package prefix (`from core.db import ...`);

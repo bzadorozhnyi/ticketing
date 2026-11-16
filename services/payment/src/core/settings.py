@@ -59,6 +59,19 @@ class RabbitMQSettings(BaseModel):
         return f"amqp://{self.USER}:{self.PASS}@{self.HOST}:{self.PORT}/"
 
 
+class CoherenceSettings(BaseModel):
+    """The check that every charge which took money has its order in booking."""
+
+    # Without it the check does not run: tests and local runs need no booking.
+    BOOKING_URL: str | None = None
+    INTERVAL_SECONDS: float = 60
+    # A charge younger than this is not checked yet.
+    GRACE_SECONDS: float = 60
+    LOOKBACK_SECONDS: float = 86400
+    BATCH_SIZE: int = 1000
+    TIMEOUT_SECONDS: float = 5
+
+
 class Settings(BaseSettings):
     SERVICE_NAME: str = "payment"
     DB: DBSettings
@@ -66,6 +79,7 @@ class Settings(BaseSettings):
     LOGGING: LoggingSettings = LoggingSettings()
     FAULTS: FaultSettings = FaultSettings()
     RABBITMQ: RabbitMQSettings = RabbitMQSettings()
+    COHERENCE: CoherenceSettings = CoherenceSettings()
 
     # No env_file: this reads only os.environ. Docker compose sets the values
     # directly; tests/conftest.py loads .env.test before anything is imported.

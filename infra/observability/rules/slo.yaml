@@ -238,6 +238,30 @@ groups:
           summary: "{{ $labels.job }} has sent no telemetry for 2 minutes: stopped or cannot reach the collector"
           description: "Exports come every 10 s in the overlay (OTEL_METRIC_EXPORT_INTERVAL); keep the window above it"
 
+  # Not an SLO: payment's worker checks every minute that each charge which kept money has its order in booking
+  # (ADR 0013). A person decides what to do with the money; the log of payment-consumer names the orders.
+  - name: money
+    rules:
+      - alert: ChargesWithoutOrder
+        expr: max(payment_charges_without_order) > 0
+        for: 2m
+        labels: { severity: page }
+        annotations:
+          summary: "{{ $value }} charges kept money for orders booking does not have; payment-consumer's log names them"
+          description: "Refund them or restore the orders: booking lost writes it had confirmed (ADR 0013)"
+      # A check that keeps failing would otherwise look like one that finds nothing. No success in 5 minutes, for 5
+      # minutes: a failure before the first success (booking not up yet) does not page, as the success series is
+      # missing then, not zero.
+      - alert: ChargeCheckFailing
+        expr: |
+          (sum(increase(payment_charge_checks_total{outcome="ok"}[5m])) or vector(0)) == 0
+          and on () sum(increase(payment_charge_checks_total{outcome="failed"}[5m])) > 0
+        for: 5m
+        labels: { severity: page }
+        annotations:
+          summary: "No check for charges without an order has succeeded for 10 minutes"
+          description: "payment-consumer cannot get booking's answer, so no charge is being checked"
+
   # booking's read replica. The API process reads both gauges from the primary every 5 s.
   - name: replication
     rules:
