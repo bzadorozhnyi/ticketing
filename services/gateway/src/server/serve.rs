@@ -53,6 +53,12 @@ pub async fn serve(
             metrics().refused_connections.add(1, &[]);
             continue;
         };
+        // A response leaves in several writes (headers, then the upstream's body). With Nagle's
+        // algorithm a later write waits for the client's ACK of the first, which Linux delays
+        // by about 40 ms.
+        if let Err(error) = stream.set_nodelay(true) {
+            tracing::debug!(error = %error, "Could not turn off Nagle's algorithm");
+        }
         let connection = graceful.watch(
             http.serve_connection(TokioIo::new(stream), TowerToHyperService::new(app.clone())),
         );

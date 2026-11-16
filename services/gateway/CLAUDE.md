@@ -112,6 +112,8 @@ Read from the environment with the `config` crate; a wrong value stops the start
   A connection over `MAX_CONNECTIONS` is closed at once, so a flood cannot use up the open files: without the limit,
   accepting stopped for a second at a time and requests already accepted failed for lack of a socket to the upstream.
   The limit cannot tell a flood from a customer: during a flood a new client is refused too. HTTP/1.1 only.
+  Every accepted connection has `TCP_NODELAY`: a response leaves in several writes, and with Nagle's algorithm a later
+  one waited for the client's delayed ACK, about 40 ms, on 2 to 3 % of requests (TIK-94).
 - Each user has a token bucket (`RATE_LIMIT__*`), checked after the token and before retries, breakers and bulkheads.
   It has two tiers: a bucket in the replica's memory first, then one in Valkey shared by every replica.
   A user over the limit gets 429 `rate_limited` with `Retry-After`; a refusal by the first tier costs no network call.
