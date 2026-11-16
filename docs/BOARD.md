@@ -10,7 +10,6 @@ Next ticket: TIK-100
 - [ ] TIK-90 A read model of available seats built from seat-hold's events (CQRS), rebuilt by replay
 - [ ] TIK-91 Canary deploys with an automatic rollback on the SLO burn rate
 - [ ] TIK-92 Service mesh: mTLS between services and balancing per request inside the cluster
-- [ ] TIK-94 Investigate the unexplained ~40 ms in p99 and the L4 hop in front of Envoy
 
 ## Done
 - [x] TIK-1 Catalog: service skeleton (M1)
@@ -106,3 +105,4 @@ Next ticket: TIK-100
 - [x] TIK-99 booking: synchronous replication at the start of a sale; p99 of orders, bulkhead refusals and the pool, with and without 1 ms to the replicas
 - [x] TIK-93 payment checks every minute that each charge which kept money has its order, and pages a person if not
 - [x] TIK-87 Seat-hold: record histories under faults and check them for a seat held twice (Jepsen-style)
+- [x] TIK-94 The ~40 ms in p99 was Nagle's algorithm on the gateway's accepted connections; the L4 hop stays
