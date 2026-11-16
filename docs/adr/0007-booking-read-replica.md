@@ -14,7 +14,8 @@ of the database costs in correctness: a copy is always a little behind.
   read-only. `pg_basebackup -R` makes it on the first start; it then streams WAL from the primary through a
   **replication slot**, so a replica that was down catches up instead of being copied again.
 - **Only `GET /orders/{id}` reads from it** (`DB_REPLICA__*`). Every write, the saga and the relay stay on the primary.
-  Without `DB_REPLICA` the reads go to the primary, so tests and local runs need no replica.
+  Without `DB_REPLICA` the reads go to the primary, so tests and local runs need no replica. In the cluster the replicas
+  are CloudNativePG's, behind `booking-db-ro` (ADR 0012).
 - **Lag is measured on the primary**: `pg_stat_replication.replay_lag` for the slot, the time from writing WAL to the
   replica applying it. The age of the replica's last applied transaction was tried first and overstated the lag after
   a quiet period (10.7 s for a 3 s delay). A background job of the booking API reads it every 5 s with the WAL the slot

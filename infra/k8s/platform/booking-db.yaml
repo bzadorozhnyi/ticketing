@@ -1,56 +1,27 @@
-apiVersion: v1
-kind: Service
+# booking's Postgres: a primary and two streaming replicas run by CloudNativePG (cnpg/install-cnpg.sh, ADR 0012).
+# The operator points the Service booking-db-rw at the primary and booking-db-ro at the replicas, and promotes a
+# replica when the primary fails. It creates the owner `booking` with a random password in the Secret booking-db-app.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
 metadata:
   name: booking-db
 spec:
-  clusterIP: None
-  selector:
-    app: booking-db
-  ports:
-    - port: 5432
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: booking-db
-spec:
-  serviceName: booking-db
-  replicas: 1
-  selector:
-    matchLabels:
-      app: booking-db
-  template:
-    metadata:
-      labels:
-        app: booking-db
-    spec:
-      containers:
-        - name: postgres
-          image: postgres:18-alpine
-          env:
-            - name: POSTGRES_DB
-              value: booking_db
-            - name: POSTGRES_USER
-              valueFrom: { secretKeyRef: { name: postgres, key: user } }
-            - name: POSTGRES_PASSWORD
-              valueFrom: { secretKeyRef: { name: postgres, key: password } }
-          ports:
-            - containerPort: 5432
-          readinessProbe:
-            exec:
-              command: ["sh", "-c", "pg_isready -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\""]
-            periodSeconds: 2
-          resources:
-            requests: { cpu: 100m, memory: 128Mi }
-            limits: { memory: 512Mi }
-          volumeMounts:
-            - name: data
-              mountPath: /var/lib/postgresql
-  volumeClaimTemplates:
-    - metadata:
-        name: data
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: 1Gi
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.7-minimal-trixie@sha256:452a15584e2aa1ce658c4ae8538b5dc157eb031d41b82fd19882e0c03bcec01d
+  bootstrap:
+    initdb:
+      database: booking_db
+      owner: booking
+  # booking's replication probe (core/replication.py) reads the replicas' state from the primary, which Postgres hides
+  # from a role without pg_monitor. Without passwordSecret the operator leaves the password alone.
+  managed:
+    roles:
+      - name: booking
+        ensure: present
+        login: true
+        inRoles: [pg_monitor]
+  storage:
+    size: 1Gi
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { memory: 512Mi }

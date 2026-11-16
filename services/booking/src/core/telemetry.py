@@ -186,10 +186,12 @@ def _pool_connections(_: CallbackOptions) -> Iterable[Observation]:
 
 
 def _replica_lag(_: CallbackOptions) -> Iterable[Observation]:
-    if (lag := replication.latest.get("lag_seconds")) is not None:
-        yield Observation(lag)
+    for slot, state in replication.latest.items():
+        if state.lag_seconds is not None:
+            yield Observation(state.lag_seconds, {"db.replication.slot": slot})
 
 
 def _retained_wal(_: CallbackOptions) -> Iterable[Observation]:
-    if (retained := replication.latest.get("retained_bytes")) is not None:
-        yield Observation(retained)
+    for slot, state in replication.latest.items():
+        if state.retained_bytes is not None:
+            yield Observation(state.retained_bytes, {"db.replication.slot": slot})

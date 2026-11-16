@@ -17,7 +17,8 @@ kind delete cluster --name ticketing      # everything goes, the databases too
 | Directory | What | Applied |
 |---|---|---|
 | `metrics-server/` | metrics-server v0.9.1 in `kube-system`: CPU and memory of pods for the HPA and `kubectl top` | first |
-| `platform/` | namespace, secrets, config maps, Postgres per service, RabbitMQ, Valkey | then; `deploy.sh` waits for every StatefulSet |
+| `cnpg/` | the CloudNativePG operator v1.30.1 in `cnpg-system`, from `install-cnpg.sh`: it runs booking's Postgres | before `platform` |
+| `platform/` | namespace, secrets, config maps, Postgres per service, RabbitMQ, Valkey | then; `deploy.sh` waits for every StatefulSet and for booking's database |
 | `observability/` | collector, Tempo, Prometheus, Grafana, built from `infra/observability` | with `platform` |
 | `migrations/` | one Job per service: `alembic upgrade head`, or `migrate` for seat-hold; and RabbitMQ's policies (`infra/rabbitmq/policies.sh`) | then; waits for every Job to complete |
 | `seed/` | catalog's demo data, a Job | then |
@@ -55,6 +56,20 @@ Prometheus also reads every container's CPU, throttling and memory from the kube
 Envoy's requests from its pods (`scrape/envoy.yaml`): an availability SLO at the edge sees the 503s Envoy answers
 itself, which never reach the gateway. `infra/check-observability.sh` fails when these manifests run another image
 than compose.
+
+booking's Postgres is a CloudNativePG `Cluster` of three instances (ADR 0012): a primary behind the Service
+`booking-db-rw` and two replicas behind `booking-db-ro`. The operator promotes a replica when the primary fails and moves
+the Services with it; the pods are `booking-db-1` to `-3`, and which is the primary changes.
+
+```
+kubectl -n ticketing get cluster booking-db                      # instances, ready ones, the current primary
+kubectl -n ticketing get pods -l cnpg.io/cluster=booking-db -L role
+kubectl -n ticketing exec booking-db-1 -c postgres -- psql -U postgres -c "select application_name, state from pg_stat_replication"
+```
+
+A cluster created before it still has booking-db as a StatefulSet; delete it with its Service and volume once
+(`kubectl -n ticketing delete statefulset/booking-db service/booking-db pvc/data-booking-db-0`), then deploy. Its
+orders go with it.
 
 Prometheus keeps 31 days for the 30-day SLOs, in a 4Gi volume. A StatefulSet's volume template cannot change, so a
 cluster created with the old 2Gi refuses the apply (`Forbidden: updates to statefulset spec`). Delete the StatefulSet

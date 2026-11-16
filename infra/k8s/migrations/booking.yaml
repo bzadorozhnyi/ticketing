@@ -15,6 +15,6 @@ spec:
             - configMapRef: { name: booking }
           env:
             - name: DB__USER
-              valueFrom: { secretKeyRef: { name: postgres, key: user } }
+              valueFrom: { secretKeyRef: { name: booking-db-app, key: username } }
             - name: DB__PASS
-              valueFrom: { secretKeyRef: { name: postgres, key: password } }
+              valueFrom: { secretKeyRef: { name: booking-db-app, key: password } }

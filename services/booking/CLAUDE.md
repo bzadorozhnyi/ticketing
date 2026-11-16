@@ -62,14 +62,16 @@ The move out of `orders.payment_token` took five releases (TIK-64, 66, 67, 68, 6
 
 See ADR 0007 and `infra/replication/README.md`. `GET /orders/{id}` reads from `booking-db-replica` (`DB_REPLICA__HOST`,
 `__NAME`, `__USER`, `__PASS`); everything else uses `DB`. Without `DB_REPLICA` those reads go to the primary.
+In the cluster CloudNativePG runs the primary (`booking-db-rw`) and two replicas (`booking-db-ro`), see ADR 0012.
 - Read-your-writes (`core/consistency.py`): `POST /orders` returns `X-Consistency-Token`; a `GET` that sends it reads
   from the replica if it has that write, else from the primary; it does not wait (TIK-65). Without a token, an order the replica does not have yet is read from the primary. A replica that cannot be
   reached sends reads to the primary, and so does a read the replica cancels for a conflict with its WAL replay
   (40001, reason `conflict`). `db.replica.reads` (source, reason) counts it.
 - `pg_lsn` parameters go to asyncpg as text and are cast in SQL: asyncpg would encode a `pg_lsn` as an integer.
-- Background job of the API process, only with a replica: `core/replication.py` reads the replica's lag
+- Background job of the API process, only with a replica: `core/replication.py` reads every replica's lag
   (`pg_stat_replication.replay_lag`) and the WAL its slot keeps from the primary every `REPLICATION__PROBE_INTERVAL_SECONDS`
-  (5), exported as `db.replica.lag` and `db.replication_slot.retained`.
+  (5), exported per physical slot (`db.replication.slot`) as `db.replica.lag` and `db.replication_slot.retained`.
+  The role needs `pg_monitor`, or Postgres hides the replicas' state; the superuser of compose has it.
 - Tests: `get_replica_session` is overridden like `get_session`; the `lagging_replica` fixture gives it another
   connection, which does not see the test's uncommitted order, as a lagging replica does not.
 

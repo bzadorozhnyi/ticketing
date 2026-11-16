@@ -25,9 +25,10 @@ trap 'kind delete cluster --name "$cluster"; rm -f "$KUBECONFIG"' EXIT
 kind create cluster --name "$cluster" --image "$image" --wait 120s
 
 # A dry run creates nothing, so the namespace every other object lives in has to exist for real,
-# and so do the Gateway API and Envoy Gateway kinds that edge uses.
+# and so do the Gateway API and Envoy Gateway kinds that edge uses and CloudNativePG's Cluster in platform.
 kubectl apply -f platform/namespace.yaml
 edge/install-envoy-gateway.sh
+cnpg/install-cnpg.sh
 for phase in "${phases[@]}"; do
   render "$phase" | kubectl apply --dry-run=server --validate=strict -f -
 done

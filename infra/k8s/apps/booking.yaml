@@ -34,9 +34,18 @@ spec:
             - name: OTEL_SERVICE_NAME
               value: booking
             - name: DB__USER
-              valueFrom: { secretKeyRef: { name: postgres, key: user } }
+              valueFrom: { secretKeyRef: { name: booking-db-app, key: username } }
             - name: DB__PASS
-              valueFrom: { secretKeyRef: { name: postgres, key: password } }
+              valueFrom: { secretKeyRef: { name: booking-db-app, key: password } }
+            # Order reads from the replicas (ADR 0007); only this process reads them.
+            - name: DB_REPLICA__HOST
+              value: booking-db-ro
+            - name: DB_REPLICA__NAME
+              value: booking_db
+            - name: DB_REPLICA__USER
+              valueFrom: { secretKeyRef: { name: booking-db-app, key: username } }
+            - name: DB_REPLICA__PASS
+              valueFrom: { secretKeyRef: { name: booking-db-app, key: password } }
           # Keeps serving while the Service stops routing here; SIGTERM comes after it.
           lifecycle:
             preStop:
@@ -76,9 +85,9 @@ spec:
             - name: OTEL_SERVICE_NAME
               value: booking-saga
             - name: DB__USER
-              valueFrom: { secretKeyRef: { name: postgres, key: user } }
+              valueFrom: { secretKeyRef: { name: booking-db-app, key: username } }
             - name: DB__PASS
-              valueFrom: { secretKeyRef: { name: postgres, key: password } }
+              valueFrom: { secretKeyRef: { name: booking-db-app, key: password } }
             - name: RABBITMQ__USER
               valueFrom: { secretKeyRef: { name: rabbitmq, key: user } }
             - name: RABBITMQ__PASS
@@ -112,9 +121,9 @@ spec:
             - name: OTEL_SERVICE_NAME
               value: booking-relay
             - name: DB__USER
-              valueFrom: { secretKeyRef: { name: postgres, key: user } }
+              valueFrom: { secretKeyRef: { name: booking-db-app, key: username } }
             - name: DB__PASS
-              valueFrom: { secretKeyRef: { name: postgres, key: password } }
+              valueFrom: { secretKeyRef: { name: booking-db-app, key: password } }
             - name: RABBITMQ__USER
               valueFrom: { secretKeyRef: { name: rabbitmq, key: user } }
             - name: RABBITMQ__PASS

@@ -34,7 +34,6 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
     probe = asyncio.create_task(
         replication.run(
             interval=settings.REPLICATION.PROBE_INTERVAL_SECONDS,
-            slot=settings.REPLICATION.SLOT,
             stop=stop,
         )
     )

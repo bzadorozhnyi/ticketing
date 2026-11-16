@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds the services' images, loads them into the kind cluster and applies infra/k8s in order:
-# metrics-server, Envoy Gateway -> platform (stores and config) and observability -> migrations -> seed -> apps -> edge, waiting for each before the next.
+# metrics-server, Envoy Gateway, CloudNativePG -> platform (stores and config) and observability -> migrations -> seed -> apps -> edge, waiting for each before the next.
 # Kubernetes keeps no order between resources, so this script does what depends_on did in compose.
 set -euo pipefail
 
@@ -40,11 +40,14 @@ with_tag() {
 
 kubectl apply -k metrics-server
 edge/install-envoy-gateway.sh
+cnpg/install-cnpg.sh
 kubectl apply -k platform
 render observability | kubectl apply -f -
 for statefulset in $(kubectl -n ticketing get statefulset -o name); do
   kubectl -n ticketing rollout status "$statefulset" --timeout=300s
 done
+# booking's Postgres: the operator starts the primary, then copies it to each replica.
+kubectl -n ticketing wait --for=condition=Ready --timeout=600s cluster --all
 
 # A Job's template cannot change, and every deploy runs its migrations again: delete, then create.
 for phase in migrations seed; do

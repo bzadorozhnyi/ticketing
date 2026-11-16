@@ -14,9 +14,10 @@ autoscaling, CPU limits, TLS at the edge) with the same load experiments, on a l
   `apps`. `infra/k8s/deploy.sh` applies them in that order and waits for each, since Kubernetes keeps no order between
   resources. Helm only for third-party components later (Envoy Gateway, metrics-server).
 - **Stores in the cluster** as StatefulSets with their own volume: Postgres per service, RabbitMQ; Valkey keeps nothing,
-  so it is a Deployment. The same images and versions as in compose. No operator (CloudNativePG and the like).
-- **Migrations are Jobs**, run before the services on every deploy. booking's read replica is not part of it: without
-  `DB_REPLICA` its reads go to the primary (ADR 0007).
+  so it is a Deployment. The same images and versions as in compose. No operator (CloudNativePG and the like);
+  booking's Postgres became the exception in ADR 0012.
+- **Migrations are Jobs**, run before the services on every deploy. booking's read replica was not part of it at first:
+  without `DB_REPLICA` its reads went to the primary (ADR 0007), until ADR 0012.
 - **CPU requests, no CPU limits**; memory requests and limits. A CPU limit throttles a process in steps of 100 ms
   (TIK-56); its cost is measured on its own in TIK-60.
 - **Readiness on `/ready`, liveness on `/health`**; the workers have no probe and are restarted when they exit.
