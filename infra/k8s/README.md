@@ -67,6 +67,11 @@ kubectl -n ticketing get pods -l cnpg.io/cluster=booking-db -L role
 kubectl -n ticketing exec booking-db-1 -c postgres -- psql -U postgres -c "select application_name, state from pg_stat_replication"
 ```
 
+Replication is synchronous: a commit waits until one replica has it, so a failover loses no confirmed order. With both
+replicas down booking's writes wait. If the replicas stay `async` after synchronous replication is turned on in a
+running cluster (`select sync_state from pg_stat_replication`), the primary has not reloaded its configuration; it
+happened once (TIK-96), and `select pg_reload_conf()` on the primary fixed it.
+
 A cluster created before it still has booking-db as a StatefulSet; delete it with its Service and volume once
 (`kubectl -n ticketing delete statefulset/booking-db service/booking-db pvc/data-booking-db-0`), then deploy. Its
 orders go with it.

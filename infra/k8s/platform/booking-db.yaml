@@ -20,6 +20,17 @@ spec:
         ensure: present
         login: true
         inRoles: [pg_monitor]
+  # A commit is confirmed once one of the two replicas has its WAL on disk, so a failover loses no confirmed order
+  # (ADR 0012). With both replicas gone, writes wait for one to return; the operator promotes no replica that may
+  # lack a confirmed commit.
+  postgresql:
+    synchronous:
+      method: any
+      # Chosen for 2 replicas. With N replicas and number W, writes go on with up to N - W replicas down, and a
+      # failover can still happen with up to W - 1 replicas down beside the primary. Revisit it with `instances`.
+      number: 1
+      dataDurability: required
+      failoverQuorum: true
   storage:
     size: 1Gi
   resources:
