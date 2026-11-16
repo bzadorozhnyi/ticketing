@@ -110,6 +110,9 @@ instead, and pool saturation is a gauge read from the SQLAlchemy pool.
   its first measurement, the Rust SDK (`opentelemetry_sdk` 0.33.1) starts every series of an instrument when the
   process starts. A label set that first appears in a gateway or seat-hold running for hours (the first 503 of a
   route) still loses its first scrape, up to 20 s. After a restart, and in every Python service, nothing is lost.
+- Every sale start pages: the gateway's refusals under load (503 `bulkhead_full`, `overloaded`) count as failures of
+  checkout and of the edge, and the saga's pace puts 300 purchases over the 10 s objective (TIK-99). Nothing tells the
+  system when a sale starts, so the SLOs cannot treat that load differently.
 - A 30-day SLO on a stack that lives for hours: the budget panels show the hours there are, not a month. Prometheus
   keeps 31 days; in the cluster at most 3 GiB of its 4 GiB volume (about 1.5 GB for 31 days idle), and past that the
   oldest days go and the window gets shorter without a warning. The 30-day ratios read the whole window, so they run every 2 minutes, not every 15 s.
