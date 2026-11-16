@@ -31,6 +31,9 @@ spec:
       number: 1
       dataDurability: required
       failoverQuorum: true
+  # A stopping instance ends its sessions at once (a fast shutdown) instead of letting the open ones finish: a primary
+  # that wakes after a failover would otherwise keep committing on them while a new primary runs (TIK-97).
+  smartShutdownTimeout: 0
   storage:
     size: 1Gi
   resources:
