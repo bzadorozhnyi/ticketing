@@ -77,6 +77,8 @@ and it stayed so until someone started the database again. Failing over by hand,
   Synchronous replication lost none in the same test (TIK-96).
 - A synchronous commit costs a round trip to the nearest replica: 0.35 to 0.57 ms on kind's one node, 0.33 to 1.7 ms
   with 1 ms added towards the replicas. Buyers did not see it: `POST /orders` stayed at about 8 to 10 ms at the median.
+- At the start of a sale (5,000 users for 300 seats) the synchronous commit changed nothing measurable: order latency
+  was set by booking's full pool, its status polls and the saga's pace (TIK-99).
 - One replica down changes nothing. Both down or hung stop booking's writes until one returns: the gateway answers
   504 after its 10 s, then the clients' repeats meet its bulkhead (503). A commit that waited is kept, and a repeat with
   the same key returns it.

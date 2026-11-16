@@ -5,7 +5,6 @@ Next ticket: TIK-100
 ## In progress
 
 ## To do
-- [ ] TIK-99 booking: synchronous replication at the start of a sale; p99 of orders, bulkhead refusals and the pool, with and without 1 ms to the replicas
 - [ ] TIK-87 Seat-hold: record histories under faults and check them for a seat held twice (Jepsen-style)
 - [ ] TIK-88 Catalog: a cache in Valkey and the stampede of misses at the start of a sale
 - [ ] TIK-89 Seat-hold: one hot event, partitioning and its limits
@@ -106,3 +105,4 @@ Next ticket: TIK-100
 - [x] TIK-96 booking failover with synchronous replication: no loss? The cost per commit; writes with the replicas down
 - [x] TIK-97 booking failover: a hung primary or replica instead of a dead one; found two primaries after a 60 s hang
 - [x] TIK-98 booking failover: a primary that wakes after a failover takes no commits (smart shutdown window, pooled connections to a frozen primary); why a replica reached it
+- [x] TIK-99 booking: synchronous replication at the start of a sale; p99 of orders, bulkhead refusals and the pool, with and without 1 ms to the replicas
