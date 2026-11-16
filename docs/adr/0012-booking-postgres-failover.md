@@ -42,4 +42,10 @@ and it stayed so until someone started the database again. Failing over by hand,
   compares them one by one: with two replicas, one down beside one streaming still pages.
 - A cluster made before this change keeps its StatefulSet, Service and volume of booking-db until they are deleted
   (`infra/k8s/README.md`).
-- The failover itself, what it loses and how long it takes, is measured in TIK-95 to TIK-97.
+- A failover takes about 20 s (TIK-95): 2 s until the old primary's container stops, 15 s for its lease to run out,
+  then the promotion. Clients that repeat get their orders.
+- Asynchronous replication loses what the replicas had not received. With replicas 5 s behind, 28 and 29 orders that
+  had been answered 202 vanished, and 26 of them had been charged and their seats confirmed in the other services:
+  money and seats no one can find from booking. Closing it is synchronous replication (TIK-96) or a reconciliation
+  (TIK-93).
+- A replica whose WAL receiver hangs holds the failover until it ends (TIK-97).

@@ -5,9 +5,8 @@ Next ticket: TIK-98
 ## In progress
 
 ## To do
-- [ ] TIK-95 booking failover with asynchronous replication: the primary killed under load; time to recover (RTO), orders lost (RPO), money reconciled
 - [ ] TIK-96 booking failover with synchronous replication: no loss? The cost per commit; writes with the replicas down
-- [ ] TIK-97 booking failover: a hung primary (SIGSTOP) instead of a dead one; never two primaries
+- [ ] TIK-97 booking failover: a hung primary or replica (SIGSTOP) instead of a dead one; never two primaries, and no failover held for good
 - [ ] TIK-87 Seat-hold: record histories under faults and check them for a seat held twice (Jepsen-style)
 - [ ] TIK-88 Catalog: a cache in Valkey and the stampede of misses at the start of a sale
 - [ ] TIK-89 Seat-hold: one hot event, partitioning and its limits
@@ -104,3 +103,4 @@ Next ticket: TIK-98
 - [x] TIK-84 Python services: a database that is starting, refusing connections or cancelling replica reads answers 503 or falls back, not 500
 - [x] TIK-85 Sales-start spike on today's stack: do the first to arrive get the seats? Decides on a waiting room
 - [x] TIK-86 booking's Postgres in the cluster run by CloudNativePG: a primary and two replicas, reads from them
+- [x] TIK-95 booking failover with asynchronous replication: the primary killed under load; time to recover (RTO), orders lost (RPO), money reconciled
