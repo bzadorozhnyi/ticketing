@@ -179,10 +179,13 @@ async fn overlapping_requests_never_split_or_deadlock(pool: PgPool) {
 }
 
 /// Two real connections, in a fixed order. The hold expires while the confirm is still
-/// open, so the new hold has to wait for it and must then see a confirmed seat.
+/// open, so the new hold has to wait for it and must then see a confirmed seat. The confirm's
+/// transaction begins before the hold exists: its `now()` is fixed then, so the hold is still
+/// valid for it however slow the runner is.
 #[sqlx::test]
 async fn a_takeover_waits_for_a_confirm_in_progress(pool: PgPool) {
     let (event_id, seat_id, hold_id) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
+    let mut confirm = pool.begin().await.unwrap();
     sqlx::query(
         "INSERT INTO holds (event_id, seat_id, hold_id, owner_id, expires_at)
          VALUES ($1, $2, $3, 'owner', now() + interval '200 milliseconds')",
@@ -194,7 +197,6 @@ async fn a_takeover_waits_for_a_confirm_in_progress(pool: PgPool) {
     .await
     .unwrap();
 
-    let mut confirm = pool.begin().await.unwrap();
     let confirmed = HoldRepository::confirm(&mut confirm, hold_id, "owner")
         .await
         .unwrap();
