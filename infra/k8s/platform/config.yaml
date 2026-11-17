@@ -27,6 +27,8 @@ data:
   DB__HOST: seat-hold-db
   DB__NAME: seat_hold_db
   DB__PORT: "5432"
+  # Only the relay connects to the broker.
+  RABBITMQ__HOST: rabbitmq
 ---
 apiVersion: v1
 kind: ConfigMap

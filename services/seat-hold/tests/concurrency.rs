@@ -200,7 +200,7 @@ async fn a_takeover_waits_for_a_confirm_in_progress(pool: PgPool) {
     let confirmed = HoldRepository::confirm(&mut confirm, hold_id, "owner")
         .await
         .unwrap();
-    assert_eq!(confirmed, 1);
+    assert_eq!(confirmed.len(), 1);
     tokio::time::sleep(Duration::from_millis(300)).await;
 
     let taker_pool = pool.clone();
@@ -356,4 +356,75 @@ async fn only_the_same_users_requests_for_the_event_wait_for_each_other(pool: Pg
     );
     assert!(same_waited, "the same user did not wait");
     assert_eq!(same.status, StatusCode::CREATED);
+}
+
+/// What a reader of the events keeps for a seat, its latest version, must be what the table
+/// holds, however the holds and releases of many users interleave.
+#[sqlx::test]
+async fn the_latest_version_of_a_seat_is_its_state(pool: PgPool) {
+    let (service, service_pool) = service_for(&pool).await;
+    let (event_id, seat_id) = (Uuid::now_v7(), Uuid::now_v7());
+    let mut users = JoinSet::new();
+    for user in 0..20 {
+        let service = service.clone();
+        users.spawn(async move {
+            let owner = format!("user-{user}");
+            for round in 0..20 {
+                let attempt =
+                    attempt(service.clone(), event_id, owner.clone(), vec![seat_id]).await;
+                if attempt.status == StatusCode::CREATED && !(round == 19 && user % 2 == 1) {
+                    let hold_id = attempt.body["hold_id"].as_str().unwrap().to_owned();
+                    client()
+                        .delete(format!("{service}/api/v1/holds/{hold_id}"))
+                        .header("x-user-id", &owner)
+                        .send()
+                        .await
+                        .unwrap();
+                }
+            }
+        });
+    }
+    users.join_all().await;
+
+    let events: Vec<(Value,)> = sqlx::query_as("SELECT body FROM outbox")
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+    let mut changes: Vec<(i64, String, String)> = events
+        .iter()
+        .map(|(event,)| {
+            let seat = &event["seats"][0];
+            (
+                seat["version"].as_i64().unwrap(),
+                event["type"].as_str().unwrap().to_owned(),
+                event["hold_id"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect();
+    changes.sort();
+    assert!(
+        changes.len() > 10,
+        "too little contention: {} changes",
+        changes.len()
+    );
+    assert!(
+        changes.windows(2).all(|pair| pair[0].0 < pair[1].0),
+        "a version was used twice"
+    );
+    let (latest_version, latest_kind, latest_hold) = changes.last().unwrap().clone();
+    let row: Option<(Uuid, Option<i64>)> =
+        sqlx::query_as("SELECT hold_id, version FROM holds WHERE seat_id = $1")
+            .bind(seat_id)
+            .fetch_optional(&pool)
+            .await
+            .unwrap();
+    match row {
+        Some((hold_id, version)) => {
+            assert_eq!(latest_kind, "SeatsHeld");
+            assert_eq!(latest_hold, hold_id.to_string());
+            assert_eq!(version, Some(latest_version));
+        }
+        None => assert_eq!(latest_kind, "SeatsReleased"),
+    }
+    service_pool.close().await;
 }

@@ -1,13 +1,14 @@
 # Board
 
-Next ticket: TIK-100
+Next ticket: TIK-102
 
 ## In progress
 
 ## To do
 - [ ] TIK-88 Catalog: a cache in Valkey and the stampede of misses at the start of a sale
 - [ ] TIK-89 Seat-hold: one hot event, partitioning and its limits
-- [ ] TIK-90 A read model of available seats built from seat-hold's events (CQRS), rebuilt by replay
+- [ ] TIK-100 Catalog: a projector keeps a copy of seat availability from seat-hold's events; availability endpoint per section
+- [ ] TIK-101 Rebuilding catalog's copy of availability (a snapshot plus the events after it), and its lag and cost at a sales start
 - [ ] TIK-91 Canary deploys with an automatic rollback on the SLO burn rate
 - [ ] TIK-92 Service mesh: mTLS between services and balancing per request inside the cluster
 
@@ -106,3 +107,4 @@ Next ticket: TIK-100
 - [x] TIK-93 payment checks every minute that each charge which kept money has its order, and pages a person if not
 - [x] TIK-87 Seat-hold: record histories under faults and check them for a seat held twice (Jepsen-style)
 - [x] TIK-94 The ~40 ms in p99 was Nagle's algorithm on the gateway's accepted connections; the L4 hop stays
+- [x] TIK-90 Seat-hold: every change of a seat goes out as an event with its version, through an outbox, to RabbitMQ
