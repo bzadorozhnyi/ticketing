@@ -7,7 +7,7 @@ Authoritative seat holds with a TTL: no seat is held by two people. Project-wide
 All commands from `services/seat-hold/`:
 
 ```
-docker compose up -d --wait seat-hold-db         # from the repo root; Postgres on localhost:5436
+docker compose up -d --wait seat-hold-db rabbitmq   # from the repo root; Postgres on localhost:5436, the relay tests need RabbitMQ
 cargo test                                       # creates testing_seat_hold_db, see tests/common/db.rs
 cargo fmt && cargo clippy --all-targets -- -D warnings
 ```
@@ -27,7 +27,7 @@ The pre-commit hook `seat-hold-contract` regenerates `contracts/seat-hold.openap
 From the repo root. The port is not published: clients go through the gateway.
 
 ```
-docker compose up -d --wait --build              # db -> seat-hold-migrate -> seat-hold
+docker compose up -d --wait --build              # db -> seat-hold-migrate -> seat-hold and seat-hold-relay
 ```
 
 ## Settings
@@ -50,6 +50,11 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
 | `HOLDS__CLEANUP_INTERVAL_SECONDS` | 60 | how often expired rows are removed |
 | `HOLDS__CLEANUP_BATCH_SIZE` | 1000 | rows removed in one statement |
 | `HOLDS__IDEMPOTENCY_RETENTION_SECONDS` | 86400 | how long a used `Idempotency-Key` is remembered |
+| `RABBITMQ__HOST`, `RABBITMQ__USER`, `RABBITMQ__PASS` | required by `relay` | the broker; the service itself does not read them |
+| `RABBITMQ__PORT` | 5672 | broker port |
+| `OUTBOX__BATCH_SIZE` | 100 | outbox rows the relay publishes at a time |
+| `OUTBOX__POLL_INTERVAL_SECONDS` | 0.5 | the relay's pause after a batch smaller than that, or after a failure |
+| `OUTBOX__PUBLISH_TIMEOUT_SECONDS` | 5 | how long the broker has to confirm a batch; also the connect timeout |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | none | OTLP/HTTP collector; without it nothing is exported |
 | `OTEL_SERVICE_NAME` | `unknown_service` | `seat-hold` in compose |
 | `PORT` | 8000 | listening port |
@@ -93,5 +98,13 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
   seat clears the mark.
 - A confirmed seat is sold: it never expires, cannot be released, and the cleanup leaves it alone.
 - `DELETE /api/v1/holds/{hold_id}` always answers 204, so a retry is safe. Another user's hold stays untouched.
+- Every change of seats writes an event to `outbox` in the same transaction (ADR 0014): `SeatsHeld`, `HoldExtended`,
+  `SeatsSold`, `SeatsReleased`, with each seat's `version` from the sequence `seat_versions`, taken while its row is
+  locked. A repeat that changes nothing writes nothing (`RETURNING old.*`). The expiry has no event: `expires_at` is in
+  the hold and the extension. `tests/seat_events.rs`; `tests/concurrency.rs` checks that the event with a seat's
+  largest version is its state.
+- Background job: the `relay` binary (Deployment `seat-hold-relay`, one pod) publishes the outbox to the topic exchange
+  `seat-hold.events`, with the event type as routing key (`seats.held`, ...). It deletes a row only once the broker
+  confirmed it, so delivery is at least once (`outbox/relay.rs`, `tests/relay.rs`).
 - Background job: `holds/cleanup_job.rs` removes expired rows. Correctness does not depend on it, and replicas need no coordination.
 - `/ready` checks the database; the pool connects lazily, so the service starts during an outage.

@@ -289,6 +289,22 @@ services:
     depends_on:
       seat-hold-migrate: { condition: service_completed_successfully }
 
+  seat-hold-relay:
+    <<: *seat-hold
+    command: ["relay"]
+    environment:
+      <<: *service-db-env
+      DB__NAME: seat_hold_db
+      DB__HOST: seat-hold-db
+      RABBITMQ__HOST: rabbitmq
+      RABBITMQ__USER: ticketing
+      RABBITMQ__PASS: password
+      OTEL_SERVICE_NAME: seat-hold-relay
+    restart: on-failure
+    depends_on:
+      seat-hold-migrate: { condition: service_completed_successfully }
+      rabbitmq: { condition: service_healthy }
+
 volumes:
   rabbitmq-data:
   catalog-db-data:

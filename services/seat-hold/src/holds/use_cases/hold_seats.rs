@@ -8,9 +8,11 @@ use crate::app::AppState;
 use crate::core::db::DbPool;
 use crate::core::errors::ServiceError;
 use crate::core::settings::HoldSettings;
+use crate::holds::dto::event::SeatEventKind;
 use crate::holds::dto::hold::{Hold, NewHold};
 use crate::holds::repositories::hold::HoldRepository;
 use crate::holds::repositories::hold_request::HoldRequestRepository;
+use crate::holds::services::seat_events;
 
 #[derive(Clone)]
 pub struct HoldSeatsUseCase<D: DbPool> {
@@ -101,6 +103,16 @@ impl<D: DbPool> HoldSeatsUseCase<D> {
                 .collect();
             return Err(ServiceError::SeatsTaken(unavailable));
         }
+        let stamped = HoldRepository::stamp(&mut transaction, hold_id).await?;
+        let changes = seat_events::changes(&stamped, true);
+        seat_events::record(
+            &mut transaction,
+            SeatEventKind::SeatsHeld,
+            hold.event_id,
+            hold_id,
+            changes,
+        )
+        .await?;
         transaction.commit().await?;
 
         let expires_at = taken

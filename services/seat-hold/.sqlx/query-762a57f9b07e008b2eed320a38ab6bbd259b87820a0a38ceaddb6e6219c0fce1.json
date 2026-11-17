@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO outbox (routing_key, body) VALUES ($1, $2::text::jsonb)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "762a57f9b07e008b2eed320a38ab6bbd259b87820a0a38ceaddb6e6219c0fce1"
+}

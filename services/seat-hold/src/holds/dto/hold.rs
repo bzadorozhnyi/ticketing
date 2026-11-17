@@ -23,3 +23,13 @@ pub struct TakenSeat {
     pub seat_id: Uuid,
     pub expires_at: DateTime<Utc>,
 }
+
+/// A seat whose row a statement changed, with the version it took. `changed` is false when
+/// the statement left the seat as it was, as a repeated confirm or extend does.
+pub struct ChangedSeat {
+    pub event_id: Uuid,
+    pub seat_id: Uuid,
+    pub version: Option<i64>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub changed: bool,
+}

@@ -1,11 +1,10 @@
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
 use sqlx::PgConnection;
 use uuid::Uuid;
 
 use crate::core::telemetry::db::db_span;
-use crate::holds::dto::hold::{Hold, NewHold, SeatHolder, TakenSeat};
+use crate::holds::dto::hold::{ChangedSeat, Hold, NewHold, SeatHolder, TakenSeat};
 
 pub struct HoldRepository;
 
@@ -110,6 +109,28 @@ impl HoldRepository {
         .await
     }
 
+    /// Gives every seat of the hold its next version. Runs after the seats were taken, so their
+    /// rows are this transaction's: the number is taken after any earlier change of the seat
+    /// was committed. An INSERT computes its values before it waits for a conflicting row.
+    pub async fn stamp(
+        conn: &mut PgConnection,
+        hold_id: Uuid,
+    ) -> Result<Vec<ChangedSeat>, sqlx::Error> {
+        let _span = db_span("UPDATE", "holds");
+        sqlx::query_as!(
+            ChangedSeat,
+            r#"
+            UPDATE holds
+            SET version = nextval('seat_versions')
+            WHERE hold_id = $1
+            RETURNING event_id, seat_id, version, expires_at AS "expires_at?", true AS "changed!"
+            "#,
+            hold_id,
+        )
+        .fetch_all(conn)
+        .await
+    }
+
     pub async fn get(
         conn: &mut PgConnection,
         hold_id: Uuid,
@@ -142,9 +163,10 @@ impl HoldRepository {
         hold_id: Uuid,
         owner_id: &str,
         ttl: Duration,
-    ) -> Result<Vec<DateTime<Utc>>, sqlx::Error> {
+    ) -> Result<Vec<ChangedSeat>, sqlx::Error> {
         let _span = db_span("UPDATE", "holds");
-        sqlx::query_scalar!(
+        sqlx::query_as!(
+            ChangedSeat,
             r#"
             UPDATE holds
             SET expires_at = CASE
@@ -152,11 +174,16 @@ impl HoldRepository {
                     THEN GREATEST(expires_at, now() + make_interval(secs => $3))
                     ELSE expires_at
                 END,
-                extended_at = COALESCE(extended_at, now())
+                extended_at = COALESCE(extended_at, now()),
+                version = CASE
+                    WHEN extended_at IS NULL THEN nextval('seat_versions')
+                    ELSE version
+                END
             WHERE hold_id = $1
               AND owner_id = $2
               AND (status = 'confirmed' OR expires_at > now())
-            RETURNING expires_at
+            RETURNING event_id, seat_id, version, expires_at AS "expires_at?",
+                old.extended_at IS NULL AS "changed!"
             "#,
             hold_id,
             owner_id,
@@ -170,38 +197,46 @@ impl HoldRepository {
         conn: &mut PgConnection,
         hold_id: Uuid,
         owner_id: &str,
-    ) -> Result<u64, sqlx::Error> {
+    ) -> Result<Vec<ChangedSeat>, sqlx::Error> {
         let _span = db_span("UPDATE", "holds");
-        let result = sqlx::query!(
+        sqlx::query_as!(
+            ChangedSeat,
             r#"
             UPDATE holds
-            SET status = 'confirmed'
+            SET status = 'confirmed',
+                version = CASE WHEN status = 'held' THEN nextval('seat_versions') ELSE version END
             WHERE hold_id = $1
               AND owner_id = $2
               AND (status = 'confirmed' OR expires_at > now())
+            RETURNING event_id, seat_id, version, NULL::timestamptz AS "expires_at?",
+                old.status = 'held' AS "changed!"
             "#,
             hold_id,
             owner_id,
         )
-        .execute(conn)
-        .await?;
-        Ok(result.rows_affected())
+        .fetch_all(conn)
+        .await
     }
 
     pub async fn release(
         conn: &mut PgConnection,
         hold_id: Uuid,
         owner_id: &str,
-    ) -> Result<u64, sqlx::Error> {
+    ) -> Result<Vec<ChangedSeat>, sqlx::Error> {
         let _span = db_span("DELETE", "holds");
-        let result = sqlx::query!(
-            "DELETE FROM holds WHERE hold_id = $1 AND owner_id = $2 AND status = 'held'",
+        sqlx::query_as!(
+            ChangedSeat,
+            r#"
+            DELETE FROM holds
+            WHERE hold_id = $1 AND owner_id = $2 AND status = 'held'
+            RETURNING event_id, seat_id, nextval('seat_versions') AS version,
+                NULL::timestamptz AS "expires_at?", true AS "changed!"
+            "#,
             hold_id,
             owner_id,
         )
-        .execute(conn)
-        .await?;
-        Ok(result.rows_affected())
+        .fetch_all(conn)
+        .await
     }
 
     /// `SKIP LOCKED` leaves a row that someone is taking over right now, and lets
