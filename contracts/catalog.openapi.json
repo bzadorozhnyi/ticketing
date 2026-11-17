@@ -270,79 +270,6 @@
         }
       }
     },
-    "/api/v1/events/{event_id}/sections/{section_id}/availability": {
-      "get": {
-        "tags": [
-          "availability"
-        ],
-        "summary": "Get Section Availability",
-        "operationId": "get_section_availability_api_v1_events__event_id__sections__section_id__availability_get",
-        "parameters": [
-          {
-            "name": "event_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Event Id"
-            }
-          },
-          {
-            "name": "section_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Section Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SectionAvailabilityOut"
-                }
-              }
-            }
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorOut"
-                }
-              }
-            },
-            "description": "Unprocessable Content"
-          },
-          "503": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorOut"
-                }
-              }
-            },
-            "description": "Service Unavailable"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorOut"
-                }
-              }
-            },
-            "description": "Not Found"
-          }
-        }
-      }
-    },
     "/internal/v1/events/{event_id}/price": {
       "post": {
         "tags": [
@@ -684,36 +611,6 @@
         ],
         "title": "SeatsPriceOut"
       },
-      "SectionAvailabilityOut": {
-        "properties": {
-          "event_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Event Id"
-          },
-          "section_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Section Id"
-          },
-          "taken_seat_ids": {
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "type": "array",
-            "title": "Taken Seat Ids",
-            "description": "Seats sold or held, by row and number. Every other seat of the section's map is free. catalog's copy of seat-hold's state: it may lag a moment behind, and seat-hold decides every hold"
-          }
-        },
-        "type": "object",
-        "required": [
-          "event_id",
-          "section_id",
-          "taken_seat_ids"
-        ],
-        "title": "SectionAvailabilityOut"
-      },
       "SectionOut": {
         "properties": {
           "id": {
@@ -739,11 +636,6 @@
               }
             ],
             "title": "Price Minor"
-          },
-          "available_count": {
-            "type": "integer",
-            "title": "Available Count",
-            "description": "Seats neither sold nor held, by catalog's copy of seat-hold's state; it may lag a moment behind, and seat-hold decides every hold"
           }
         },
         "type": "object",
@@ -751,8 +643,7 @@
           "id",
           "name",
           "seat_count",
-          "price_minor",
-          "available_count"
+          "price_minor"
         ],
         "title": "SectionOut"
       },

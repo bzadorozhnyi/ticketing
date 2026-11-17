@@ -16,12 +16,6 @@ from sqlalchemy.pool import QueuePool
 
 from core.db import engine
 
-meter = metrics.get_meter("catalog")
-seat_events = meter.create_counter(
-    "catalog.seat_events",
-    description="seat-hold's events by outcome: applied, stale, retry, malformed",
-)
-
 
 def setup() -> None:
     """Traces and metrics, see ADR 0006. FastAPI's own telemetry makes the server span
@@ -45,7 +39,7 @@ def setup() -> None:
     trace.set_tracer_provider(tracer_provider)
 
     AsyncPGInstrumentor().instrument()
-    meter.create_observable_gauge(
+    metrics.get_meter("catalog").create_observable_gauge(
         "db.client.connection.count",
         callbacks=[_pool_connections],
         description="Pooled database connections by state",

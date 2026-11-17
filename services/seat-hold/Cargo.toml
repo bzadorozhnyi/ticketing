@@ -8,7 +8,6 @@ publish = false
 [dependencies]
 axum = "0.8.9"
 config = { version = "0.15.27", default-features = false }
-lapin = { version = "4.12.3", default-features = false, features = ["tokio"] }
 opentelemetry = { version = "0.33.1", default-features = false, features = ["trace", "metrics", "futures"] }
 opentelemetry-otlp = { version = "0.33.1", default-features = false, features = ["http-proto", "reqwest-blocking-client", "trace", "metrics"] }
 opentelemetry_sdk = { version = "0.33.1", default-features = false, features = ["trace", "metrics"] }

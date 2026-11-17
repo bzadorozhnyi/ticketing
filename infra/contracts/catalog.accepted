@@ -1,0 +1,2 @@
+GET /api/v1/events/{event_id}/sections removed the required property `sections/items/available_count` from the response with the `200` status
+GET /api/v1/events/{event_id}/sections/{section_id}/availability api path removed without deprecation

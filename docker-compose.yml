@@ -137,21 +137,6 @@ services:
     depends_on:
       catalog-migrate: { condition: service_completed_successfully }
 
-  catalog-projector:
-    <<: *catalog
-    command: ["python", "-m", "scripts.project"]
-    environment:
-      <<: *service-db-env
-      DB__NAME: catalog_db
-      DB__HOST: catalog-db
-      RABBITMQ__HOST: rabbitmq
-      OTEL_SERVICE_NAME: catalog-projector
-    restart: on-failure
-    depends_on:
-      catalog-migrate: { condition: service_completed_successfully }
-      rabbitmq: { condition: service_healthy }
-      rabbitmq-policies: { condition: service_completed_successfully }
-
   booking-db:
     <<: *postgres
     # The image's pg_hba.conf allows replication only from localhost; this one also lets the replica in.
@@ -303,22 +288,6 @@ services:
     healthcheck: *rust-ready-check
     depends_on:
       seat-hold-migrate: { condition: service_completed_successfully }
-
-  seat-hold-relay:
-    <<: *seat-hold
-    command: ["relay"]
-    environment:
-      <<: *service-db-env
-      DB__NAME: seat_hold_db
-      DB__HOST: seat-hold-db
-      RABBITMQ__HOST: rabbitmq
-      RABBITMQ__USER: ticketing
-      RABBITMQ__PASS: password
-      OTEL_SERVICE_NAME: seat-hold-relay
-    restart: on-failure
-    depends_on:
-      seat-hold-migrate: { condition: service_completed_successfully }
-      rabbitmq: { condition: service_healthy }
 
 volumes:
   rabbitmq-data:

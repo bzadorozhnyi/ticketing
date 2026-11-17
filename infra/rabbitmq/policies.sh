@@ -4,13 +4,8 @@
 # payment.replies again with dead-letter arguments fails with PRECONDITION_FAILED. Safe to run again.
 # A reply rejected without a requeue, or delivered 20 times, goes to payment.replies.dead, which booking and payment
 # declare; without the policy a quorum queue drops it after 20 deliveries.
-# catalog.seat-events: an event that fails 20 times goes to catalog.seat-events.dead, which the projector declares.
 set -eu
 
 rabbitmqadmin --host "$RABBITMQ_HOST" --username "$RABBITMQ_USER" --password "$RABBITMQ_PASS" \
   declare policy --non-interactive --name payment-replies --pattern '^payment\.replies$' --apply-to quorum_queues \
   --definition '{"dead-letter-exchange": "", "dead-letter-routing-key": "payment.replies.dead", "delivery-limit": 20}'
-
-rabbitmqadmin --host "$RABBITMQ_HOST" --username "$RABBITMQ_USER" --password "$RABBITMQ_PASS" \
-  declare policy --non-interactive --name catalog-seat-events --pattern '^catalog\.seat-events$' --apply-to quorum_queues \
-  --definition '{"dead-letter-exchange": "", "dead-letter-routing-key": "catalog.seat-events.dead", "delivery-limit": 20}'

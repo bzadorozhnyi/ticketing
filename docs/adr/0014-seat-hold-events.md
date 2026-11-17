@@ -1,6 +1,7 @@
 # 0014: seat-hold publishes every change of a seat
 
-**Status:** accepted
+**Status:** withdrawn. The events served only catalog's copy of availability, which did not halve refusals at a
+sales start (TIK-103, ADR 0015); the code was removed in TIK-104 and seat-hold has no broker client again (ADR 0005).
 
 ## Context
 

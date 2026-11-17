@@ -3,11 +3,11 @@
 Next ticket: TIK-108
 
 ## In progress
+- [ ] TIK-104 Revert the CQRS copy of availability (TIK-90, TIK-100): it did not halve refusals at a sales start (TIK-103)
 
 ## To do
 - [ ] TIK-88 Catalog: a cache in Valkey and the stampede of misses at the start of a sale
 - [ ] TIK-89 Seat-hold: one hot event, partitioning and its limits
-- [ ] TIK-104 Revert the CQRS copy of availability (TIK-90, TIK-100): it did not halve refusals at a sales start (TIK-103)
 - [ ] TIK-105 Gateway: OOMKilled at 128Mi under 5,000 connections, while MAX_CONNECTIONS allows 10,000 (~32 KB each)
 - [ ] TIK-106 Catalog: a 1 s liveness probe restarts busy pods under a spike of reads
 - [ ] TIK-107 Edge: about 30 % of 2,000+ simultaneous new TLS connections from the Mac fail to connect
