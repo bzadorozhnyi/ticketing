@@ -7,7 +7,6 @@ Next ticket: TIK-108
 ## To do
 - [ ] TIK-88 Catalog: a cache in Valkey and the stampede of misses at the start of a sale
 - [ ] TIK-89 Seat-hold: one hot event, partitioning and its limits
-- [ ] TIK-107 Edge: about 30 % of 2,000+ simultaneous new TLS connections from the Mac fail to connect
 - [ ] TIK-91 Canary deploys with an automatic rollback on the SLO burn rate
 - [ ] TIK-92 Service mesh: mTLS between services and balancing per request inside the cluster
 
@@ -113,3 +112,4 @@ Next ticket: TIK-108
 - [x] TIK-104 Reverted the CQRS copy of availability (TIK-90, TIK-100): code first, then a migration dropping its tables
 - [x] TIK-105 Gateway: limits that fit its memory (5,000 connections, 64 KiB bodies, 256Mi); no OOMKilled under a spike
 - [x] TIK-106 Catalog's 1 s liveness probe under overload: not reproduced, /health stays fast; probes unchanged
+- [x] TIK-107 The connections lost at the edge were lost in Docker Desktop's port forwarding, not in kind or Envoy

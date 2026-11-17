@@ -115,6 +115,10 @@ kubectl -n ticketing exec -it catalog-db-0 -- psql -U postgres -d catalog_db
 kubectl -n ticketing port-forward service/catalog 8001:8000   # a tunnel from localhost:8001 while it runs
 ```
 
+A load test from the Mac loses connections in Docker Desktop's port forwarding, before kind: 275 of 5,000 and
+32 of 2,500 plain TCP connects opened at once to `127.0.0.1:8000` were reset, while 5,000 from a pod to the node's
+port 30080 all connected (TIK-107). Run a load from a pod in the cluster, and count its errors before its numbers.
+
 How a request from the Mac reaches the gateway: kind maps `127.0.0.1:8000` to port 30080 of its node container
 (`kind-cluster.yaml`), Envoy's Service is a NodePort on 30080, and Envoy ends TLS (HTTP/1.1 or HTTP/2, ALPN) and sends
 each request to a gateway pod of its own choice, over HTTP/1.1 (ADR 0011). The gateway's Service is a ClusterIP.
