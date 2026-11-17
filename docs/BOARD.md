@@ -1,10 +1,11 @@
 # Board
 
-Next ticket: TIK-108
+Next ticket: TIK-110
 
 ## In progress
 
 ## To do
+- [ ] TIK-109 Envoy Gateway: its controller exits when the API server is slower than the 10 s renew deadline; set leader election times
 - [ ] TIK-88 Catalog: a cache in Valkey and the stampede of misses at the start of a sale
 - [ ] TIK-89 Seat-hold: one hot event, partitioning and its limits
 - [ ] TIK-91 Canary deploys with an automatic rollback on the SLO burn rate
@@ -113,3 +114,4 @@ Next ticket: TIK-108
 - [x] TIK-105 Gateway: limits that fit its memory (5,000 connections, 64 KiB bodies, 256Mi); no OOMKilled under a spike
 - [x] TIK-106 Catalog's 1 s liveness probe under overload: not reproduced, /health stays fast; probes unchanged
 - [x] TIK-107 The connections lost at the edge were lost in Docker Desktop's port forwarding, not in kind or Envoy
+- [x] TIK-108 deploy.sh no longer reinstalls Envoy Gateway of the same version; the edge's restarts came from its controller losing leader election
