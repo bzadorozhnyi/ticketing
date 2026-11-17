@@ -36,6 +36,14 @@ spec:
               value: gateway
             - name: AUTH__JWT_SECRET
               valueFrom: { secretKeyRef: { name: gateway, key: jwt-secret } }
+            # The limits must fit the memory limit below, or a spike gets the pod OOMKilled with every
+            # connection on it. Measured in kind: ~20 KiB per open connection, ~10 MiB at rest; 4,000
+            # connections plus 1,000 requests sending 64 KiB bodies peaked at 170 MiB. Worst case:
+            # 10 + MAX_CONNECTIONS x 20 KiB + MAX_IN_FLIGHT (1,000) x (MAX_BODY_BYTES + ~30 KiB) = ~205 MiB.
+            - name: LIMITS__MAX_CONNECTIONS
+              value: "5000"
+            - name: LIMITS__MAX_BODY_BYTES
+              value: "65536"
           # Keeps serving while the Service stops routing here; SIGTERM comes after it.
           lifecycle:
             preStop:
@@ -47,8 +55,8 @@ spec:
             httpGet: { path: /health, port: 8000 }
             periodSeconds: 10
           resources:
-            requests: { cpu: 100m, memory: 32Mi }
-            limits: { memory: 128Mi }
+            requests: { cpu: 100m, memory: 64Mi }
+            limits: { memory: 256Mi }
 ---
 # A voluntary eviction, such as a node drain, waits while it would leave no pod of gateway.
 apiVersion: policy/v1

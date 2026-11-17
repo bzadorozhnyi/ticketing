@@ -7,7 +7,6 @@ Next ticket: TIK-108
 ## To do
 - [ ] TIK-88 Catalog: a cache in Valkey and the stampede of misses at the start of a sale
 - [ ] TIK-89 Seat-hold: one hot event, partitioning and its limits
-- [ ] TIK-105 Gateway: OOMKilled at 128Mi under 5,000 connections, while MAX_CONNECTIONS allows 10,000 (~32 KB each)
 - [ ] TIK-106 Catalog: a 1 s liveness probe restarts busy pods under a spike of reads
 - [ ] TIK-107 Edge: about 30 % of 2,000+ simultaneous new TLS connections from the Mac fail to connect
 - [ ] TIK-91 Canary deploys with an automatic rollback on the SLO burn rate
@@ -113,3 +112,4 @@ Next ticket: TIK-108
 - [x] TIK-100 Catalog: a projector keeps a copy of seat availability from seat-hold's events; availability endpoint per section
 - [x] TIK-103 Measured catalog's copy of availability at a sales start: 31 % fewer refusals, not half; revert
 - [x] TIK-104 Reverted the CQRS copy of availability (TIK-90, TIK-100): code first, then a migration dropping its tables
+- [x] TIK-105 Gateway: limits that fit its memory (5,000 connections, 64 KiB bodies, 256Mi); no OOMKilled under a spike

@@ -75,7 +75,7 @@ Read from the environment with the `config` crate; a wrong value stops the start
 | `RATE_LIMIT__TIMEOUT_SECONDS` | 0.05 | connecting to Valkey and each answer; a slower one skips the shared limit |
 | `LIMITS__MAX_BODY_BYTES` | 1048576 | larger request bodies get 413 |
 | `LIMITS__MAX_IN_FLIGHT` | 1000 | requests in work in this replica; more get 503 `overloaded` at once. Bodies are buffered, so this times `MAX_BODY_BYTES` bounds their memory |
-| `LIMITS__MAX_CONNECTIONS` | 10000 | open client connections; more are closed at once. Keep it below the open-file limit minus the sum of the bulkheads (sockets to upstreams). An idle connection costs about 32 KB |
+| `LIMITS__MAX_CONNECTIONS` | 10000 | open client connections; more are closed at once. Keep it below the open-file limit minus the sum of the bulkheads (sockets to upstreams). An open connection costs about 20 KiB (measured in kind). In the cluster: 5000, with 64 KiB bodies and 256Mi, see `infra/k8s/apps/gateway.yaml` |
 | `LIMITS__HEADER_TIMEOUT_SECONDS` | 30 | time to send the headers of a request; also the longest a keep-alive connection may stay idle |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | none | OTLP/HTTP collector, e.g. `http://otel-collector:4318`; without it nothing is exported |
 | `OTEL_SERVICE_NAME` | `unknown_service` | `gateway` in compose; the `job` label in Prometheus |
