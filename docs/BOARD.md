@@ -3,7 +3,6 @@
 Next ticket: TIK-108
 
 ## In progress
-- [ ] TIK-104 Revert the CQRS copy of availability (TIK-90, TIK-100): it did not halve refusals at a sales start (TIK-103)
 
 ## To do
 - [ ] TIK-88 Catalog: a cache in Valkey and the stampede of misses at the start of a sale
@@ -113,3 +112,4 @@ Next ticket: TIK-108
 - [x] TIK-102 Seat-hold: replaced chrono (unmaintained, RUSTSEC-2026-0543) with `time`, behind `core/time.rs`
 - [x] TIK-100 Catalog: a projector keeps a copy of seat availability from seat-hold's events; availability endpoint per section
 - [x] TIK-103 Measured catalog's copy of availability at a sales start: 31 % fewer refusals, not half; revert
+- [x] TIK-104 Reverted the CQRS copy of availability (TIK-90, TIK-100): code first, then a migration dropping its tables
