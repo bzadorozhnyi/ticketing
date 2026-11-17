@@ -34,7 +34,8 @@ ADR 0005 kept seat-hold free of a broker client. This decision changes that.
 - **The relay sends a batch of up to 100 messages, then waits for the confirms.** A batch costs one round trip to the
   broker, not one per message. It deletes the confirmed rows up to the first failure. It looks again every 0.5 s when
   the outbox is empty, and connects again after a broker error.
-- **lapin 4.12.3** without default features, with `tokio`. No TLS is needed inside the cluster.
+- **lapin 4.12.3** without default features, with `tokio`. No TLS is needed inside the cluster. It and its AMQP crates
+  are under BSD-2-Clause, now allowed in `deny.toml`: BSD-3-Clause without the clause on using the authors' names.
 
 | Option | Why not |
 |---|---|
