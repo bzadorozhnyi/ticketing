@@ -8,3 +8,4 @@ class SectionDTO(BaseModel):
     name: str
     seat_count: int
     price_minor: int | None
+    available_count: int

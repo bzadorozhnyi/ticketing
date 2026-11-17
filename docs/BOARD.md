@@ -7,7 +7,6 @@ Next ticket: TIK-103
 ## To do
 - [ ] TIK-88 Catalog: a cache in Valkey and the stampede of misses at the start of a sale
 - [ ] TIK-89 Seat-hold: one hot event, partitioning and its limits
-- [ ] TIK-100 Catalog: a projector keeps a copy of seat availability from seat-hold's events; availability endpoint per section
 - [ ] TIK-101 Rebuilding catalog's copy of availability (a snapshot plus the events after it), and its lag and cost at a sales start
 - [ ] TIK-91 Canary deploys with an automatic rollback on the SLO burn rate
 - [ ] TIK-92 Service mesh: mTLS between services and balancing per request inside the cluster
@@ -109,3 +108,4 @@ Next ticket: TIK-103
 - [x] TIK-94 The ~40 ms in p99 was Nagle's algorithm on the gateway's accepted connections; the L4 hop stays
 - [x] TIK-90 Seat-hold: every change of a seat goes out as an event with its version, through an outbox, to RabbitMQ
 - [x] TIK-102 Seat-hold: replaced chrono (unmaintained, RUSTSEC-2026-0543) with `time`, behind `core/time.rs`
+- [x] TIK-100 Catalog: a projector keeps a copy of seat availability from seat-hold's events; availability endpoint per section

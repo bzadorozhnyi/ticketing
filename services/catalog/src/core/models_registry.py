@@ -4,6 +4,7 @@ Alembic autogenerate (see migrations/env.py) relies on this to detect
 schema changes. Add a line here whenever a new models module appears.
 """
 
+import availability.models.seat_availability  # noqa: F401
 import events.models.event  # noqa: F401
 import events.models.section_price  # noqa: F401
 import venues.models.seat  # noqa: F401
