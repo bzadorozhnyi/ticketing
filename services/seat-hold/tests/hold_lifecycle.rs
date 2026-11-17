@@ -3,13 +3,13 @@ mod common;
 use std::time::Duration;
 
 use axum::http::StatusCode;
-use chrono::{DateTime, Utc};
 use common::db::{TestPool, dead_pool};
 use common::factories::hold_factory;
 use common::service::{client, spawn_service};
 use reqwest::Response;
 use seat_hold::core::db::DbPool;
 use seat_hold::core::settings::HoldSettings;
+use seat_hold::core::time::{self, Timestamp};
 use seat_hold::holds::use_cases::cleanup_expired_holds::CleanupExpiredHoldsUseCase;
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -24,7 +24,7 @@ async fn internal(service: &str, hold_id: Uuid, action: &str, user: Option<&str>
     request.send().await.expect("a service response")
 }
 
-async fn hold_state(pool: &TestPool, hold_id: Uuid) -> Option<(String, DateTime<Utc>)> {
+async fn hold_state(pool: &TestPool, hold_id: Uuid) -> Option<(String, Timestamp)> {
     let mut conn = pool.get_conn().await.expect("a test connection");
     sqlx::query_as("SELECT status, expires_at FROM holds WHERE hold_id = $1")
         .bind(hold_id)
@@ -48,8 +48,8 @@ async fn extending_a_live_hold_gives_time_for_the_payment() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let body: Value = response.json().await.unwrap();
-    let expires_at: DateTime<Utc> = body["expires_at"].as_str().unwrap().parse().unwrap();
-    let left = (expires_at - Utc::now()).num_seconds();
+    let expires_at = time::parse(body["expires_at"].as_str().unwrap()).unwrap();
+    let left = (expires_at - time::now()).whole_seconds();
     let expected = i64::try_from(HoldSettings::default().payment_ttl.as_secs()).unwrap();
     assert!((expected - 10..=expected).contains(&left), "{left}");
 }
@@ -72,13 +72,13 @@ async fn extending_never_shortens_a_hold() {
     assert_eq!(hold_state(&pool, held.hold_id).await.unwrap().1, before);
 }
 
-async fn extended_until(service: &str, hold_id: Uuid) -> DateTime<Utc> {
+async fn extended_until(service: &str, hold_id: Uuid) -> Timestamp {
     let response = internal(service, hold_id, "extend", Some(USER)).await;
     assert_eq!(response.status(), StatusCode::OK);
     let body: Value = response.json().await.expect("a JSON body");
     body.get("expires_at")
         .and_then(Value::as_str)
-        .and_then(|at| at.parse().ok())
+        .and_then(time::parse)
         .expect("an expiry time")
 }
 
@@ -95,7 +95,7 @@ async fn only_the_first_extend_adds_time() {
     extended_until(&service, held.hold_id).await;
     // A test runs in one transaction, where now() stands still: time passing is simulated.
     let mut conn = pool.get_conn().await.unwrap();
-    let later: DateTime<Utc> = sqlx::query_scalar(
+    let later: Timestamp = sqlx::query_scalar(
         "UPDATE holds SET expires_at = now() + interval '1 minute' WHERE hold_id = $1
          RETURNING expires_at",
     )
@@ -139,7 +139,7 @@ async fn a_seat_taken_over_after_an_extended_hold_can_be_extended_again() {
 
     let until = extended_until(&service, hold_id).await;
 
-    let left = (until - Utc::now()).num_seconds();
+    let left = (until - time::now()).whole_seconds();
     let expected = i64::try_from(HoldSettings::default().payment_ttl.as_secs()).unwrap();
     assert!((expected - 10..=expected).contains(&left), "{left}");
 }

@@ -1,8 +1,8 @@
-use chrono::{DateTime, Utc};
 use serde::Serialize;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use crate::core::time::{Timestamp, rfc3339};
 use crate::holds::dto::hold::Hold;
 
 #[derive(Serialize, ToSchema)]
@@ -10,7 +10,9 @@ pub struct HoldOut {
     pub hold_id: Uuid,
     pub event_id: Uuid,
     pub seat_ids: Vec<Uuid>,
-    pub expires_at: DateTime<Utc>,
+    #[serde(with = "rfc3339")]
+    #[schema(value_type = String, format = DateTime)]
+    pub expires_at: Timestamp,
 }
 
 impl From<Hold> for HoldOut {

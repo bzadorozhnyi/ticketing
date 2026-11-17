@@ -1,6 +1,6 @@
 # Board
 
-Next ticket: TIK-102
+Next ticket: TIK-103
 
 ## In progress
 
@@ -108,3 +108,4 @@ Next ticket: TIK-102
 - [x] TIK-87 Seat-hold: record histories under faults and check them for a seat held twice (Jepsen-style)
 - [x] TIK-94 The ~40 ms in p99 was Nagle's algorithm on the gateway's accepted connections; the L4 hop stays
 - [x] TIK-90 Seat-hold: every change of a seat goes out as an event with its version, through an outbox, to RabbitMQ
+- [x] TIK-102 Seat-hold: replaced chrono (unmaintained, RUSTSEC-2026-0543) with `time`, behind `core/time.rs`

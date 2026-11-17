@@ -3,13 +3,13 @@ mod common;
 use std::time::Duration;
 
 use axum::http::StatusCode;
-use chrono::{DateTime, Utc};
 use common::db::{TestPool, dead_pool};
 use common::factories::hold_factory;
 use common::service::{client, spawn_service, spawn_service_with};
 use reqwest::Response;
 use seat_hold::core::db::DbPool;
 use seat_hold::core::settings::HoldSettings;
+use seat_hold::core::time;
 use serde_json::{Value, json};
 use uuid::Uuid;
 
@@ -79,8 +79,8 @@ async fn the_hold_ends_after_the_configured_ttl() {
     let response = post_hold(&service, Some(USER), &hold_body(Uuid::now_v7(), &seats(1))).await;
 
     let body: Value = response.json().await.unwrap();
-    let expires_at: DateTime<Utc> = body["expires_at"].as_str().unwrap().parse().unwrap();
-    let seconds_left = (expires_at - Utc::now()).num_seconds();
+    let expires_at = time::parse(body["expires_at"].as_str().unwrap()).unwrap();
+    let seconds_left = (expires_at - time::now()).whole_seconds();
     assert!((50..=60).contains(&seconds_left), "{seconds_left}");
 }
 

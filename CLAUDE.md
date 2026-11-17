@@ -35,6 +35,10 @@ Features are secondary; failure experiments and evidence are the point.
   If a process crashes at any step, running it again must not create duplicates or repeat a side effect (such as a charge).
 - A check before acting is not enough on its own: two concurrent runs can both pass it.
   Enforce the guarantee where it is atomic: a unique constraint in the database, or an idempotency key on the external call.
+- A library that may have to be replaced, and whose types would otherwise spread through the code, is reached through
+  one module of ours: a broker or HTTP client (`core/rabbitmq.py`, `clients/`), a date-time type used in every layer.
+  Replacing it then touches that module, not every file. Not for a library used in one place, nor for the foundations
+  a service is built on (serde, pydantic, sqlx, FastAPI): a wrapper there only adds code.
 - For every multi-step process, state what happens if it crashes after each step. Explain this to the user in detail
   before implementing it (first in M3, the saga).
 

@@ -1,6 +1,7 @@
-use chrono::{DateTime, Utc};
 use serde::Serialize;
 use uuid::Uuid;
+
+use crate::core::time::{Timestamp, rfc3339};
 
 /// What happened to some seats of one hold. Published to other services, so its shape is a contract.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -29,8 +30,8 @@ impl SeatEventKind {
 pub struct SeatChange {
     pub seat_id: Uuid,
     pub version: i64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none", with = "rfc3339::option")]
+    pub expires_at: Option<Timestamp>,
 }
 
 #[derive(Debug, Serialize)]
