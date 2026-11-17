@@ -1,6 +1,6 @@
 # 0015: catalog keeps a copy of seat availability
 
-**Status:** accepted; to be withdrawn (TIK-104), see "Measured at a sales start"
+**Status:** withdrawn, see "Measured at a sales start"; the code was removed in TIK-104.
 
 ## Context
 

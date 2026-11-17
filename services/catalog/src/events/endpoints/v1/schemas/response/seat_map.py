@@ -1,7 +1,7 @@
 import uuid
 from typing import Self
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from events.dto.seat_map import EventSectionsDTO, SectionSeatsDTO
 
@@ -11,10 +11,6 @@ class SectionOut(BaseModel):
     name: str
     seat_count: int
     price_minor: int | None
-    available_count: int = Field(
-        description="Seats neither sold nor held, by catalog's copy of seat-hold's "
-        "state; it may lag a moment behind, and seat-hold decides every hold"
-    )
 
 
 class EventSectionsOut(BaseModel):
@@ -35,7 +31,6 @@ class EventSectionsOut(BaseModel):
                     name=s.name,
                     seat_count=s.seat_count,
                     price_minor=s.price_minor,
-                    available_count=s.available_count,
                 )
                 for s in dto.sections
             ],

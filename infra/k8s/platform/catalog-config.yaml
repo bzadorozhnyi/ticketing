@@ -7,5 +7,3 @@ data:
   DB__NAME: catalog_db
   DB__PORT: "5432"
   OTEL_SERVICE_NAME: catalog
-  # Only the projector connects to the broker.
-  RABBITMQ__HOST: rabbitmq

@@ -33,8 +33,7 @@ RUN apt-get update \
     && groupadd --system app \
     && useradd --system --gid app app
 
-COPY --from=builder /app/target/release/seat-hold /app/target/release/migrate \
-    /app/target/release/relay /usr/local/bin/
+COPY --from=builder /app/target/release/seat-hold /app/target/release/migrate /usr/local/bin/
 
 USER app
 

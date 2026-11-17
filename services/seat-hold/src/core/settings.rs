@@ -122,55 +122,6 @@ impl Default for HoldSettings {
     }
 }
 
-/// No `Debug`: the password must not be printable by accident.
-#[derive(Clone, Deserialize)]
-pub struct RabbitMqSettings {
-    pub host: String,
-    #[serde(default = "default_rabbitmq_port")]
-    pub port: u16,
-    pub user: String,
-    pub pass: String,
-}
-
-/// The relay takes at most `batch_size` rows at a time and waits `poll_interval` when it
-/// found fewer, or when a pass failed. The broker has `publish_timeout` to confirm a batch.
-#[derive(Clone, Copy, Debug, Deserialize)]
-#[serde(default)]
-pub struct OutboxSettings {
-    pub batch_size: i64,
-    #[serde(rename = "poll_interval_seconds", deserialize_with = "seconds")]
-    pub poll_interval: Duration,
-    #[serde(rename = "publish_timeout_seconds", deserialize_with = "seconds")]
-    pub publish_timeout: Duration,
-}
-
-impl Default for OutboxSettings {
-    fn default() -> Self {
-        Self {
-            batch_size: 100,
-            poll_interval: Duration::from_millis(500),
-            publish_timeout: Duration::from_secs(5),
-        }
-    }
-}
-
-/// Only the `relay` binary reads these, so the service starts without a broker.
-#[derive(Clone, Deserialize)]
-pub struct RelaySettings {
-    pub rabbitmq: RabbitMqSettings,
-    #[serde(default)]
-    pub outbox: OutboxSettings,
-}
-
-impl RelaySettings {
-    pub fn from_env() -> Result<Self, ConfigError> {
-        Config::builder()
-            .add_source(Environment::default().separator("__"))
-            .build()?
-            .try_deserialize()
-    }
-}
-
 #[derive(Clone, Deserialize)]
 pub struct Settings {
     #[serde(default = "default_port")]
@@ -201,10 +152,6 @@ fn default_port() -> u16 {
 
 fn default_db_port() -> u16 {
     5432
-}
-
-fn default_rabbitmq_port() -> u16 {
-    5672
 }
 
 fn from_str<'de, D, T>(deserializer: D) -> Result<T, D::Error>

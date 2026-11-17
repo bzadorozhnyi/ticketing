@@ -30,23 +30,6 @@ class MigrationSettings(BaseModel):
     MAX_RETRY_DELAY_SECONDS: float = 15
 
 
-class RabbitMQSettings(BaseModel):
-    """Only the projector connects to the broker; the API never does."""
-
-    HOST: str = "localhost"
-    PORT: int = 5672
-    USER: str = "ticketing"
-    PASS: str = "password"
-    PREFETCH_COUNT: int = 10
-    HANDLER_TIMEOUT_SECONDS: float = 30
-    RETRY_BASE_DELAY_SECONDS: float = 1
-    MAX_RETRY_DELAY_SECONDS: float = 30
-
-    @property
-    def url(self) -> str:
-        return f"amqp://{self.USER}:{self.PASS}@{self.HOST}:{self.PORT}/"
-
-
 class LoggingSettings(BaseModel):
     FORMAT: LogFormat = LogFormat.JSON
     LEVEL: str = "INFO"
@@ -57,7 +40,6 @@ class Settings(BaseSettings):
     DB: DBSettings
     MIGRATIONS: MigrationSettings = MigrationSettings()
     LOGGING: LoggingSettings = LoggingSettings()
-    RABBITMQ: RabbitMQSettings = RabbitMQSettings()
 
     # No env_file: this reads only os.environ. Docker compose sets the values
     # directly; tests/conftest.py loads .env.test before anything is imported.

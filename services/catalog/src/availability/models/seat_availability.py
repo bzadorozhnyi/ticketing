@@ -15,7 +15,10 @@ class SeatStatus(StrEnum):
 
 
 class SeatAvailability(BaseModel):
-    """catalog's copy of a seat's state in seat-hold, kept from its events.
+    """Unused: kept only until the migration that drops the table, so the models
+    match the migrations while pods of the previous release may still read it.
+
+    catalog's copy of a seat's state in seat-hold, kept from its events.
 
     A released seat keeps its row as `free` with the release's version, so an older
     event that arrives later finds a newer version here and changes nothing. No foreign
