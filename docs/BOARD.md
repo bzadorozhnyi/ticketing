@@ -1,13 +1,16 @@
 # Board
 
-Next ticket: TIK-103
+Next ticket: TIK-108
 
 ## In progress
 
 ## To do
 - [ ] TIK-88 Catalog: a cache in Valkey and the stampede of misses at the start of a sale
 - [ ] TIK-89 Seat-hold: one hot event, partitioning and its limits
-- [ ] TIK-101 Rebuilding catalog's copy of availability (a snapshot plus the events after it), and its lag and cost at a sales start
+- [ ] TIK-104 Revert the CQRS copy of availability (TIK-90, TIK-100): it did not halve refusals at a sales start (TIK-103)
+- [ ] TIK-105 Gateway: OOMKilled at 128Mi under 5,000 connections, while MAX_CONNECTIONS allows 10,000 (~32 KB each)
+- [ ] TIK-106 Catalog: a 1 s liveness probe restarts busy pods under a spike of reads
+- [ ] TIK-107 Edge: about 30 % of 2,000+ simultaneous new TLS connections from the Mac fail to connect
 - [ ] TIK-91 Canary deploys with an automatic rollback on the SLO burn rate
 - [ ] TIK-92 Service mesh: mTLS between services and balancing per request inside the cluster
 
@@ -109,3 +112,4 @@ Next ticket: TIK-103
 - [x] TIK-90 Seat-hold: every change of a seat goes out as an event with its version, through an outbox, to RabbitMQ
 - [x] TIK-102 Seat-hold: replaced chrono (unmaintained, RUSTSEC-2026-0543) with `time`, behind `core/time.rs`
 - [x] TIK-100 Catalog: a projector keeps a copy of seat availability from seat-hold's events; availability endpoint per section
+- [x] TIK-103 Measured catalog's copy of availability at a sales start: 31 % fewer refusals, not half; revert

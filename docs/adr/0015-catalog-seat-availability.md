@@ -1,6 +1,6 @@
 # 0015: catalog keeps a copy of seat availability
 
-**Status:** accepted
+**Status:** accepted; to be withdrawn (TIK-104), see "Measured at a sales start"
 
 ## Context
 
@@ -50,3 +50,21 @@ a wrong state, because duplicates and reordering are normal with this broker.
   of pauses sends the events in flight, at most `RABBITMQ__PREFETCH_COUNT` (10) of them, to the dead letter queue. The
   copy of those seats then stays wrong until each seat changes again or the copy is rebuilt.
 - A seat shown free that is taken costs one 409 from seat-hold. That is no worse than without the copy.
+
+## Measured at a sales start (TIK-103)
+
+The rule was agreed before measuring: keep the copy only if buyers choosing by it get at least half fewer refusals,
+the events cost seat-hold at most 20 % more, and `availability` has no 5xx under the spike. In the kind cluster, a
+client pod calling the gateway's Service, 5,000 users within 1 s on 300 seats, 3 runs each:
+
+- Refusals 409 per seat sold: blind 67.4 (median), by the copy 46.6, that is 31 % fewer; blind without events 71.5.
+- Cost of the events: seat-hold's database CPU 6.39 s against 6.11 s (+4.6 %), median hold 850 against 724 ms (+17 %,
+  within the spread of the runs). catalog's database +1.7 s and the projector 2.5 to 3 s of CPU a run.
+- `availability`: 13,000 to 20,000 answers 503 `bulkhead_full` a run; catalog's pods failed their liveness probe.
+- With the relay polling every 0.05 s and 1,000 users, 2 runs each: 12.0 and 12.3 refusals blind, 9.1 and 8.3 by the
+  copy (28 to 31 % fewer), still about 2,500 answers 503 a run.
+- Buyers reading before every try lose time: the first 300 arrivals bought 19 to 28 seats by the copy, about 200 blind.
+
+The copy lags by about the length of the spike itself, so it is stale exactly when people choose. Outside a spike,
+catalog could ask seat-hold directly. Decision: revert. Choosing seats on the server ("best available") would remove
+the refusals without any copy.
