@@ -196,7 +196,8 @@ src/
 ## CI
 
 GitHub Actions on pull requests into `main` and on pushes to `main` (`.github/workflows/ci.yml`), because pre-commit can be skipped:
-- Python: ruff, ty, pytest against the compose database.
+- Python: ruff, ty, pytest against the compose database; `uv audit` checks `uv.lock` against the OSV database for known
+  vulnerabilities and packages PyPI marks archived, deprecated or quarantined. uv is pinned in CI, since `uv audit` is a preview.
 - Rust: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, `cargo test --release`.
 - `cargo-deny` for advisories and licenses (`services/gateway/deny.toml`).
 - `infra/check-contracts.sh` runs `oasdiff`: a breaking API change fails the build. A break made on purpose is listed in
