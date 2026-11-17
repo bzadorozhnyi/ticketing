@@ -41,12 +41,14 @@ async def test_list_event_sections_sorted_by_name_with_seat_counts(
             "name": "Balcony",
             "seat_count": 0,
             "price_minor": None,
+            "available_count": 0,
         },
         {
             "id": str(parter.id),
             "name": "Parter",
             "seat_count": 2,
             "price_minor": None,
+            "available_count": 2,
         },
     ]
 

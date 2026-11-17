@@ -61,7 +61,7 @@ ADR 0005 kept seat-hold free of a broker client. This decision changes that.
   copy is rebuilt from a snapshot of seat-hold plus the events after it (TIK-101).
 - Every change of seats costs a second `UPDATE` (a hold) or a sequence value, and one outbox `INSERT`, inside the hold's
   transaction. This cost at a sales start has not been measured yet (TIK-101).
-- The copy lags by the relay's poll interval plus the broker and the reader. This lag has not been measured yet either.
+- The copy lags by the relay's poll interval plus the broker and the reader: p50 276 ms with the poll at 0.5 s (ADR 0015).
 - The relay is a single pod, and a second one would only skip locked rows. Events of seat-hold's request pods are not
   published while it is down. They wait in the outbox.
 - The events carry no `traceparent`, so a reader's work does not join the trace of the request that changed the seat.

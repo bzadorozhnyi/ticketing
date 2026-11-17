@@ -270,3 +270,6 @@
 - CI can fail with no change of ours: cargo-deny downloads the RustSec database at every run, and on 2026-11-17 chrono was marked unmaintained (RUSTSEC-2026-0543, not a vulnerability; its maintainer had announced it in January). Its types were in 8 files of seat-hold, so replacing it took a ticket instead of one line; now `core/time.rs` is the only module that names `time`.
 - utoipa recognizes a date-time field by the name of its type, so a type alias such as `Timestamp` is unknown to it: the field needs `#[schema(value_type = String, format = DateTime)]`, which also keeps the contract free of the library.
 - `time` writes RFC 3339 with the trailing zeros of the fraction cut (`.46191Z`, or no fraction at all), where chrono wrote 3, 6 or 9 digits. The same instant and valid RFC 3339; pydantic reads every form.
+- On RabbitMQ 4.4.0 a message returned to a quorum queue because its consumer's connection closed counts as a delivery, like a `reject(requeue=True)`: a projector that crashes in a loop burns the delivery limit of the messages it held.
+- A copy kept from events cannot delete a released row: the row is what remembers the newest version, so a late older event has something to lose against.
+- The first lag measured for catalog's copy looked like the system's speed, but it was the relay's poll interval: p50 276 ms at a 0.5 s poll, 38 ms at 0.05 s.
