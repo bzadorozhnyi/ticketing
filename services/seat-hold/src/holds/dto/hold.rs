@@ -1,5 +1,6 @@
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
+
+use crate::core::time::Timestamp;
 
 pub struct NewHold {
     pub event_id: Uuid,
@@ -11,7 +12,7 @@ pub struct Hold {
     pub hold_id: Uuid,
     pub event_id: Uuid,
     pub seat_ids: Vec<Uuid>,
-    pub expires_at: DateTime<Utc>,
+    pub expires_at: Timestamp,
 }
 
 pub struct SeatHolder {
@@ -21,7 +22,7 @@ pub struct SeatHolder {
 
 pub struct TakenSeat {
     pub seat_id: Uuid,
-    pub expires_at: DateTime<Utc>,
+    pub expires_at: Timestamp,
 }
 
 /// A seat whose row a statement changed, with the version it took. `changed` is false when
@@ -30,6 +31,6 @@ pub struct ChangedSeat {
     pub event_id: Uuid,
     pub seat_id: Uuid,
     pub version: Option<i64>,
-    pub expires_at: Option<DateTime<Utc>>,
+    pub expires_at: Option<Timestamp>,
     pub changed: bool,
 }

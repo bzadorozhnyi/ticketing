@@ -108,3 +108,6 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
   confirmed it, so delivery is at least once (`outbox/relay.rs`, `tests/relay.rs`).
 - Background job: `holds/cleanup_job.rs` removes expired rows. Correctness does not depend on it, and replicas need no coordination.
 - `/ready` checks the database; the pool connects lazily, so the service starts during an outage.
+- `core/time.rs` is the only module that names the date-time library (`time`): code uses `Timestamp`, `now()` and
+  `parse()` from it. A field in a response or an event adds `#[serde(with = "rfc3339")]` (RFC 3339 text) and, in the API,
+  `#[schema(value_type = String, format = DateTime)]`, since utoipa does not know the alias.

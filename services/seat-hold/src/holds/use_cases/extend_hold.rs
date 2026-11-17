@@ -1,13 +1,13 @@
 use std::time::Duration;
 
 use axum::extract::FromRef;
-use chrono::{DateTime, Utc};
 use sqlx::Connection;
 use uuid::Uuid;
 
 use crate::app::AppState;
 use crate::core::db::DbPool;
 use crate::core::errors::ServiceError;
+use crate::core::time::Timestamp;
 use crate::holds::dto::event::SeatEventKind;
 use crate::holds::repositories::hold::HoldRepository;
 use crate::holds::services::seat_events;
@@ -35,11 +35,7 @@ impl<D: DbPool> ExtendHoldUseCase<D> {
     /// Only the first call adds time. A declined card keeps the hold so the user can try
     /// another, but new orders cannot keep a seat for ever: a hold lasts at most `ttl`
     /// plus `payment_ttl`. A later order gets the time that is left.
-    pub async fn execute(
-        &self,
-        hold_id: Uuid,
-        owner_id: &str,
-    ) -> Result<DateTime<Utc>, ServiceError> {
+    pub async fn execute(&self, hold_id: Uuid, owner_id: &str) -> Result<Timestamp, ServiceError> {
         let mut conn = self.db.get_conn().await?;
         let mut transaction = conn.begin().await?;
         let seats = HoldRepository::extend(&mut transaction, hold_id, owner_id, self.ttl).await?;

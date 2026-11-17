@@ -8,4 +8,5 @@ pub mod rabbitmq;
 pub mod settings;
 pub mod shutdown;
 pub mod telemetry;
+pub mod time;
 pub mod user;
