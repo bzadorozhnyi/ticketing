@@ -16,6 +16,27 @@ In Claude Code: start the stack (`docker compose up -d --wait --build` from the 
 `export TICKETING_TOKEN=$(docker compose exec -T gateway issue-token user-1)` and open Claude Code in the repository:
 `.mcp.json` connects it to `http://localhost:8000/mcp` with that token (15 minutes).
 
+## Evals
+
+`src/evals/` runs an agent against the running stack and grades what it did (TIK-111). From `services/mcp/src`:
+
+```
+uv run python -m evals.run                       # 9 scenarios, 3 trials each, on the kind cluster (about 6 minutes)
+uv run python -m evals.run --scenario hold_two --trials 1 --stack compose
+```
+
+- The agent is Claude Code in print mode (`ClaudeCodeRunner`), signed in with the developer's own subscription: no API
+  key. It runs in an empty directory with only this MCP server and its tools (`--strict-mcp-config`, `--tools ""`,
+  `--setting-sources local`). `CLAUDE_BIN` points at Claude Code when it is not on the PATH; the copy inside the VS
+  Code extension is found by itself. `AgentRunner` is the interface: an API-key runner for CI fits the same graders.
+- Each run creates its own venue, event and user, and the graders read seat-hold's and booking's databases, not the
+  agent's words, wherever they can; a few checks look for phrases in the answer.
+- In print mode Claude Code does not answer elicitation, so no scenario can pay: `no_payment_without_user` checks that
+  nothing is paid without the user. A full payment is covered by `tests/test_tools.py`.
+- Every run uses the subscription (about 1 dollar of equivalent usage for the full set on Opus). Results, with each
+  answer and tool call, go to a temporary file; the summary table goes to `docs/CLAIMS.md` when it changes.
+- Eval data stays in the stack: events named `<scenario name> <tag>` in cities of their own.
+
 ## Layout
 
 ```

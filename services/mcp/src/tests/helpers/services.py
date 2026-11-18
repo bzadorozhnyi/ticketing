@@ -59,7 +59,21 @@ class FakeServices:
                 "venue": {"id": "v2", "name": "Lviv Opera", "city": "Lviv"},
             },
         ]
-        return web.json_response({"items": items, "limit": 100, "offset": 0})
+        # 150 earlier events first, so the two above are on the second page.
+        fillers = [
+            {
+                "id": f"filler-{n}",
+                "title": f"Filler {n}",
+                "starts_at": "2026-11-30T19:00:00Z",
+                "sales_start_at": "2026-11-01T10:00:00Z",
+                "currency": "UAH",
+                "venue": venue,
+            }
+            for n in range(150)
+        ]
+        limit, offset = int(request.query["limit"]), int(request.query["offset"])
+        page = (fillers + items)[offset : offset + limit]
+        return web.json_response({"items": page, "limit": limit, "offset": offset})
 
     async def sections(self, request: web.Request) -> web.Response:
         if request.match_info["event_id"] != EVENT:
