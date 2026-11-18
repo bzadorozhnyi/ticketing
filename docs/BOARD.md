@@ -1,6 +1,6 @@
 # Board
 
-Next ticket: TIK-112
+Next ticket: TIK-113
 
 ## In progress
 
@@ -115,3 +115,4 @@ Next ticket: TIK-112
 - [x] TIK-89 Seat-hold: one hot event holds as fast as 50 events (~4,200 holds/s), so partitioning by event would gain nothing
 - [x] TIK-110 MCP server: the ticketing API as tools for an LLM agent, behind the gateway at /mcp
 - [x] TIK-111 Evals of an agent using the MCP server: 9 scenarios, graders on the system's state, 27 of 27 passed through Claude Code
+- [x] TIK-112 Postgres: fsync is a part of seat-hold's ~4,200 holds/s ceiling, not the main one (synchronous_commit off: 1.2 to 1.3 times)

@@ -95,6 +95,10 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
 - `DELETE /api/v1/holds/{hold_id}` always answers 204, so a retry is safe. Another user's hold stays untouched.
 - Background job: `holds/cleanup_job.rs` removes expired rows. Correctness does not depend on it, and replicas need no coordination.
 - `/ready` checks the database; the pool connects lazily, so the service starts during an outage.
+- The database loads `pg_stat_statements` (time per statement; compose `command`, the StatefulSet's `args`). The view
+  appears after `CREATE EXTENSION IF NOT EXISTS pg_stat_statements` as `postgres` in `seat_hold_db`, run by hand once per
+  data volume: it is a diagnostic, not something the service needs. Sample `pg_stat_activity` with short queries
+  (`\watch`), never from one long transaction: that holds back the cleanup of deleted holds and slowed holds 3 times (TIK-112).
 - `core/time.rs` is the only module that names the date-time library (`time`): code uses `Timestamp`, `now()` and
   `parse()` from it. A field in a response or an event adds `#[serde(with = "rfc3339")]` (RFC 3339 text) and, in the API,
   `#[schema(value_type = String, format = DateTime)]`, since utoipa does not know the alias.
