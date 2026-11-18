@@ -23,7 +23,7 @@ kind delete cluster --name ticketing      # everything goes, the databases too
 | `migrations/` | one Job per service: `alembic upgrade head`, or `migrate` for seat-hold; and RabbitMQ's policies (`infra/rabbitmq/policies.sh`) | then; waits for every Job to complete |
 | `seed/` | catalog's demo data, a Job | then |
 | `apps/` | the services and their workers, Deployments and Services | then; waits for every rollout |
-| `edge/` | Envoy Gateway's `Gateway` (HTTPS) and `HTTPRoute` to the gateway; Envoy Gateway itself from `install-envoy-gateway.sh` | last, as it takes the gateway's old NodePort; waits until Envoy has the config |
+| `edge/` | Envoy Gateway's `Gateway` (HTTPS) and `HTTPRoute` to the gateway; Envoy Gateway itself from `install-envoy-gateway.sh`, which installs a release only when its version is not running and applies `envoy-gateway-config.yaml` (leader election times) every time | last, as it takes the gateway's old NodePort; waits until Envoy has the config |
 
 Kubernetes keeps no order between resources; `deploy.sh` does what `depends_on` did in compose. Every deploy tags the
 images with the commit (and a timestamp when `services/` has local changes), so a Deployment sees a new image and
