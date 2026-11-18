@@ -37,3 +37,4 @@ data:
   UPSTREAMS__CATALOG_URL: http://catalog:8000
   UPSTREAMS__SEAT_HOLD_URL: http://seat-hold:8000
   UPSTREAMS__BOOKING_URL: http://booking:8000
+  UPSTREAMS__MCP_URL: http://mcp:8000

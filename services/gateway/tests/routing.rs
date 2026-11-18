@@ -416,6 +416,51 @@ async fn orders_go_to_booking_as_the_token_user_with_their_idempotency_key() {
 }
 
 #[tokio::test]
+async fn mcp_goes_to_the_mcp_server_as_the_token_user() {
+    let catalog = spawn_upstream(echo_routes()).await;
+    let mcp = spawn_upstream(Router::new().route("/mcp", any(async || StatusCode::OK))).await;
+    let mut settings = test_settings(&catalog.url);
+    settings.upstreams.mcp_url = Some(mcp.url.parse().unwrap());
+    let gateway = spawn_gateway(&settings).await;
+
+    let called = client()
+        .post(format!("{gateway}/mcp"))
+        .header("x-user-id", "admin")
+        .body("{}")
+        .send()
+        .await
+        .unwrap();
+    let anonymous = reqwest::Client::new()
+        .post(format!("{gateway}/mcp"))
+        .body("{}")
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(called.status(), StatusCode::OK);
+    assert_eq!(anonymous.status(), StatusCode::UNAUTHORIZED);
+    let received = mcp.received();
+    assert_eq!(received.len(), 1);
+    assert_eq!(received[0].uri, "/mcp");
+    assert_eq!(received[0].headers["x-user-id"], "user-1");
+    assert!(!received[0].headers.contains_key("authorization"));
+}
+
+#[tokio::test]
+async fn mcp_is_not_routed_without_its_url() {
+    let (gateway, _upstream) = gateway_with_echo().await;
+
+    let response = client()
+        .post(format!("{gateway}/mcp"))
+        .body("{}")
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
 async fn internal_routes_are_not_reachable_from_outside() {
     let (gateway, upstream) = gateway_with_echo().await;
 

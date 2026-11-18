@@ -7,4 +7,5 @@ resources:
   - seat-hold.yaml
   - payment.yaml
   - booking.yaml
+  - mcp.yaml
   - gateway.yaml

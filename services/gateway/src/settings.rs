@@ -44,6 +44,9 @@ pub struct UpstreamSettings {
     pub seat_hold_url: Url,
     #[serde(deserialize_with = "from_str")]
     pub booking_url: Url,
+    /// The MCP server; without it `/mcp` is not routed.
+    #[serde(default, deserialize_with = "optional_url")]
+    pub mcp_url: Option<Url>,
     #[serde(
         default,
         rename = "catalog_timeout_seconds",
@@ -62,12 +65,20 @@ pub struct UpstreamSettings {
         deserialize_with = "optional_seconds"
     )]
     pub booking_timeout: Option<Duration>,
+    #[serde(
+        default,
+        rename = "mcp_timeout_seconds",
+        deserialize_with = "optional_seconds"
+    )]
+    pub mcp_timeout: Option<Duration>,
     #[serde(default)]
     pub catalog_max_concurrent: Option<usize>,
     #[serde(default)]
     pub seat_hold_max_concurrent: Option<usize>,
     #[serde(default)]
     pub booking_max_concurrent: Option<usize>,
+    #[serde(default)]
+    pub mcp_max_concurrent: Option<usize>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -257,6 +268,13 @@ fn jwt_secret<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::E
 
 fn seconds<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Duration, D::Error> {
     Duration::try_from_secs_f64(f64::deserialize(deserializer)?).map_err(D::Error::custom)
+}
+
+fn optional_url<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Url>, D::Error> {
+    Option::<String>::deserialize(deserializer)?
+        .map(|url| url.parse())
+        .transpose()
+        .map_err(D::Error::custom)
 }
 
 fn optional_seconds<'de, D: Deserializer<'de>>(

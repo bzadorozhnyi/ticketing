@@ -1,0 +1,48 @@
+# mcp
+
+The ticketing API as MCP tools for an LLM agent, behind the gateway at `/mcp` (ADR 0017). Project-wide rules: see the
+root CLAUDE.md. No database.
+
+## Run
+
+All commands from `services/mcp/`:
+
+```
+uv run pytest                                    # fake catalog, seat-hold and booking on a local port
+uv run ruff check && uv run ruff format --check && uv run ty check
+```
+
+In Claude Code: start the stack (`docker compose up -d --wait --build` from the repo root), then
+`export TICKETING_TOKEN=$(docker compose exec -T gateway issue-token user-1)` and open Claude Code in the repository:
+`.mcp.json` connects it to `http://localhost:8000/mcp` with that token (15 minutes).
+
+## Layout
+
+```
+src/
+  main.py          create_app(): the Streamable HTTP app, stateless, JSON answers
+  server.py        the MCPServer, its instructions, the clients made once per process (lifespan), user_of()
+  tools/           events.py (read), holds.py, orders.py (payment confirmed by the user through elicitation)
+  clients/         catalog, seat-hold, booking; core/http.py is the only place that knows aiohttp
+  core/            settings, logging, health
+```
+
+## Notes
+
+- The user is `X-User-Id`, set by the gateway from the token; the server never sees a token. Without it a tool
+  answers "Not signed in".
+- A tool's docstring is what the model reads: when to use it, what it returns, what to do on an error.
+- A failure the model can act on is a `ToolError` with the next step in its text; it reaches the model as a tool
+  result with `isError`.
+- `create_order` asks for the payment token through elicitation (multi round-trip on protocol 2026-07-28) and sends
+  `Idempotency-Key: order:{hold_id}`: a repeat returns the same order.
+- Tests go over HTTP through the ASGI app (`httpx2`, which the SDK brings) with the header the gateway would send.
+
+## Settings
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `UPSTREAMS__CATALOG_URL`, `SEAT_HOLD_URL`, `BOOKING_URL` | `http://<service>:8000` | the services the tools call |
+| `UPSTREAMS__CONNECT_TIMEOUT_SECONDS`, `UPSTREAMS__TIMEOUT_SECONDS` | 2, 10 | per call |
+| `SERVER__PAYMENT_TOKEN_HINT` | `tok_ok` | the test card named in the payment question |
+| `LOGGING__FORMAT`, `LOGGING__LEVEL` | `JSON`, `INFO` | |

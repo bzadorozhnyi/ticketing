@@ -112,10 +112,19 @@ services:
       UPSTREAMS__CATALOG_URL: http://catalog:8000
       UPSTREAMS__SEAT_HOLD_URL: http://seat-hold:8000
       UPSTREAMS__BOOKING_URL: http://booking:8000
+      UPSTREAMS__MCP_URL: http://mcp:8000
       OTEL_SERVICE_NAME: gateway
     ports: ["8000:8000"]
     healthcheck: *rust-ready-check
     depends_on: [valkey]
+
+  # The ticketing API as MCP tools, behind the gateway at /mcp (ADR 0017).
+  mcp:
+    build: ./services/mcp
+    image: ticketing/mcp
+    environment:
+      OTEL_SERVICE_NAME: mcp
+    healthcheck: *ready-check
 
   catalog-db:
     <<: *postgres
