@@ -54,6 +54,7 @@ Read from the environment with the `config` crate; a wrong value stops the start
 | `UPSTREAMS__CATALOG_URL` | required | catalog base URL |
 | `UPSTREAMS__SEAT_HOLD_URL` | required | seat-hold base URL |
 | `UPSTREAMS__BOOKING_URL` | required | booking base URL |
+| `UPSTREAMS__MCP_URL` | none | the MCP server (ADR 0017); without it `/mcp` is not routed. Its timeout and bulkhead: `UPSTREAMS__MCP_TIMEOUT_SECONDS`, `UPSTREAMS__MCP_MAX_CONCURRENT` |
 | `UPSTREAMS__CATALOG_TIMEOUT_SECONDS` | `CLIENT__REQUEST_TIMEOUT_SECONDS` | all attempts to catalog together; the same for `SEAT_HOLD` and `BOOKING` |
 | `UPSTREAMS__CATALOG_MAX_CONCURRENT` | `BULKHEAD__MAX_CONCURRENT` | requests in flight to catalog; the same for `SEAT_HOLD` and `BOOKING` |
 | `CLIENT__CONNECT_TIMEOUT_SECONDS` | 2 | TCP connect to an upstream |

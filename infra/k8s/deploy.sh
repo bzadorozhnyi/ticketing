@@ -6,7 +6,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 cluster=ticketing
-services=(catalog booking payment seat-hold gateway)
+services=(catalog booking payment seat-hold mcp gateway)
 
 # A new tag for every change, so a Deployment sees a new image and rolls it out.
 tag=$(git rev-parse --short HEAD)

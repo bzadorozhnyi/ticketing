@@ -50,7 +50,7 @@ repos:
         pass_filenames: false
       - id: contract
         name: export contracts
-        entry: env PYTHONPATH=src DB__NAME=unused DB__USER=unused DB__PASS=unused DB__HOST=unused infra/python-services.sh python -m scripts.export_openapi
+        entry: env PYTHONPATH=src DB__NAME=unused DB__USER=unused DB__PASS=unused DB__HOST=unused infra/python-services.sh --only-with src/scripts/export_openapi.py python -m scripts.export_openapi
         language: system
         files: ^(services/.*\.py|contracts/.*\.openapi\.json)$
         pass_filenames: false

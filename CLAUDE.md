@@ -77,6 +77,7 @@ sampling (ADR 0010). A failure the code catches marks its span with `mark_span_f
 | seat-hold | Rust | authoritative seat holds with TTL; no seat held by two people |
 | booking | Python | orders, idempotency keys, saga orchestrator with persisted state |
 | payment | Python | mock payment provider with fault injection; idempotent charges/refunds |
+| mcp | Python | the public API as MCP tools for an LLM agent, behind the gateway at `/mcp` (ADR 0017); no database |
 
 ## Repository layout
 

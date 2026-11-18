@@ -45,8 +45,9 @@ jobs:
           # uv audit is a preview command whose interface may change: a release of uv must not break CI by itself.
           version: "0.12.3"
       - run: uv audit --frozen --preview-features audit-command
-      - run: docker compose up -d --wait ${{ matrix.service }}-db
-      - run: cp .env.test.example .env.test
+      # A service with a database has a test environment file; the MCP server has neither.
+      - if: hashFiles(format('services/{0}/.env.test.example', matrix.service)) != ''
+        run: docker compose up -d --wait ${{ matrix.service }}-db && cp .env.test.example .env.test
       - run: uv run --frozen ruff check
       - run: uv run --frozen ruff format --check
       - run: uv run --frozen ty check

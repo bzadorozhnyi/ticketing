@@ -83,16 +83,37 @@ pub fn build_app(settings: &Settings) -> Result<Router, BuildError> {
         },
         settings,
     );
-    let bulkheads = [&catalog, &seat_hold, &booking]
-        .map(|upstream| {
-            let attributes = vec![KeyValue::new("upstream", upstream.breaker.name())];
-            (upstream.bulkhead.clone(), attributes)
-        })
-        .to_vec();
+    let mcp = upstreams.mcp_url.as_ref().map(|url| {
+        Upstream::new(
+            "mcp",
+            url,
+            &UpstreamLimits {
+                timeout: upstreams.mcp_timeout,
+                max_concurrent: upstreams.mcp_max_concurrent,
+            },
+            settings,
+        )
+    });
+    let bulkheads = [
+        Some(&catalog),
+        Some(&seat_hold),
+        Some(&booking),
+        mcp.as_ref(),
+    ]
+    .into_iter()
+    .flatten()
+    .map(|upstream| {
+        let attributes = vec![KeyValue::new("upstream", upstream.breaker.name())];
+        (upstream.bulkhead.clone(), attributes)
+    })
+    .collect();
     metrics().observe_in_use("gateway.bulkhead.in_use", bulkheads);
     let mut protected = upstream_routes("/api/v1/events", catalog)
         .merge(upstream_routes("/api/v1/holds", seat_hold))
         .merge(upstream_routes("/api/v1/orders", booking));
+    if let Some(mcp) = mcp {
+        protected = protected.merge(upstream_routes("/mcp", mcp));
+    }
     // The last layer added runs first: shedding, then the token, then the rate limit.
     if let Some(limiter) = RateLimiter::new(&settings.rate_limit, &settings.breaker)? {
         protected = protected.route_layer(from_fn_with_state(Arc::new(limiter), limiter::limit));

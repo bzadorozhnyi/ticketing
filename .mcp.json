@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "ticketing": {
+      "type": "http",
+      "url": "http://localhost:8000/mcp",
+      "headers": {
+        "Authorization": "Bearer ${TICKETING_TOKEN}"
+      }
+    }
+  }
+}
