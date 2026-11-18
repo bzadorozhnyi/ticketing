@@ -1,8 +1,11 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Any
 
+from mcp.server.context import ServerRequestContext
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
+from mcp.server.request_state import RequestStateSecurity
 from starlette.requests import Request
 
 from clients.booking import BookingClient
@@ -47,7 +50,27 @@ async def lifespan(_: MCPServer) -> AsyncGenerator[Upstreams]:
             await http.close()
 
 
-mcp = MCPServer("ticketing", instructions=INSTRUCTIONS, lifespan=lifespan)
+def gateway_user(ctx: ServerRequestContext[Any, Any]) -> str | None:
+    """The user a request state belongs to, so one user's state fails for another."""
+    headers = getattr(ctx.request, "headers", None)
+    return None if headers is None else headers.get("x-user-id")
+
+
+def request_state_security() -> RequestStateSecurity:
+    """Shared keys from the settings. The SDK's default is a key made by each process
+    at start: a retry that reached another pod could not open the state.
+    """
+    return RequestStateSecurity(
+        keys=settings.SERVER.REQUEST_STATE_KEYS, bind_principal=gateway_user
+    )
+
+
+mcp = MCPServer(
+    "ticketing",
+    instructions=INSTRUCTIONS,
+    lifespan=lifespan,
+    request_state_security=request_state_security(),
+)
 
 # What a tool receives besides the model's arguments: the clients made by the lifespan
 # and the HTTP request the gateway sent. A plain alias, not a `type` statement: the SDK

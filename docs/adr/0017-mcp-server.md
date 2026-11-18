@@ -25,6 +25,10 @@ forward one to an API. Our own rule keeps authentication at the gateway only.
 - **The user, not the model, confirms a payment.** `create_order` asks for the payment token through elicitation; a
   decline pays nothing. Its idempotency key is `order:{hold_id}`, so a repeated call returns the same order and pays
   once; booking also refuses a second active order for one hold.
+- **Shared request-state keys.** The answer to the payment question comes back in a retry that carries a sealed
+  `requestState` and may reach another pod. The SDK seals it with a key each process makes at start, so on two
+  pods the retry failed ("Invalid or expired requestState"). The keys are a setting from a Secret, and a state
+  is bound to the user who received it.
 - **Errors say what to do next** ("these seats are taken: …; choose other seats"), and tools carry MCP annotations
   (`read_only_hint`, `destructive_hint`, `idempotent_hint`) for hosts that ask before a destructive call.
 - **No DNS rebinding protection** in the SDK: it guards a server on a user's localhost that a web page could reach.

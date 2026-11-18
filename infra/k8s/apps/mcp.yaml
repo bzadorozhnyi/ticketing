@@ -33,6 +33,8 @@ spec:
           env:
             - name: OTEL_SERVICE_NAME
               value: mcp
+            - name: SERVER__REQUEST_STATE_KEYS
+              valueFrom: { secretKeyRef: { name: mcp, key: request-state-keys } }
           # Keeps serving while the Service stops routing here; SIGTERM comes after it.
           lifecycle:
             preStop:

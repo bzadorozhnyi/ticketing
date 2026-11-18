@@ -124,6 +124,7 @@ services:
     image: ticketing/mcp
     environment:
       OTEL_SERVICE_NAME: mcp
+      SERVER__REQUEST_STATE_KEYS: '["feb43b6b61a044097aed0615e7712470a375dd816a698f822eee2d709dd93eeb"]'
     healthcheck: *ready-check
 
   catalog-db:

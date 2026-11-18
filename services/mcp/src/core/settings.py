@@ -13,6 +13,10 @@ class UpstreamSettings(BaseModel):
 
 
 class ServerSettings(BaseModel):
+    # Keys of the state a tool sends back with an "input required" answer (the payment
+    # question). Every pod must share them, or a retry that reaches another pod fails.
+    # The first seals, every one opens: rotate by prepending a new key.
+    REQUEST_STATE_KEYS: list[str]
     # A test payment that always succeeds, offered to the user when asked to confirm.
     PAYMENT_TOKEN_HINT: str = "tok_ok"
 
@@ -30,7 +34,7 @@ class LoggingSettings(BaseModel):
 class Settings(BaseSettings):
     SERVICE_NAME: str = "mcp"
     UPSTREAMS: UpstreamSettings = UpstreamSettings()
-    SERVER: ServerSettings = ServerSettings()
+    SERVER: ServerSettings
     LOGGING: LoggingSettings = LoggingSettings()
 
     # No env_file: this reads only os.environ.

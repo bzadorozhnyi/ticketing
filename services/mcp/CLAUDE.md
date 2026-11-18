@@ -36,6 +36,9 @@ src/
   result with `isError`.
 - `create_order` asks for the payment token through elicitation (multi round-trip on protocol 2026-07-28) and sends
   `Idempotency-Key: order:{hold_id}`: a repeat returns the same order.
+- The payment question is a multi round-trip request: the answer comes back in a retry with the sealed
+  `requestState`, which may reach another pod. The SDK's default key is made by each process at start, so the
+  keys are a setting; a state is bound to the `X-User-Id` that received it (`tests/test_request_state.py`).
 - Tests go over HTTP through the ASGI app (`httpx2`, which the SDK brings) with the header the gateway would send.
 
 ## Settings
@@ -44,5 +47,6 @@ src/
 |---|---|---|
 | `UPSTREAMS__CATALOG_URL`, `SEAT_HOLD_URL`, `BOOKING_URL` | `http://<service>:8000` | the services the tools call |
 | `UPSTREAMS__CONNECT_TIMEOUT_SECONDS`, `UPSTREAMS__TIMEOUT_SECONDS` | 2, 10 | per call |
+| `SERVER__REQUEST_STATE_KEYS` | required | JSON list of keys (32+ bytes) for the state a tool hands out with an "input required" answer; every pod must share them (Secret `mcp` in the cluster). The first seals, every one opens: rotate by putting a new key first, then drop the old one after 10 minutes |
 | `SERVER__PAYMENT_TOKEN_HINT` | `tok_ok` | the test card named in the payment question |
 | `LOGGING__FORMAT`, `LOGGING__LEVEL` | `JSON`, `INFO` | |

@@ -15,6 +15,7 @@ def _free_port() -> int:
 SERVICES_PORT = _free_port()
 for name in ("CATALOG", "SEAT_HOLD", "BOOKING"):
     os.environ[f"UPSTREAMS__{name}_URL"] = f"http://127.0.0.1:{SERVICES_PORT}"
+os.environ["SERVER__REQUEST_STATE_KEYS"] = '["' + "a" * 64 + '"]'
 
 import httpx2  # noqa: E402
 from aiohttp import web  # noqa: E402
@@ -60,7 +61,7 @@ def user() -> User:
     return User()
 
 
-async def _connect(headers: dict[str, str], user: User) -> AsyncIterator[Client]:
+async def connect(headers: dict[str, str], user: User) -> AsyncIterator[Client]:
     """Over HTTP to the real app, with the headers the gateway would send."""
     app = create_app()
     async with app.router.lifespan_context(app):
@@ -74,11 +75,11 @@ async def _connect(headers: dict[str, str], user: User) -> AsyncIterator[Client]
 
 @pytest.fixture
 async def mcp_client(services, user) -> AsyncIterator[Client]:
-    async for client in _connect({"x-user-id": USER}, user):
+    async for client in connect({"x-user-id": USER}, user):
         yield client
 
 
 @pytest.fixture
 async def anonymous_client(services, user) -> AsyncIterator[Client]:
-    async for client in _connect({}, user):
+    async for client in connect({}, user):
         yield client
