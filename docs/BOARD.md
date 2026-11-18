@@ -5,7 +5,6 @@ Next ticket: TIK-110
 ## In progress
 
 ## To do
-- [ ] TIK-88 Catalog: a cache in Valkey and the stampede of misses at the start of a sale
 - [ ] TIK-89 Seat-hold: one hot event, partitioning and its limits
 - [ ] TIK-91 Canary deploys with an automatic rollback on the SLO burn rate
 - [ ] TIK-92 Service mesh: mTLS between services and balancing per request inside the cluster
@@ -115,3 +114,4 @@ Next ticket: TIK-110
 - [x] TIK-107 The connections lost at the edge were lost in Docker Desktop's port forwarding, not in kind or Envoy
 - [x] TIK-108 deploy.sh no longer reinstalls Envoy Gateway of the same version; the edge's restarts came from its controller losing leader election
 - [x] TIK-109 Envoy Gateway's controller survives a 30 s stall of the API server (lease 60 s, renew deadline 45 s)
+- [x] TIK-88 Catalog caches seat maps in each process with single flight: 4.5 times the throughput, 2 queries for a cold spike

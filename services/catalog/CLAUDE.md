@@ -34,6 +34,13 @@ docker compose run --rm catalog python -m scripts.seed  # demo data
 `POST /internal/v1/events/{event_id}/price` is for booking: the amount of an order comes from here, never from a client.
 The gateway does not route `/internal`.
 
+## Response cache
+
+See ADR 0016. `core/cache/` caches the seat map's response body in each process: `CacheStore` (interface),
+`InMemoryStore` (LRU, `CACHE__MAX_ENTRIES` 10000), `ResponseCache` (single flight, `CACHE__TTL_SECONDS` 60 with
+`CACHE__TTL_JITTER` 0.1). `get_response_cache()` is the one place that chooses the storage; tests get a fresh cache per
+test through `dependency_overrides`. Seat maps are never edited through the API, so nothing invalidates them.
+
 ## Telemetry
 
 See ADR 0006. `core/telemetry.py` sets the providers; FastAPI's built-in telemetry makes the server span and
