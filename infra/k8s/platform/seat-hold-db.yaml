@@ -27,6 +27,8 @@ spec:
       containers:
         - name: postgres
           image: postgres:18-alpine
+          # pg_stat_statements: time spent per statement; CREATE EXTENSION once, see services/seat-hold/CLAUDE.md.
+          args: ["-c", "shared_preload_libraries=pg_stat_statements"]
           env:
             - name: POSTGRES_DB
               value: seat_hold_db

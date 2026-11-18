@@ -281,6 +281,8 @@ services:
 
   seat-hold-db:
     <<: *postgres
+    # pg_stat_statements: time spent per statement (TIK-112); CREATE EXTENSION once, see services/seat-hold/CLAUDE.md.
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
     environment:
       <<: *postgres-env
       POSTGRES_DB: seat_hold_db
