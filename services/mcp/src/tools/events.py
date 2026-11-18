@@ -1,9 +1,13 @@
+from typing import Any
+
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import BaseModel
 
 from server import ToolContext, mcp, upstreams_of
 
-SEARCH_LIMIT = 100
+PAGE_SIZE = 100
+MAX_PAGES = 10
+MAX_FOUND = 20
 
 
 class EventSummary(BaseModel):
@@ -46,25 +50,36 @@ class SectionSeats(BaseModel):
 
 @mcp.tool()
 async def search_events(ctx: ToolContext, query: str = "") -> EventsFound:
-    """Find upcoming events whose title, venue or city contains `query` (case does not
-    matter); an empty query lists them all. Returns at most 100 events.
+    """Find events whose title, venue or city contains `query` (case does not matter),
+    soonest first; an empty query lists them all. Returns at most 20: make the query
+    more specific when there are more.
     """
-    events = await upstreams_of(ctx).catalog.list_events(limit=SEARCH_LIMIT, offset=0)
     wanted = query.casefold()
-    found = [
-        EventSummary(
-            id=e["id"],
-            title=e["title"],
-            starts_at=e["starts_at"],
-            venue=e["venue"]["name"],
-            city=e["venue"]["city"],
-            currency=e["currency"],
-        )
-        for e in events
-        if wanted
-        in f"{e['title']} {e['venue']['name']} {e['venue']['city']}".casefold()
-    ]
-    return EventsFound(events=found)
+    catalog = upstreams_of(ctx).catalog
+    found: list[EventSummary] = []
+    for page in range(MAX_PAGES):
+        events = await catalog.list_events(limit=PAGE_SIZE, offset=page * PAGE_SIZE)
+        found += [summary_of(e) for e in events if wanted in searchable(e)]
+        if len(found) >= MAX_FOUND or len(events) < PAGE_SIZE:
+            break
+    return EventsFound(events=found[:MAX_FOUND])
+
+
+def searchable(event: dict[str, Any]) -> str:
+    return (
+        f"{event['title']} {event['venue']['name']} {event['venue']['city']}".casefold()
+    )
+
+
+def summary_of(event: dict[str, Any]) -> EventSummary:
+    return EventSummary(
+        id=event["id"],
+        title=event["title"],
+        starts_at=event["starts_at"],
+        venue=event["venue"]["name"],
+        city=event["venue"]["city"],
+        currency=event["currency"],
+    )
 
 
 @mcp.tool()

@@ -5,7 +5,6 @@ Next ticket: TIK-112
 ## In progress
 
 ## To do
-- [ ] TIK-111 Evals of an agent using the MCP server: scenarios, graders on the system's state, pass^k; locally through Claude Code
 
 ## Done
 - [x] TIK-1 Catalog: service skeleton (M1)
@@ -115,3 +114,4 @@ Next ticket: TIK-112
 - [x] TIK-88 Catalog caches seat maps in each process with single flight: 4.5 times the throughput, 2 queries for a cold spike
 - [x] TIK-89 Seat-hold: one hot event holds as fast as 50 events (~4,200 holds/s), so partitioning by event would gain nothing
 - [x] TIK-110 MCP server: the ticketing API as tools for an LLM agent, behind the gateway at /mcp
+- [x] TIK-111 Evals of an agent using the MCP server: 9 scenarios, graders on the system's state, 27 of 27 passed through Claude Code

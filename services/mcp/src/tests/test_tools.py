@@ -34,7 +34,14 @@ async def test_search_matches_title_venue_or_city(mcp_client):
     assert [e["title"] for e in by_city.structured_content["events"]] == [
         "Jazz Evening"
     ]
-    assert len(everything.structured_content["events"]) == 2
+    assert len(everything.structured_content["events"]) == 20
+
+
+@pytest.mark.anyio
+async def test_search_reads_past_the_first_page(mcp_client):
+    found = await mcp_client.call_tool("search_events", {"query": "rock night"})
+
+    assert [e["title"] for e in found.structured_content["events"]] == ["Rock Night"]
 
 
 @pytest.mark.anyio
