@@ -30,6 +30,14 @@ class MigrationSettings(BaseModel):
     MAX_RETRY_DELAY_SECONDS: float = 15
 
 
+class CacheSettings(BaseModel):
+    """Responses of data that does not change, such as seat maps (core/cache/)."""
+
+    TTL_SECONDS: float = 60
+    TTL_JITTER: float = 0.1
+    MAX_ENTRIES: int = 10_000
+
+
 class LoggingSettings(BaseModel):
     FORMAT: LogFormat = LogFormat.JSON
     LEVEL: str = "INFO"
@@ -40,6 +48,7 @@ class Settings(BaseSettings):
     DB: DBSettings
     MIGRATIONS: MigrationSettings = MigrationSettings()
     LOGGING: LoggingSettings = LoggingSettings()
+    CACHE: CacheSettings = CacheSettings()
 
     # No env_file: this reads only os.environ. Docker compose sets the values
     # directly; tests/conftest.py loads .env.test before anything is imported.

@@ -17,6 +17,8 @@ from tests.helpers.env import load_dotenv_into_environ  # noqa: E402
 
 load_dotenv_into_environ(".env.test", "../.env.test")
 
+from core.cache.memory import InMemoryStore  # noqa: E402
+from core.cache.response_cache import ResponseCache, get_response_cache  # noqa: E402
 from core.db import engine as core_engine  # noqa: E402
 from core.db import get_session  # noqa: E402
 from core.settings import settings  # noqa: E402
@@ -84,6 +86,11 @@ async def async_client(db_session):
         yield db_session
 
     app.dependency_overrides[get_session] = override_get_session
+    # A fresh cache per test: the process-wide one would carry responses between tests.
+    cache = ResponseCache(
+        store=InMemoryStore(max_entries=100), ttl_seconds=60, ttl_jitter=0
+    )
+    app.dependency_overrides[get_response_cache] = lambda: cache
 
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://testserver"
