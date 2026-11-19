@@ -60,7 +60,9 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
 
 - Migrations are SQL files in `migrations/`, embedded into the `migrate` binary. It connects without a statement
   timeout (`build_migration_pool`), since an index or a backfill may take minutes, but with a short lock timeout and
-  retries (`core/migrations.rs`, `tests/migration_locks.rs`).
+  retries (`core/migrations.rs`, `tests/migration_locks.rs`). An index built `CONCURRENTLY` that fails, for example on
+  the lock timeout while a long transaction runs, stays behind invalid; each attempt first drops invalid indexes, under
+  the migrator's advisory lock, so it never drops one another `migrate` is building.
 - A lock held by someone else costs a request, not the pool: the service's sessions start with `lock_timeout` and
   `statement_timeout`, and Postgres cancels the waiting statement (55P03, 57014), which answers 503 and gives the
   connection back. A deadlock or serialization victim, a database that is shutting down, starting or out of
@@ -99,6 +101,11 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
   appears after `CREATE EXTENSION IF NOT EXISTS pg_stat_statements` as `postgres` in `seat_hold_db`, run by hand once per
   data volume: it is a diagnostic, not something the service needs. Sample `pg_stat_activity` with short queries
   (`\watch`), never from one long transaction: that holds back the cleanup of deleted holds and slowed holds 3 times (TIK-112).
+- A long transaction anywhere on the server keeps every hold deleted meanwhile, and a query that walks many holds reads
+  them all. The per-user limit counts through `ix_holds_held_by_owner`, which holds only this user's rows; expiry is a
+  `FILTER`, because as a `WHERE` condition the planner picked `ix_holds_expires_at` (it does not see deleted rows) and
+  read the holds of every event. The database ends a transaction left idle for 60 s (`idle_in_transaction_session_timeout`),
+  a forgotten `BEGIN` in psql included; a running one is not limited (TIK-113).
 - `core/time.rs` is the only module that names the date-time library (`time`): code uses `Timestamp`, `now()` and
   `parse()` from it. A field in a response or an event adds `#[serde(with = "rfc3339")]` (RFC 3339 text) and, in the API,
   `#[schema(value_type = String, format = DateTime)]`, since utoipa does not know the alias.

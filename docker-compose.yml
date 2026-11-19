@@ -281,8 +281,9 @@ services:
 
   seat-hold-db:
     <<: *postgres
-    # pg_stat_statements: time spent per statement (TIK-112); CREATE EXTENSION once, see services/seat-hold/CLAUDE.md.
-    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
+    # pg_stat_statements: time spent per statement; CREATE EXTENSION once. A transaction left idle for a minute is
+    # ended: it would keep every deleted hold. See services/seat-hold/CLAUDE.md.
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "idle_in_transaction_session_timeout=60s"]
     environment:
       <<: *postgres-env
       POSTGRES_DB: seat_hold_db

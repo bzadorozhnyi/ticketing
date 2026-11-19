@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT format('%I.%I', n.nspname, c.relname) AS \"name!\"\n        FROM pg_index i\n        JOIN pg_class c ON c.oid = i.indexrelid\n        JOIN pg_namespace n ON n.oid = c.relnamespace\n        WHERE NOT i.indisvalid AND n.nspname = current_schema()\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "30aaf143c19bd99ce318c0a4ad405e1c1b2ef9e58c51d762ee03b94dd843fb21"
+}
