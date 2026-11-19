@@ -119,5 +119,6 @@ request, read from the primary. payment checks its charges against it (ADR 0013)
   While it is open, `HttpClient` raises `CircuitOpenError` without a call, and the saga postpones the order until
   the breaker may probe. It mirrors the gateway's breaker; a shared library or a service mesh comes if services multiply.
 - `crash_point(name)` (`core/faults.py`) kills the process with the probability in `FAULTS__CRASH_RATE`, 0 by default.
-  It is for crash experiments only; the points are `after_extend`, `after_publish`, `after_reply_commit`, `after_confirm`.
+  It is for crash experiments only; the points are `after_extend`, `after_publish`, `after_reply_commit`, `after_confirm`,
+  the same names in the saga and in the Temporal activities.
   Alembic autogenerate does not see a `CHECK` on an existing table: add it to the migration by hand.

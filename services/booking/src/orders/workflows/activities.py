@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from temporalio import activity
 
+from core.faults import crash_point
 from core.rabbitmq import RabbitMQClient
 from core.settings import SagaSettings
 from core.telemetry import record_finished_order
@@ -47,6 +48,7 @@ class OrderActivities:
             hold_id=order.hold_id, user_id=order.user_id
         ):
             return Reservation(failure_reason=FailureReason.HOLD_EXPIRED)
+        crash_point("after_extend")
         async with self.session_maker() as session:
             await OrderRepository(session=session).mark_awaiting_charge(
                 order_id=order.order_id,
@@ -70,6 +72,7 @@ class OrderActivities:
             payment_token=token,
         )
         await self._publish(body=command.model_dump_json())
+        crash_point("after_publish")
 
     @activity.defn
     async def send_refund(self, request: PaymentRequest) -> None:
@@ -86,12 +89,15 @@ class OrderActivities:
             currency=request.currency,
         )
         await self._publish(body=command.model_dump_json())
+        crash_point("after_publish")
 
     @activity.defn
     async def confirm(self, order: OrderInput) -> bool:
-        return await self.seat_hold.confirm(
+        confirmed = await self.seat_hold.confirm(
             hold_id=order.hold_id, user_id=order.user_id
         )
+        crash_point("after_confirm")
+        return confirmed
 
     @activity.defn
     async def finish(self, finish: Finish) -> None:
