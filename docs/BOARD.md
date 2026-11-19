@@ -1,6 +1,6 @@
 # Board
 
-Next ticket: TIK-118
+Next ticket: TIK-119
 
 ## In progress
 
@@ -121,3 +121,4 @@ Next ticket: TIK-118
 - [x] TIK-115 Temporal's development server in compose and kind, ADR 0018; README lists what the project holds (M9, experiment)
 - [x] TIK-116 Booking: the purchase saga as a Temporal workflow beside the saga, engine chosen per order; every branch tested (M9, experiment)
 - [x] TIK-117 Temporal against the saga: money right under every fault on both; Temporal slower to recover (144 s vs 34 s) and +23 to 90 % p50 on its dev server (M9, experiment)
+- [x] TIK-118 Temporal: timeouts that find a dead worker in seconds; recovery under crashes 144 s down to 57-68 s, within twice the saga's 34 s (M9, experiment)
