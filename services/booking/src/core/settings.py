@@ -1,4 +1,5 @@
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -61,6 +62,8 @@ class UpstreamSettings(BaseModel):
 
 
 class SagaSettings(BaseModel):
+    # Which saga runs a new order; an order keeps its engine (ADR 0018).
+    ENGINE: Literal["builtin", "temporal"] = "builtin"
     POLL_INTERVAL_SECONDS: float = 0.5
     RETRY_BASE_DELAY_SECONDS: float = 1
     MAX_RETRY_DELAY_SECONDS: float = 30
@@ -70,6 +73,14 @@ class SagaSettings(BaseModel):
     REPLY_WAIT_SECONDS: float = 30
     MAX_REPLY_WAIT_SECONDS: float = 120
     GIVE_UP_AFTER_SECONDS: float = 600
+
+
+class TemporalSettings(BaseModel):
+    """The second saga engine, an experiment (ADR 0018)."""
+
+    ADDRESS: str = "temporal:7233"
+    NAMESPACE: str = "default"
+    TASK_QUEUE: str = "orders"
 
 
 class BreakerSettings(BaseModel):
@@ -100,6 +111,7 @@ class Settings(BaseSettings):
     OUTBOX: OutboxSettings = OutboxSettings()
     UPSTREAMS: UpstreamSettings = UpstreamSettings()
     SAGA: SagaSettings = SagaSettings()
+    TEMPORAL: TemporalSettings = TemporalSettings()
     BREAKER: BreakerSettings = BreakerSettings()
     FAULTS: FaultSettings = FaultSettings()
 

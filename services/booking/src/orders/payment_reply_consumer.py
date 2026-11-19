@@ -9,10 +9,13 @@ from core.faults import crash_point
 from core.rabbitmq import Delivery
 from core.settings import SagaSettings
 from core.telemetry import continue_trace, mark_span_failed, record_finished_order
+from core.temporal import TemporalClient
 from orders.dto.messages import REPLY_ADAPTER, ChargeResult, Reply
+from orders.models.order import SagaEngine
 from orders.repositories.order import OrderRepository
 from orders.use_cases.apply_charge_result import ApplyChargeResultUseCase
 from orders.use_cases.apply_refund_result import ApplyRefundResultUseCase
+from orders.workflows.order_workflow import OrderWorkflow
 
 
 class PaymentReplyConsumer:
@@ -31,9 +34,11 @@ class PaymentReplyConsumer:
         *,
         session_maker: async_sessionmaker[AsyncSession],
         settings: SagaSettings,
+        temporal: TemporalClient | None = None,
     ):
         self.session_maker = session_maker
         self.settings = settings
+        self.temporal = temporal
 
     async def handle(self, delivery: Delivery) -> None:
         """A consumer span, a child of payment's span that sent the reply."""
@@ -64,6 +69,13 @@ class PaymentReplyConsumer:
     async def _process(self, *, reply: Reply) -> None:
         async with self.session_maker() as session:
             repository = OrderRepository(session=session)
+            if (
+                await repository.engine_of(order_id=reply.order_id)
+                == SagaEngine.TEMPORAL
+            ):
+                await session.rollback()
+                await self._signal(reply=reply)
+                return
             if isinstance(reply, ChargeResult):
                 finished = await ApplyChargeResultUseCase(
                     session=session, order_repository=repository
@@ -77,6 +89,23 @@ class PaymentReplyConsumer:
                 created_at=finished.created_at,
                 status=finished.status,
                 failure_reason=finished.failure_reason,
+            )
+
+    async def _signal(self, *, reply: Reply) -> None:
+        """A Temporal order's state is in its workflow: the reply goes there."""
+        if self.temporal is None:
+            raise RuntimeError("A reply for a Temporal order, and no Temporal client")
+        signal = (
+            OrderWorkflow.charge_replied
+            if isinstance(reply, ChargeResult)
+            else OrderWorkflow.refund_replied
+        )
+        delivered = await self.temporal.signal(
+            workflow_id=str(reply.order_id), signal=signal, arg=reply.status
+        )
+        if not delivered:
+            logger.bind(order_id=str(reply.order_id)).info(
+                "Reply ignored, the workflow has finished"
             )
 
     async def _retry_later(self, *, delivery: Delivery) -> None:

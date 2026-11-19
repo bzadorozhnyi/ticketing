@@ -12,6 +12,7 @@ from core.logging import configure_logging
 from core.rabbitmq import RabbitMQClient
 from core.settings import settings
 from core.telemetry import setup as setup_telemetry
+from core.temporal import TemporalClient
 from orders.clients.catalog import CatalogClient
 from orders.clients.seat_hold import SeatHoldClient
 from orders.payment_reply_consumer import PaymentReplyConsumer
@@ -41,7 +42,11 @@ async def main() -> None:
         client=rabbitmq, name=settings.SAGA.PAYMENT_REPLIES_QUEUE
     )
     await replies.declare()
-    consumer = PaymentReplyConsumer(session_maker=async_session, settings=settings.SAGA)
+    consumer = PaymentReplyConsumer(
+        session_maker=async_session,
+        settings=settings.SAGA,
+        temporal=TemporalClient(settings=settings.TEMPORAL),
+    )
     subscription = await replies.consume(handler=consumer.handle)
 
     runner = SagaRunner(
