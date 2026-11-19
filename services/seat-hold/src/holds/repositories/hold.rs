@@ -32,6 +32,12 @@ impl HoldRepository {
     }
 
     /// Seats the user holds for the event now; sold ones are not counted.
+    ///
+    /// Expiry is a `FILTER`, not a `WHERE` condition, so the planner cannot pick
+    /// `ix_holds_expires_at`, which walks the unexpired holds of every event. It rates that
+    /// walk at one row, since it does not see deleted rows, but while a long transaction
+    /// keeps deleted holds the walk reads all of them. `ix_holds_held_by_owner` reads only
+    /// this user's.
     pub async fn count_held(
         conn: &mut PgConnection,
         event_id: Uuid,
@@ -40,9 +46,9 @@ impl HoldRepository {
         let _span = db_span("SELECT", "holds");
         sqlx::query_scalar!(
             r#"
-            SELECT count(*) AS "seats!"
+            SELECT count(*) FILTER (WHERE expires_at > now()) AS "seats!"
             FROM holds
-            WHERE event_id = $1 AND owner_id = $2 AND status = 'held' AND expires_at > now()
+            WHERE event_id = $1 AND owner_id = $2 AND status = 'held'
             "#,
             event_id,
             owner_id,

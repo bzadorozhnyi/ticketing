@@ -135,7 +135,10 @@ src/
 - Migrations (`migrations/env.py`, `core/migrations.py`): the session gives up a lock after `MIGRATIONS__LOCK_TIMEOUT_SECONDS`
   (2) and the run is tried again, `MIGRATIONS__ATTEMPTS` (10) times, so a migration waiting for a lock never queues the
   service's queries behind it; no statement timeout. An index on an existing table is built `CONCURRENTLY` inside
-  `with op.get_context().autocommit_block():`, because a plain `CREATE INDEX` blocks writes while it builds.
+  `with op.get_context().autocommit_block():`, because a plain `CREATE INDEX` blocks writes while it builds, after
+  `DROP INDEX CONCURRENTLY IF EXISTS` of the same name: a build that failed (a lock timeout behind a long transaction)
+  leaves an invalid index whose name blocks the retry. A large data change goes in batches of short transactions:
+  one long transaction keeps every row deleted meanwhile, in every database of the server.
 - Complexity limits: cyclomatic complexity <= 10, nesting depth <= 4.
 
 ### Tests
@@ -178,7 +181,8 @@ src/
   and a hand-written `impl Default`; required values live in a group without defaults.
 - pre-commit runs `cargo fmt --check` and `cargo clippy --all-targets -- -D warnings`.
 - Migrations run like the Python ones (`core/migrations.rs`, `MIGRATIONS__*`). An index on an existing table is built
-  `CONCURRENTLY` in a migration file whose first line is `-- no-transaction`.
+  `CONCURRENTLY` in a migration file whose first line is `-- no-transaction`, one statement per file: sqlx sends a file as
+  one query, which Postgres runs as one transaction. `migrate` drops invalid indexes before each attempt.
 - SQL goes through `sqlx::query!` and `query_as!`, checked at compile time against the `.sqlx` cache, which is committed.
   `SQLX_OFFLINE` is on in `.cargo/config.toml`, so a build needs no database. CI runs `cargo sqlx prepare --check` (`sqlx-cli` 0.9.0).
 - API contract: `utoipa` generates `contracts/<service>.openapi.json`, a test fails on drift.

@@ -4,7 +4,7 @@
 use std::time::{Duration, Instant};
 
 use seat_hold::core::db::with_migration_limits;
-use seat_hold::core::migrations::{is_lock_timeout, run_with_lock_retries};
+use seat_hold::core::migrations::{is_lock_timeout, run_migrations, run_with_lock_retries};
 use seat_hold::core::settings::MigrationSettings;
 use sqlx::migrate::Migrator;
 use sqlx::postgres::PgPoolOptions;
@@ -127,5 +127,76 @@ async fn other_errors_are_not_retried(pool: PgPool) {
     let error = result.expect_err("the table does not exist");
     assert!(!is_lock_timeout(&error), "{error:?}");
     assert_eq!(attempts, 1);
+    migrations.close().await;
+}
+
+/// A report reading under one snapshot: `CREATE INDEX CONCURRENTLY` waits for it to end.
+async fn long_snapshot(pool: &PgPool) -> Transaction<'static, Postgres> {
+    let mut report = pool.begin().await.expect("a transaction");
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+        .execute(&mut *report)
+        .await
+        .expect("the isolation level");
+    sqlx::query("SELECT 1")
+        .execute(&mut *report)
+        .await
+        .expect("the snapshot");
+    report
+}
+
+async fn index_is_valid(pool: &PgPool, name: &str) -> bool {
+    sqlx::query_scalar("SELECT indisvalid FROM pg_index WHERE indexrelid = $1::regclass")
+        .bind(name)
+        .fetch_one(pool)
+        .await
+        .expect("the index")
+}
+
+const CONCURRENT_INDEX: &str =
+    "-- no-transaction\nCREATE INDEX CONCURRENTLY ix_probe ON holds (owner_id);";
+
+#[sqlx::test]
+async fn an_index_built_concurrently_behind_a_long_report_is_built_on_a_later_attempt(
+    pool: PgPool,
+) {
+    let settings = fast();
+    let migrator = migrator_for(CONCURRENT_INDEX).await;
+    let migrations = migration_pool(&pool, &settings);
+    let report = long_snapshot(&pool).await;
+    let ends = tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        report.rollback().await.unwrap();
+    });
+
+    let result = run_migrations(&migrator, &migrations, &settings).await;
+    ends.await.unwrap();
+
+    assert!(result.is_ok(), "{result:?}");
+    assert!(index_is_valid(&pool, "ix_probe").await);
+    migrations.close().await;
+}
+
+#[sqlx::test]
+async fn an_invalid_index_left_by_a_failed_build_is_dropped_and_built_again(pool: PgPool) {
+    let settings = fast();
+    sqlx::query(
+        "INSERT INTO holds (event_id, seat_id, hold_id, owner_id, expires_at)
+         SELECT gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), 'user-1', now() FROM generate_series(1, 2)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    let failed = sqlx::query("CREATE UNIQUE INDEX CONCURRENTLY ix_probe ON holds (owner_id)")
+        .execute(&pool)
+        .await;
+    assert!(failed.is_err(), "two holds of one owner break uniqueness");
+    assert!(!index_is_valid(&pool, "ix_probe").await);
+    let migrator = migrator_for(CONCURRENT_INDEX).await;
+    let migrations = migration_pool(&pool, &settings);
+
+    let result = run_migrations(&migrator, &migrations, &settings).await;
+
+    assert!(result.is_ok(), "{result:?}");
+    assert!(index_is_valid(&pool, "ix_probe").await);
     migrations.close().await;
 }

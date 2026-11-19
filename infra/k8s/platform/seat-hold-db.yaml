@@ -27,8 +27,9 @@ spec:
       containers:
         - name: postgres
           image: postgres:18-alpine
-          # pg_stat_statements: time spent per statement; CREATE EXTENSION once, see services/seat-hold/CLAUDE.md.
-          args: ["-c", "shared_preload_libraries=pg_stat_statements"]
+          # pg_stat_statements: time spent per statement; CREATE EXTENSION once. A transaction left idle for a minute
+          # is ended: it would keep every deleted hold. See services/seat-hold/CLAUDE.md.
+          args: ["-c", "shared_preload_libraries=pg_stat_statements", "-c", "idle_in_transaction_session_timeout=60s"]
           env:
             - name: POSTGRES_DB
               value: seat_hold_db
