@@ -60,6 +60,10 @@ max length) is a policy in `infra/rabbitmq/policies.sh`, applied by the `rabbitm
 the cluster: a queue's arguments cannot change once it exists (PRECONDITION_FAILED). The payment commands queue predates
 this rule and keeps its arguments; changing them means a new queue.
 
+Temporal is an experiment (ADR 0018, M9): a second saga engine in booking beside its own saga, which stays the default
+and is not removed. The Temporal CLI's development server (`temporalio/temporal` 1.10.1) runs in compose under the
+`temporal` profile and in kind as one pod; the Python SDK `temporalio` 1.36.1 is for booking only.
+
 ## Observability
 
 See ADR 0006. OpenTelemetry traces and metrics over OTLP to an OpenTelemetry Collector, then Prometheus (scrapes the

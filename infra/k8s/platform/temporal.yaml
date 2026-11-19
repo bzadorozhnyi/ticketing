@@ -1,0 +1,59 @@
+# Temporal, an experiment (ADR 0018): the CLI's development server, one process with SQLite on a volume and the
+# web UI. Not Temporal's production setup (four services and a database of its own); enough for booking's second
+# saga engine. UI: kubectl -n ticketing port-forward svc/temporal 8233.
+apiVersion: v1
+kind: Service
+metadata:
+  name: temporal
+spec:
+  selector:
+    app: temporal
+  ports:
+    - name: grpc
+      port: 7233
+    - name: ui
+      port: 8233
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: temporal
+spec:
+  serviceName: temporal
+  replicas: 1
+  selector:
+    matchLabels:
+      app: temporal
+  template:
+    metadata:
+      labels:
+        app: temporal
+    spec:
+      # The image's own user; fsGroup lets it write the new volume.
+      securityContext: { runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000 }
+      containers:
+        - name: temporal
+          image: temporalio/temporal:1.10.1
+          args: ["server", "start-dev", "--ip", "0.0.0.0", "--db-filename", "/home/temporal/temporal.db"]
+          ports:
+            - containerPort: 7233
+            - containerPort: 8233
+          readinessProbe:
+            exec:
+              command: ["temporal", "operator", "cluster", "health", "--address", "localhost:7233"]
+            periodSeconds: 5
+            timeoutSeconds: 5
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 512Mi }
+          volumeMounts:
+            - name: data
+              mountPath: /home/temporal
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
