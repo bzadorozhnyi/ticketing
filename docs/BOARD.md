@@ -5,7 +5,6 @@ Next ticket: TIK-118
 ## In progress
 
 ## To do
-- [ ] TIK-117 Temporal against the builtin saga: crashes after every step, the Temporal server stopped, time to confirmed (M9, experiment)
 
 ## Done
 - [x] TIK-1 Catalog: service skeleton (M1)
@@ -121,3 +120,4 @@ Next ticket: TIK-118
 - [x] TIK-114 Seat-hold: round trips do not limit holds; the ~4,300 holds/s ceiling is the laptop's CPU (pgbench 11,500 with the same statements)
 - [x] TIK-115 Temporal's development server in compose and kind, ADR 0018; README lists what the project holds (M9, experiment)
 - [x] TIK-116 Booking: the purchase saga as a Temporal workflow beside the saga, engine chosen per order; every branch tested (M9, experiment)
+- [x] TIK-117 Temporal against the saga: money right under every fault on both; Temporal slower to recover (144 s vs 34 s) and +23 to 90 % p50 on its dev server (M9, experiment)

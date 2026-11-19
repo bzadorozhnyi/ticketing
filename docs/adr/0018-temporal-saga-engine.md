@@ -47,3 +47,35 @@ The aim is to show the saga built both ways and compare them with evidence, not 
 - The development server is not Temporal's production setup (frontend, history, matching and worker services with a
   database of their own, usually through its Helm chart). It is enough for the programming model and failure
   behaviour, not for capacity numbers.
+
+## Measured (TIK-117)
+
+Compose on one laptop, through the gateway, a fresh event per run, 150 orders by 15 buyers (one in ten with a
+declined card), money counted by the provider's ledger. Rule agreed before measuring: no order with wrong money, no
+seat sold twice, no order left pending, on both engines; Temporal "costs no more" if its p50 to `confirmed` is at
+most 20 % above the saga's.
+
+| Run | builtin saga | Temporal |
+|---|---|---|
+| A: crash points at 5 % (relay 2 %, payment 2.5 % before and after its commit), restarted at once | 28 deaths, all 150 final in 34 s | 34 deaths, all 150 final in 144 s |
+| B: `docker kill` of a random process every 1 to 3 s | 26 kills, 57 s | 26 kills, 56 s |
+| C: Temporal server stopped for 60 s | | all final 17 s after it came back (83 s) |
+| D: Temporal server killed, started 5 s later | | 19 s, no workflow lost |
+| E: no fault, 200 orders by 10 buyers, p50 / p99 to `confirmed` | 0.68 / 1.41 s and 1.05 / 1.36 s | 1.29 / 2.01 s and 1.30 / 1.40 s |
+
+In every run of A to D both engines ended with 135 orders `confirmed` with one charge each, 15 `card_declined` with
+none, 135 seats sold, no charge left `pending`.
+
+- **Correctness:** equal. Temporal kept every guarantee of the saga under the same faults.
+- **Recovery after a worker's death:** slower. The server does not see a worker die; an activity it was running is
+  retried only after its `start_to_close_timeout` (30 s here), while the saga's row lock ends with the dead process
+  and the next poll, 0.5 s later, takes the order. Heartbeats or a shorter timeout would cut this; not done.
+- **Latency:** 23 to 90 % above the saga's p50, so by the rule Temporal costs more here. The saga waits on two polls
+  of 0.5 s (runner, relay); Temporal on the starter's poll (p50 0.28 s) and on its own steps, 0.21 s for one order
+  and 0.65 s at 10 at once on the development server's SQLite. Not a measure of Temporal's production setup.
+- **A finding outside both engines:** with `restart: on-failure`, Docker waits longer before each restart of a
+  process that dies within 10 s of starting, up to a minute; under 5 % crash points both engines then needed 15 to
+  16 minutes for 150 orders. Run A restarts the processes in a shell loop instead.
+
+The saga stays the default. Temporal stays an experiment: as safe, slower to recover with these timeouts, and
+slower on this server.

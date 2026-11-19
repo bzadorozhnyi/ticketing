@@ -117,7 +117,14 @@ See [ADR 0018](docs/adr/0018-temporal-saga-engine.md).
 |---|---|
 | TIK-115: Temporal's development server in compose and kind, this ADR | ✅ Done |
 | TIK-116: the workflow, its activities and a worker in booking, beside the saga; every branch tested | ✅ Done |
-| TIK-117: both engines under crashes and an outage of the Temporal server; latency | ⏳ Planned |
+| TIK-117: both engines under crashes and an outage of the Temporal server; latency | ✅ Done |
+
+**Result (TIK-117).** Under the same faults both engines kept every order's money right: 135 confirmed with one
+charge each and 15 declined with none, in every run. Temporal recovered more slowly after a worker crash (144 s
+against 34 s for 150 orders under 5 % crash points: an activity of a dead worker waits for its 30 s timeout), was as
+fast when random processes were killed, and survived its own server stopped for 60 s or killed. Its p50 time to
+`confirmed` was 1.3 s against 0.7 to 1.05 s for the saga, on Temporal's development server. Details in
+[ADR 0018](docs/adr/0018-temporal-saga-engine.md#measured-tik-117).
 
 ```
 SAGA_ENGINE=temporal docker compose --profile temporal up -d --wait --build   # new orders go through Temporal
@@ -206,4 +213,4 @@ docs/               board, ADRs, claims, learnings
 | M7 | Replica lag, expand/migrate/contract migrations | ✅ Done |
 | M8 | Kubernetes on kind | ✅ Done |
 | After M8 | Review fixes, Postgres failover, Jepsen-style checks, CQRS measured and reverted, caching, MCP and evals, Postgres internals | ✅ Done |
-| M9 | Temporal as a second saga engine | 🧪 Experiment, in progress |
+| M9 | Temporal as a second saga engine | 🧪 Experiment, measured |
