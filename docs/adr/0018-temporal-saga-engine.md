@@ -79,3 +79,27 @@ none, 135 seats sold, no charge left `pending`.
 
 The saga stays the default. Temporal stays an experiment: as safe, slower to recover with these timeouts, and
 slower on this server.
+
+## Faster recovery (TIK-118)
+
+The server learns that a worker died only from timeouts, so they set the recovery. Run A again, three runs per step,
+against the saga's 34, 36 and 32 s; the rule asked for at most twice the saga, 68 s:
+
+| Step | Temporal, run A |
+|---|---|
+| TIK-117: 30 s `start_to_close` for every activity | 144 s |
+| a timeout per activity, a little above its longest legitimate run (`reserve` 15 s, `confirm` 5 s, the rest 10 s) | 85 s |
+| and a dead worker's sticky queue handed over after 3 s instead of 10 | 81.5 and 67.5 s |
+| and activities heartbeat every 0.5 s with a 2 s `heartbeat_timeout` | 80, 81 and 73 s |
+| and a 2 s workflow task timeout instead of 10 | 68, 67 and 57 s |
+
+- Heartbeats alone moved nothing, and the histories said why: no activity was waiting for a timeout, but 29
+  workflow tasks waited their 10 s `START_TO_CLOSE` (and 79 the sticky queue). One worker runs every order, so its
+  death cuts the workflow tasks of all the orders it was on. The 2 s workflow task timeout met the rule in all three
+  runs.
+- Heartbeats stay: they let a live but slow activity keep its long `start_to_close` while a dead one is found in
+  2 s (`tests/test_order_workflow.py`, a 3 s activity is not repeated; without the beats it is, without end).
+- Without faults, 200 orders had no activity or workflow task timed out or failed, p50 1.36 s. Money stayed right in
+  every run.
+- A short workflow task timeout assumes a task finishes in 2 s; one that does not, under a CPU starved machine, is
+  run again from history, which costs CPU, not correctness.

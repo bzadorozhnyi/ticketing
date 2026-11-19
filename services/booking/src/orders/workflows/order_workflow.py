@@ -11,7 +11,17 @@ with workflow.unsafe.imports_passed_through():
     from orders.models.order import FailureReason
     from orders.workflows.activities import OrderActivities
 
-ACTIVITY_TIMEOUT = timedelta(seconds=30)
+# How long one attempt may run before the server gives it to another worker: a little
+# above the longest legitimate run, since a dead worker is noticed only by this timeout.
+# `reserve` makes three calls of at most UPSTREAMS__TIMEOUT_SECONDS (3 s) each,
+# `confirm` one; the others write to the database and publish.
+ACTIVITY_TIMEOUTS = {
+    OrderActivities.reserve: timedelta(seconds=15),
+    OrderActivities.confirm: timedelta(seconds=5),
+}
+ACTIVITY_TIMEOUT = timedelta(seconds=10)
+# Activities heartbeat every 0.5 s (core/temporal.py): a missed beat is a dead worker.
+HEARTBEAT_TIMEOUT = timedelta(seconds=2)
 
 
 @workflow.defn
@@ -143,7 +153,8 @@ class OrderWorkflow:
         return await workflow.execute_activity_method(
             activity,
             arg,
-            start_to_close_timeout=ACTIVITY_TIMEOUT,
+            start_to_close_timeout=ACTIVITY_TIMEOUTS.get(activity, ACTIVITY_TIMEOUT),
+            heartbeat_timeout=HEARTBEAT_TIMEOUT,
             schedule_to_close_timeout=until - workflow.now() if until else None,
             retry_policy=retry,
         )

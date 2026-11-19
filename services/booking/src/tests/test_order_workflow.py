@@ -15,7 +15,7 @@ from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
 from core.settings import TemporalSettings
-from core.temporal import TemporalClient
+from core.temporal import Heartbeats, TemporalClient
 from orders.dto.messages import ChargeStatus, RefundStatus
 from orders.dto.workflow import (
     Finish,
@@ -57,6 +57,7 @@ class World:
         charge: ChargeStatus | None = ChargeStatus.SUCCEEDED,
         late_charge: ChargeStatus | None = None,
         confirms: list[bool | Exception] | None = None,
+        confirm_seconds: float = 0,
         answer_refund: bool = True,
     ):
         self.client = client
@@ -66,6 +67,7 @@ class World:
         self.charge = charge
         self.late_charge = late_charge
         self.confirms = confirms or [True]
+        self.confirm_seconds = confirm_seconds
         self.answer_refund = answer_refund
         self.calls: list[str] = []
         self.refund_reasons: list[str | None] = []
@@ -101,6 +103,7 @@ class World:
         @activity.defn(name="confirm")
         async def confirm(order: OrderInput) -> bool:
             self.calls.append("confirm")
+            await asyncio.sleep(self.confirm_seconds)
             outcome = (
                 self.confirms.pop(0) if len(self.confirms) > 1 else self.confirms[0]
             )
@@ -131,12 +134,15 @@ async def new_order(env: WorkflowEnvironment) -> OrderInput:
     )
 
 
-async def run(env: WorkflowEnvironment, world: World, order: OrderInput) -> str:
+async def run(
+    env: WorkflowEnvironment, world: World, order: OrderInput, interceptors=()
+) -> str:
     async with Worker(
         env.client,
         task_queue=QUEUE,
         workflows=[OrderWorkflow],
         activities=world.activities(),
+        interceptors=list(interceptors),
     ):
         # A workflow that never ends would hang the suite instead of failing it.
         async with asyncio.timeout(30):
@@ -270,3 +276,14 @@ async def test_a_finished_order_is_never_run_again(env):
 
     assert started is False
     assert world.calls.count("reserve") == 1
+
+
+async def test_a_slow_live_activity_keeps_beating_and_is_not_repeated(env):
+    """3 s of a live call against a 2 s heartbeat timeout: the beats keep it alive, so a
+    short timeout can find a dead worker without repeating slow calls."""
+    world = World(env.client, confirm_seconds=3)
+
+    outcome = await run(env, world, await new_order(env), interceptors=[Heartbeats()])
+
+    assert outcome == "confirmed"
+    assert world.calls.count("confirm") == 1

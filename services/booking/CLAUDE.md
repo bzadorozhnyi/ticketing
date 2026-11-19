@@ -93,6 +93,10 @@ See ADR 0018. A second engine for the purchase saga, beside `SagaRunner`, which 
 - Commands go to RabbitMQ from the activities, not through the outbox: Temporal runs the next step after a crash.
   Replies of a Temporal order become signals in `PaymentReplyConsumer` (`booking-saga`); a reply for a finished
   workflow is acknowledged and dropped.
+- The server sees a dead worker only by timeouts, so they set the recovery (TIK-118): each activity's
+  `start_to_close_timeout` sits a little above its longest legitimate run (`ACTIVITY_TIMEOUTS`; lower would repeat
+  slow calls still alive); every activity heartbeats every 0.5 s (`Heartbeats` interceptor in `core/temporal.py`)
+  against a 2 s `heartbeat_timeout`; a workflow task times out after 2 s and a dead worker's sticky queue after 3 s.
 - `core/temporal.py` is the only module that builds Temporal's client and worker (`TEMPORAL__ADDRESS`, `__NAMESPACE`,
   `__TASK_QUEUE`); it connects on first use.
 - `tests/test_order_workflow.py` runs every branch against Temporal's test server with time skipped. The SDK downloads
