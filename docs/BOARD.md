@@ -1,6 +1,6 @@
 # Board
 
-Next ticket: TIK-114
+Next ticket: TIK-115
 
 ## In progress
 
@@ -117,3 +117,4 @@ Next ticket: TIK-114
 - [x] TIK-111 Evals of an agent using the MCP server: 9 scenarios, graders on the system's state, 27 of 27 passed through Claude Code
 - [x] TIK-112 Postgres: fsync is a part of seat-hold's ~4,200 holds/s ceiling, not the main one (synchronous_commit off: 1.2 to 1.3 times)
 - [x] TIK-113 Seat-hold: a forgotten BEGIN no longer cuts holds to a quarter (index for the per-user limit, idle-in-transaction timeout)
+- [x] TIK-114 Seat-hold: round trips do not limit holds; the ~4,300 holds/s ceiling is the laptop's CPU (pgbench 11,500 with the same statements)
