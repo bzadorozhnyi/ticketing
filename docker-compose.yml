@@ -82,6 +82,20 @@ services:
       retries: 20
 
 
+  # Temporal, an experiment (ADR 0018): the CLI's development server, one process with SQLite and the web UI.
+  # Started only with `--profile temporal`; the files live in the user's home, the one directory it may write.
+  temporal:
+    image: temporalio/temporal:1.10.1
+    profiles: [temporal]
+    command: ["server", "start-dev", "--ip", "0.0.0.0", "--db-filename", "/home/temporal/temporal.db"]
+    ports: ["127.0.0.1:7233:7233", "127.0.0.1:8233:8233"]
+    volumes: ["temporal-data:/home/temporal"]
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "localhost:7233"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   rabbitmq-policies:
     image: rabbitmq:4.4.0-management-alpine
     entrypoint: ["sh", "/policies.sh"]
@@ -309,3 +323,4 @@ volumes:
   booking-db-replica-data:
   payment-db-data:
   seat-hold-db-data:
+  temporal-data:

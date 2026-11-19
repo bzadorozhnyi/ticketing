@@ -18,7 +18,7 @@ kind delete cluster --name ticketing      # everything goes, the databases too
 |---|---|---|
 | `metrics-server/` | metrics-server v0.9.1 in `kube-system`: CPU and memory of pods for the HPA and `kubectl top` | first |
 | `cnpg/` | the CloudNativePG operator v1.30.1 in `cnpg-system`, from `install-cnpg.sh`: it runs booking's Postgres | before `platform` |
-| `platform/` | namespace, secrets, config maps, Postgres per service, RabbitMQ, Valkey | then; `deploy.sh` waits for every StatefulSet and for booking's database |
+| `platform/` | namespace, secrets, config maps, Postgres per service, RabbitMQ, Valkey, Temporal's development server (an experiment, ADR 0018) | then; `deploy.sh` waits for every StatefulSet and for booking's database |
 | `observability/` | collector, Tempo, Prometheus, Grafana, built from `infra/observability` | with `platform` |
 | `migrations/` | one Job per service: `alembic upgrade head`, or `migrate` for seat-hold; and RabbitMQ's policies (`infra/rabbitmq/policies.sh`) | then; waits for every Job to complete |
 | `seed/` | catalog's demo data, a Job | then |
@@ -100,6 +100,7 @@ infra/k8s/deploy.sh
 ```
 kubectl -n ticketing port-forward service/grafana 3000:3000        # http://localhost:3000, the Containers dashboard
 kubectl -n ticketing port-forward service/prometheus 9090:9090
+kubectl -n ticketing port-forward service/temporal 8233:8233      # http://localhost:8233, Temporal's UI (ADR 0018)
 ```
 
 Tempo needs more than 512 MiB: it read about 1 GiB back from its write-ahead log after a restart, and at 512 MiB it was

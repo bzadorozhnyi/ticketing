@@ -14,3 +14,4 @@ resources:
   - seat-hold-db.yaml
   - rabbitmq.yaml
   - valkey.yaml
+  - temporal.yaml
