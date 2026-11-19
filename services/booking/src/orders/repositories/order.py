@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.consistency import ReplicaReads
 from core.db import ReplicaSessionDep, SessionDep
 from orders.dto.order import SagaPosition
-from orders.models.order import FailureReason, Order, OrderStatus, SagaStep
+from orders.models.order import FailureReason, Order, OrderStatus, SagaEngine, SagaStep
 from orders.models.payment_token import OrderPaymentToken
 
 
@@ -46,6 +46,7 @@ class OrderRepository:
         hold_id: uuid.UUID,
         payment_token: str,
         request_fingerprint: str,
+        saga_engine: str,
     ) -> None:
         """No conflict target on purpose: either unique index refuses the row.
         Of two concurrent calls one inserts, the other waits for it and does nothing.
@@ -60,6 +61,7 @@ class OrderRepository:
                 hold_id=hold_id,
                 request_fingerprint=request_fingerprint,
                 status=OrderStatus.PENDING,
+                saga_engine=saga_engine,
             )
             .on_conflict_do_nothing()
             .returning(Order.id)
@@ -102,12 +104,33 @@ class OrderRepository:
                     ]
                 ),
                 Order.next_attempt_at <= func.now(),
+                Order.saga_engine == SagaEngine.BUILTIN,
             )
             .order_by(Order.next_attempt_at)
             .limit(1)
             .with_for_update(skip_locked=True)
         )
         return result.scalar_one_or_none()
+
+    async def new_temporal_orders(self, *, limit: int) -> list[Order]:
+        """Temporal orders whose workflow has not reserved yet: those it may not have
+        started. Through `ix_orders_saga_due`, as `lock_next_due`."""
+        result = await self.session.execute(
+            select(Order)
+            .where(
+                Order.saga_engine == SagaEngine.TEMPORAL,
+                Order.saga_step == SagaStep.STARTED,
+                Order.next_attempt_at <= func.now(),
+            )
+            .order_by(Order.next_attempt_at)
+            .limit(limit)
+        )
+        return list(result.scalars())
+
+    async def engine_of(self, *, order_id: uuid.UUID) -> str | None:
+        return await self.session.scalar(
+            select(Order.saga_engine).where(Order.id == order_id)
+        )
 
     async def lock(self, *, order_id: uuid.UUID) -> Order | None:
         """Waits for a worker on the same order, so a reply sees the finished step."""

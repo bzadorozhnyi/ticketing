@@ -223,6 +223,8 @@ services:
       DB_REPLICA__USER: postgres
       DB_REPLICA__PASS: password
       OTEL_SERVICE_NAME: booking
+      # The saga engine of new orders: `SAGA_ENGINE=temporal docker compose --profile temporal up` (ADR 0018).
+      SAGA__ENGINE: ${SAGA_ENGINE:-builtin}
     healthcheck: *ready-check
     depends_on:
       booking-migrate: { condition: service_completed_successfully }
@@ -256,6 +258,23 @@ services:
       booking-migrate: { condition: service_completed_successfully }
       rabbitmq: { condition: service_healthy }
       rabbitmq-policies: { condition: service_completed_successfully }
+
+  # Temporal's worker for booking, an experiment (ADR 0018): runs OrderWorkflow and starts it for new orders.
+  booking-temporal-worker:
+    <<: *booking
+    profiles: [temporal]
+    command: ["python", "-m", "scripts.temporal_worker"]
+    environment:
+      <<: *service-db-env
+      DB__NAME: booking_db
+      DB__HOST: booking-db
+      RABBITMQ__HOST: rabbitmq
+      OTEL_SERVICE_NAME: booking-temporal-worker
+    restart: on-failure
+    depends_on:
+      booking-migrate: { condition: service_completed_successfully }
+      rabbitmq: { condition: service_healthy }
+      temporal: { condition: service_healthy }
 
   payment-consumer:
     <<: *payment

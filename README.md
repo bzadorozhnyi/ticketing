@@ -116,12 +116,16 @@ See [ADR 0018](docs/adr/0018-temporal-saga-engine.md).
 | Step | State |
 |---|---|
 | TIK-115: Temporal's development server in compose and kind, this ADR | ✅ Done |
-| TIK-116: the workflow, its activities and a worker in booking, beside the saga | ⏳ Planned |
+| TIK-116: the workflow, its activities and a worker in booking, beside the saga; every branch tested | ✅ Done |
 | TIK-117: both engines under crashes and an outage of the Temporal server; latency | ⏳ Planned |
 
 ```
-docker compose --profile temporal up -d --wait     # adds the Temporal server; UI on http://localhost:8233
+SAGA_ENGINE=temporal docker compose --profile temporal up -d --wait --build   # new orders go through Temporal
 ```
+
+The Temporal server and booking's worker start only with the `temporal` profile; Temporal's UI is on
+http://localhost:8233. Without `SAGA_ENGINE=temporal` new orders keep using booking's own saga. The workflow is
+[order_workflow.py](services/booking/src/orders/workflows/order_workflow.py).
 
 ## 🚀 Run it
 

@@ -5,7 +5,6 @@ Next ticket: TIK-118
 ## In progress
 
 ## To do
-- [ ] TIK-116 Booking: the purchase saga as a Temporal workflow (activities, worker), engine chosen per order, beside the saga (M9, experiment)
 - [ ] TIK-117 Temporal against the builtin saga: crashes after every step, the Temporal server stopped, time to confirmed (M9, experiment)
 
 ## Done
@@ -121,3 +120,4 @@ Next ticket: TIK-118
 - [x] TIK-113 Seat-hold: a forgotten BEGIN no longer cuts holds to a quarter (index for the per-user limit, idle-in-transaction timeout)
 - [x] TIK-114 Seat-hold: round trips do not limit holds; the ~4,300 holds/s ceiling is the laptop's CPU (pgbench 11,500 with the same statements)
 - [x] TIK-115 Temporal's development server in compose and kind, ADR 0018; README lists what the project holds (M9, experiment)
+- [x] TIK-116 Booking: the purchase saga as a Temporal workflow beside the saga, engine chosen per order; every branch tested (M9, experiment)

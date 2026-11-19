@@ -75,6 +75,30 @@ In the cluster CloudNativePG runs the primary (`booking-db-rw`) and two replicas
 - Tests: `get_replica_session` is overridden like `get_session`; the `lagging_replica` fixture gives it another
   connection, which does not see the test's uncommitted order, as a lagging replica does not.
 
+## Temporal (experiment)
+
+See ADR 0018. A second engine for the purchase saga, beside `SagaRunner`, which stays the default and is not removed.
+- `SAGA__ENGINE` (`builtin` or `temporal`) is the engine of new orders; `orders.saga_engine` keeps it, so an order in
+  flight is finished by the engine that started it. `lock_next_due` takes only `builtin` orders.
+- `orders/workflows/order_workflow.py` is the saga as one function, with the rules of `SagaRunner`: before the charge
+  it gives up after `GIVE_UP_AFTER_SECONDS`; confirm and refund never give up. `activities.py` holds its side effects,
+  each safe to repeat. The workflow imports only through `workflow.unsafe.imports_passed_through()` and calls no clock
+  or I/O of its own: a replay must take the same path.
+- Background job: `python -m scripts.temporal_worker` (`booking-temporal-worker`, compose profile `temporal`) runs the
+  workflow and `WorkflowStarter`, which starts the workflow of each new Temporal order every `POLL_INTERVAL_SECONDS`:
+  the order is committed by the API and the workflow lives in Temporal, so the two cannot be written together.
+  A start uses `REJECT_DUPLICATE`: Temporal's default would run a finished order's saga again.
+- The payment token never enters the workflow: `send_charge` reads it from the database. Temporal keeps a workflow's
+  input and results in its history.
+- Commands go to RabbitMQ from the activities, not through the outbox: Temporal runs the next step after a crash.
+  Replies of a Temporal order become signals in `PaymentReplyConsumer` (`booking-saga`); a reply for a finished
+  workflow is acknowledged and dropped.
+- `core/temporal.py` is the only module that builds Temporal's client and worker (`TEMPORAL__ADDRESS`, `__NAMESPACE`,
+  `__TASK_QUEUE`); it connects on first use.
+- `tests/test_order_workflow.py` runs every branch against Temporal's test server with time skipped. The SDK downloads
+  the server (about 66 MB) into the temp directory on the first run.
+- Try it: `SAGA_ENGINE=temporal docker compose --profile temporal up -d --wait --build`; the UI is on `localhost:8233`.
+
 ## Internal API
 
 `POST /internal/v1/orders/existing` (`orders/endpoints/internal/`): which of the given orders exist, up to 1,000 a

@@ -15,6 +15,7 @@ dependencies = [
     "opentelemetry-sdk==1.45.2",
     "pydantic-settings==2.16.2",
     "sqlalchemy[asyncio]==2.1.6",
+    "temporalio==1.36.1",
     "uvicorn[standard]==0.54.0",
 ]
 

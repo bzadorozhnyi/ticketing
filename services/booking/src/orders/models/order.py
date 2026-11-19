@@ -30,6 +30,13 @@ class SagaStep(StrEnum):
     DONE = "done"
 
 
+class SagaEngine(StrEnum):
+    """What runs an order's saga, chosen when the order is made (ADR 0018)."""
+
+    BUILTIN = "builtin"
+    TEMPORAL = "temporal"
+
+
 class FailureReason(StrEnum):
     HOLD_NOT_FOUND = "hold_not_found"
     HOLD_EXPIRED = "hold_expired"
@@ -66,6 +73,9 @@ class Order(BaseModel):
             "status IN ('pending', 'confirmed', 'failed')", name="status_known"
         ),
         CheckConstraint(
+            "saga_engine IN ('builtin', 'temporal')", name="saga_engine_known"
+        ),
+        CheckConstraint(
             "saga_step IN "
             "('started', 'awaiting_charge', 'charged', 'awaiting_refund', 'done')",
             name="saga_step_known",
@@ -84,6 +94,7 @@ class Order(BaseModel):
     request_fingerprint: Mapped[str | None]
     status: Mapped[str]
     saga_step: Mapped[str] = mapped_column(server_default=SagaStep.STARTED)
+    saga_engine: Mapped[str] = mapped_column(server_default=SagaEngine.BUILTIN)
     attempts: Mapped[int] = mapped_column(server_default="0")
     next_attempt_at: Mapped[datetime] = mapped_column(server_default=func.now())
     amount_minor: Mapped[int | None] = mapped_column(BigInteger)

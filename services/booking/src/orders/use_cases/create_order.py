@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.consistency import write_position
 from core.db import SessionDep
 from core.exceptions import ConflictException, ValidationException
+from core.settings import settings
 from orders.dto.order import CreatedOrderDTO, OrderDTO
 from orders.repositories.order import OrderRepository, OrderRepositoryDep
 
@@ -19,9 +20,16 @@ def request_fingerprint(*, hold_id: uuid.UUID, payment_token: str) -> str:
 
 
 class CreateOrderUseCase:
-    def __init__(self, *, session: AsyncSession, order_repository: OrderRepository):
+    def __init__(
+        self,
+        *,
+        session: AsyncSession,
+        order_repository: OrderRepository,
+        saga_engine: str,
+    ):
         self.session = session
         self.order_repository = order_repository
+        self.saga_engine = saga_engine
 
     async def execute(
         self,
@@ -42,6 +50,7 @@ class CreateOrderUseCase:
             hold_id=hold_id,
             payment_token=payment_token,
             request_fingerprint=fingerprint,
+            saga_engine=self.saga_engine,
         )
         await self.session.commit()
 
@@ -61,7 +70,11 @@ class CreateOrderUseCase:
 def get_create_order_use_case(
     session: SessionDep, order_repository: OrderRepositoryDep
 ) -> CreateOrderUseCase:
-    return CreateOrderUseCase(session=session, order_repository=order_repository)
+    return CreateOrderUseCase(
+        session=session,
+        order_repository=order_repository,
+        saga_engine=settings.SAGA.ENGINE,
+    )
 
 
 CreateOrderUseCaseDep = Annotated[

@@ -22,7 +22,14 @@ The aim is to show the saga built both ways and compare them with evidence, not 
   (`SAGA__ENGINE`, `builtin` by default) that is stored with each order, so an order in flight is always finished by
   the engine that started it. Workflow id = order id, so one order cannot start two workflows.
 - **payment does not change.** Commands still go through RabbitMQ; for a Temporal order the reply consumer signals
-  the workflow instead of writing the step.
+  the workflow instead of writing the step. The activities publish the commands themselves, without the outbox:
+  after a crash Temporal runs the step again, which is what the outbox was for.
+- **The worker starts the workflows** (TIK-116). The API only writes the order with its engine; a starter in the
+  worker's process starts each new Temporal order's workflow, since the order and the workflow cannot be written
+  together. Starts use `REJECT_DUPLICATE`: with Temporal's default a finished workflow's id can run again, and a
+  second run of a paid order would find its hold confirmed and fail it.
+- **No payment token in Temporal.** A workflow's input and results stay in its history, so the activity that sends
+  the charge reads the token from booking's database.
 - **Temporal CLI's development server** (`temporalio/temporal` 1.10.1: server 1.32.2, UI 2.56.4): one process with
   SQLite on a volume and the web UI, in compose under the `temporal` profile and in kind as a one-pod StatefulSet
   (`infra/k8s/platform/temporal.yaml`). Its data survives a restart of the container or the pod.
