@@ -1,6 +1,6 @@
 # Board
 
-Next ticket: TIK-126
+Next ticket: TIK-127
 
 ## In progress
 
@@ -128,3 +128,4 @@ Next ticket: TIK-126
 - [x] TIK-121 Booking: one generated scenario through the saga and the Temporal workflow against a model; killed 10 of 10 mutations (M10)
 - [x] TIK-123 Seat-hold: a request cut off before its commit leaves nothing, its query keeps waiting in Postgres; cut off during the commit, a hold the client never heard of (M11)
 - [x] TIK-124 Booking: a client gone during POST /orders still gets its order made (the key finds it); a timed-out reply cancels its query in Postgres too (M11)
+- [x] TIK-126 Seat-hold: a repeat by the holder answers 409 already_held_by_you with the hold ids; MCP turns it into the hold to use (M11)

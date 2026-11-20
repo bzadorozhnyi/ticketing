@@ -286,3 +286,30 @@ async fn a_repeat_with_the_same_key_finds_the_hold_a_gone_client_never_heard_of(
     );
     service_pool.close().await;
 }
+
+#[sqlx::test]
+async fn a_repeat_without_a_key_names_the_hold_a_gone_client_never_heard_of(pool: PgPool) {
+    let (service, service_pool) = service_for(&pool).await;
+    slow_commits(&pool).await;
+    let (event_id, seat_id) = (Uuid::now_v7(), Uuid::now_v7());
+
+    let gone = hold_with_key(&service, event_id, seat_id, Some(CLIENT_TIMEOUT), None).await;
+    tokio::time::sleep(Duration::from_millis(800)).await;
+    let repeat = hold_with_key(&service, event_id, seat_id, None, None).await;
+
+    assert!(gone.is_none(), "the client gave up");
+    let (status, body) = repeat.expect("an answer");
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(body["code"], "already_held_by_you");
+    let stored: Uuid = sqlx::query_scalar("SELECT hold_id FROM holds WHERE event_id = $1")
+        .bind(event_id)
+        .fetch_one(&pool)
+        .await
+        .expect("the hold");
+    assert_eq!(
+        body["details"],
+        json!([stored]),
+        "the hold it never heard of"
+    );
+    service_pool.close().await;
+}

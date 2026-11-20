@@ -20,6 +20,11 @@ pub struct SeatHolder {
     pub owner_id: String,
 }
 
+pub struct OwnHold {
+    pub seat_id: Uuid,
+    pub hold_id: Uuid,
+}
+
 pub struct TakenSeat {
     pub seat_id: Uuid,
     pub expires_at: Timestamp,

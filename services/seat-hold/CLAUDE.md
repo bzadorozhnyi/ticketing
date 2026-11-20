@@ -99,7 +99,12 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
   runs it when the connection goes back to the pool. But the query already sent keeps waiting in Postgres: dropping
   the future does not cancel it, so a pooled connection stays busy until the lock it waits for frees or
   `lock_timeout` ends. During `COMMIT` the hold is made and the client never hears of it: a repeat with the same
-  `Idempotency-Key` gets it back; without a key the seat stays taken for the TTL.
+  `Idempotency-Key` gets it back, and one without a key gets 409 `already_held_by_you`.
+- A repeat by the holder of the seats (every seat refused is the requester's own unexpired hold) answers 409
+  `already_held_by_you` with the ids of those holds in `details`, so a lost answer does not lock the seats away
+  from their owner (`tests/already_held.rs`). Without a key it is checked before the per-user limit, so a user at
+  the limit gets it too; with a key the request goes the full way, so a concurrent repeat still replays. A sold
+  seat, or one held by someone else, stays `conflict`.
 - `DELETE /api/v1/holds/{hold_id}` always answers 204, so a retry is safe. Another user's hold stays untouched.
 - Background job: `holds/cleanup_job.rs` removes expired rows. Correctness does not depend on it, and replicas need no coordination.
 - `/ready` checks the database; the pool connects lazily, so the service starts during an outage.

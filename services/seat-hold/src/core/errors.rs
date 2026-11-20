@@ -10,6 +10,7 @@ use uuid::Uuid;
 #[derive(Clone, Copy, Debug, ToSchema)]
 #[schema(rename_all = "snake_case")]
 pub enum ErrorCode {
+    AlreadyHeldByYou,
     Conflict,
     HoldLimitReached,
     InternalError,
@@ -24,6 +25,7 @@ impl ErrorCode {
     #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::AlreadyHeldByYou => "already_held_by_you",
             Self::Conflict => "conflict",
             Self::HoldLimitReached => "hold_limit_reached",
             Self::InternalError => "internal_error",
@@ -58,6 +60,9 @@ pub enum ServiceError {
     Validation(String),
     #[error("Some seats are taken")]
     SeatsTaken(Vec<Uuid>),
+    /// The user holds these seats already, in the holds listed: an answer they lost.
+    #[error("You already hold these seats")]
+    AlreadyHeldByYou(Vec<Uuid>),
     #[error("At most {0} seats can be held at once for one event")]
     HoldLimitReached(i64),
     #[error("The hold has expired")]
@@ -76,6 +81,7 @@ impl ServiceError {
             Self::Validation(_) => (StatusCode::UNPROCESSABLE_ENTITY, ErrorCode::ValidationError),
             Self::SeatsTaken(_) | Self::HoldExpired => (StatusCode::CONFLICT, ErrorCode::Conflict),
             Self::HoldLimitReached(_) => (StatusCode::CONFLICT, ErrorCode::HoldLimitReached),
+            Self::AlreadyHeldByYou(_) => (StatusCode::CONFLICT, ErrorCode::AlreadyHeldByYou),
             Self::Unavailable => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 ErrorCode::ServiceUnavailable,
@@ -86,7 +92,9 @@ impl ServiceError {
 
     fn details(&self) -> Vec<String> {
         match self {
-            Self::SeatsTaken(seat_ids) => seat_ids.iter().map(ToString::to_string).collect(),
+            Self::SeatsTaken(ids) | Self::AlreadyHeldByYou(ids) => {
+                ids.iter().map(ToString::to_string).collect()
+            }
             Self::NotFound
             | Self::Unauthorized
             | Self::Validation(_)

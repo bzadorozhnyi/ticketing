@@ -29,6 +29,12 @@ async def hold_seats(ctx: ToolContext, event_id: str, seat_ids: list[str]) -> Ho
     )
     if status == 201:
         return Hold(**body)
+    if status == 409 and body.get("code") == "already_held_by_you":
+        raise ToolError(
+            f"The user already holds these seats, in hold {', '.join(body['details'])}"
+            " (an earlier answer may have been lost). Use that hold_id with"
+            " create_order or release_hold; do not hold them again."
+        )
     if status == 409 and body.get("code") == "hold_limit_reached":
         raise ToolError(f"{body['message']}. Release a hold with release_hold first.")
     if status == 409:

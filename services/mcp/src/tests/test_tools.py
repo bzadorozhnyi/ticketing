@@ -2,7 +2,7 @@ import pytest
 from mcp_types import ElicitResult
 
 from tests.conftest import USER
-from tests.helpers.services import EVENT, SECTION, TAKEN
+from tests.helpers.services import EVENT, MINE, SECTION, TAKEN
 
 
 def text_of(result) -> str:
@@ -84,6 +84,19 @@ async def test_taken_seats_are_named_and_nothing_is_held(mcp_client):
     assert result.is_error
     assert TAKEN in text_of(result)
     assert "Nothing was held" in text_of(result)
+
+
+@pytest.mark.anyio
+async def test_seats_the_user_holds_already_name_the_hold_to_use(mcp_client):
+    """A hold whose answer was lost: the agent learns its hold_id instead of being told
+    the seats are taken by someone else."""
+    result = await mcp_client.call_tool(
+        "hold_seats", {"event_id": EVENT, "seat_ids": [MINE]}
+    )
+
+    assert result.is_error
+    assert "hold-0" in text_of(result)
+    assert "already holds" in text_of(result)
 
 
 @pytest.mark.anyio
