@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use axum::extract::FromRef;
-use sqlx::Connection;
+use sqlx::{Connection, PgConnection};
 use uuid::Uuid;
 
 use crate::app::AppState;
@@ -68,6 +68,9 @@ impl<D: DbPool> HoldSeatsUseCase<D> {
                 .collect();
             return Err(ServiceError::SeatsTaken(taken));
         }
+        if idempotency_key.is_none() && !holders.is_empty() {
+            Self::refuse_if_already_yours(&mut conn, &hold, &hold.seat_ids).await?;
+        }
         let mut transaction = conn.begin().await?;
 
         if let Some(key) = idempotency_key {
@@ -94,11 +97,13 @@ impl<D: DbPool> HoldSeatsUseCase<D> {
         let taken = HoldRepository::take_seats(&mut transaction, hold_id, &hold, ttl).await?;
         if taken.len() != hold.seat_ids.len() {
             transaction.rollback().await?;
-            let unavailable = hold
+            let unavailable: Vec<Uuid> = hold
                 .seat_ids
-                .into_iter()
+                .iter()
+                .copied()
                 .filter(|seat_id| !taken.iter().any(|seat| seat.seat_id == *seat_id))
                 .collect();
+            Self::refuse_if_already_yours(&mut conn, &hold, &unavailable).await?;
             return Err(ServiceError::SeatsTaken(unavailable));
         }
         transaction.commit().await?;
@@ -114,6 +119,24 @@ impl<D: DbPool> HoldSeatsUseCase<D> {
             seat_ids: hold.seat_ids,
             expires_at,
         })
+    }
+
+    /// A user who asks again for seats they hold lost the first answer: the refusal names
+    /// their holds, so they can still pay for them or release them. Only when every one
+    /// of `seat_ids` is theirs; otherwise the seats are taken as before.
+    async fn refuse_if_already_yours(
+        conn: &mut PgConnection,
+        hold: &NewHold,
+        seat_ids: &[Uuid],
+    ) -> Result<(), ServiceError> {
+        let own = HoldRepository::own_holds(conn, hold.event_id, &hold.owner_id, seat_ids).await?;
+        if own.len() < seat_ids.len() {
+            return Ok(());
+        }
+        let mut hold_ids: Vec<Uuid> = own.iter().map(|seat| seat.hold_id).collect();
+        hold_ids.sort_unstable();
+        hold_ids.dedup();
+        Err(ServiceError::AlreadyHeldByYou(hold_ids))
     }
 
     fn replay(stored: Hold, hold: &NewHold) -> Result<Hold, ServiceError> {

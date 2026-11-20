@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::core::telemetry::db::db_span;
 use crate::core::time::Timestamp;
-use crate::holds::dto::hold::{Hold, NewHold, SeatHolder, TakenSeat};
+use crate::holds::dto::hold::{Hold, NewHold, OwnHold, SeatHolder, TakenSeat};
 
 pub struct HoldRepository;
 
@@ -76,6 +76,33 @@ impl HoldRepository {
             "#,
             event_id,
             seat_ids,
+        )
+        .fetch_all(conn)
+        .await
+    }
+
+    /// The user's unexpired holds among `seat_ids`; sold seats are not holds any more.
+    pub async fn own_holds(
+        conn: &mut PgConnection,
+        event_id: Uuid,
+        owner_id: &str,
+        seat_ids: &[Uuid],
+    ) -> Result<Vec<OwnHold>, sqlx::Error> {
+        let _span = db_span("SELECT", "holds");
+        sqlx::query_as!(
+            OwnHold,
+            r#"
+            SELECT seat_id, hold_id
+            FROM holds
+            WHERE event_id = $1
+              AND seat_id = ANY($2)
+              AND owner_id = $3
+              AND status = 'held'
+              AND expires_at > now()
+            "#,
+            event_id,
+            seat_ids,
+            owner_id,
         )
         .fetch_all(conn)
         .await

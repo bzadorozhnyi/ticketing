@@ -5,6 +5,7 @@ from aiohttp import web
 EVENT = "01a1e3b8-0276-7f08-ac27-9107afe6caae"
 SECTION = "01a1cef1-e8b4-7b13-8a46-f9cea70bfe3e"
 TAKEN = "seat-taken"
+MINE = "seat-mine"
 
 
 class FakeServices:
@@ -104,6 +105,13 @@ class FakeServices:
     async def hold(self, request: web.Request) -> web.Response:
         call = await self._record(request)
         seat_ids = call["body"]["seat_ids"]
+        if MINE in seat_ids:
+            body = {
+                "code": "already_held_by_you",
+                "message": "You already hold these seats",
+                "details": ["hold-0"],
+            }
+            return web.json_response(body, status=409)
         if TAKEN in seat_ids:
             body = {
                 "code": "conflict",

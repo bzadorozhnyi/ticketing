@@ -462,6 +462,7 @@
       "ErrorCode": {
         "type": "string",
         "enum": [
+          "already_held_by_you",
           "conflict",
           "hold_limit_reached",
           "internal_error",
