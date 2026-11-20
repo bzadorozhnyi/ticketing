@@ -113,6 +113,10 @@ request, read from the primary. payment checks its charges against it (ADR 0013)
 - Code lives in `src/` and is imported without a package prefix (`from core.db import ...`);
   pytest and ty use `src` as the import root.
 - `core/` is copied from catalog, not shared: services stay independent. A fix there may need repeating in each service.
+- Property tests with Hypothesis: `tests/test_breaker_model.py` runs the circuit breaker against a model of its rules
+  on generated calls, results, cancellations and time. `event()` in the model shows in
+  `pytest --hypothesis-show-statistics` how often each transition was reached; check it after changing the rules, or a
+  passing test may never have tried them. Found examples are kept in `.hypothesis/` (not committed) and replayed first.
 - The `probe_routes` fixture (`tests/helpers/probe_routes.py`) gives tests failures a real route cannot produce on demand.
 - `src/tests_e2e/` has real commits and several connections: run it with `uv run pytest src/tests_e2e`. It needs RabbitMQ.
 - The outbox relay is a background job: `python -m scripts.relay`, the `booking-relay` service in compose.

@@ -17,3 +17,6 @@ target/
 .DS_Store
 .idea/
 .vscode/
+
+# Hypothesis keeps the examples it found here, to replay them first.
+.hypothesis/
