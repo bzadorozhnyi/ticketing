@@ -5,7 +5,6 @@ Next ticket: TIK-126
 ## In progress
 
 ## To do
-- [ ] TIK-124 Booking: cancellation in Python: a client gone during POST /orders, a saga step cancelled on shutdown (M11)
 - [ ] TIK-125 Deadline propagation: the gateway passes the time left, services refuse late work and cap their queries by it (M11)
 
 ## Done
@@ -128,3 +127,4 @@ Next ticket: TIK-126
 - [x] TIK-120 Payment: generated charges and refunds in any order keep money at the amount or nothing; no new bug, one redundant branch (M10)
 - [x] TIK-121 Booking: one generated scenario through the saga and the Temporal workflow against a model; killed 10 of 10 mutations (M10)
 - [x] TIK-123 Seat-hold: a request cut off before its commit leaves nothing, its query keeps waiting in Postgres; cut off during the commit, a hold the client never heard of (M11)
+- [x] TIK-124 Booking: a client gone during POST /orders still gets its order made (the key finds it); a timed-out reply cancels its query in Postgres too (M11)
