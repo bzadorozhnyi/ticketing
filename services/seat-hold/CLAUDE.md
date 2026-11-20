@@ -94,6 +94,12 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
   orders cannot keep a seat for ever: a hold lasts at most `TTL_SECONDS` plus `PAYMENT_TTL_SECONDS`. Taking over an expired
   seat clears the mark.
 - A confirmed seat is sold: it never expires, cannot be released, and the cleanup leaves it alone.
+- A client that goes away (the gateway's timeout does) makes hyper drop the handler's future at its current `.await`
+  (`tests/cancellation.rs`). Before `COMMIT` nothing is left: sqlx queues a `ROLLBACK` for the dropped transaction and
+  runs it when the connection goes back to the pool. But the query already sent keeps waiting in Postgres: dropping
+  the future does not cancel it, so a pooled connection stays busy until the lock it waits for frees or
+  `lock_timeout` ends. During `COMMIT` the hold is made and the client never hears of it: a repeat with the same
+  `Idempotency-Key` gets it back; without a key the seat stays taken for the TTL.
 - `DELETE /api/v1/holds/{hold_id}` always answers 204, so a retry is safe. Another user's hold stays untouched.
 - Background job: `holds/cleanup_job.rs` removes expired rows. Correctness does not depend on it, and replicas need no coordination.
 - `/ready` checks the database; the pool connects lazily, so the service starts during an outage.
