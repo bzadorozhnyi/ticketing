@@ -221,4 +221,4 @@ docs/               board, ADRs, claims, learnings
 | After M8 | Review fixes, Postgres failover, Jepsen-style checks, CQRS measured and reverted, caching, MCP and evals, Postgres internals | ✅ Done |
 | M9 | Temporal as a second saga engine | 🧪 Experiment, measured |
 | M10 | Property-based and stateful testing | ✅ Done |
-| M11 | Cancellation and deadlines | 🚧 In progress |
+| M11 | Cancellation and deadlines | ✅ Done |

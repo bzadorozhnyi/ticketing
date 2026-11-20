@@ -5,7 +5,6 @@ Next ticket: TIK-127
 ## In progress
 
 ## To do
-- [ ] TIK-125 Deadline propagation: the gateway passes the time left, services refuse late work and cap their queries by it (M11)
 
 ## Done
 - [x] TIK-1 Catalog: service skeleton (M1)
