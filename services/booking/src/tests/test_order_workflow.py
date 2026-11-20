@@ -6,6 +6,7 @@ signalling its answer, as `PaymentReplyConsumer` would.
 import asyncio
 import uuid
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from temporalio import activity
@@ -233,6 +234,24 @@ async def test_a_refund_without_an_answer_is_sent_again_and_never_given_up(env):
         assert world.finished is None
         await handle.signal(OrderWorkflow.refund_replied, RefundStatus.REFUNDED)
         assert await handle.result() == "refunded"
+
+
+@pytest.mark.parametrize(
+    ("attempt", "seconds"), [(0, 30), (1, 60), (2, 120), (3, 120), (5000, 120)]
+)
+async def test_the_wait_for_a_reply_doubles_up_to_the_limit(attempt, seconds):
+    """A refund is sent again for ever, so the attempts have no upper bound."""
+    order = OrderInput(
+        order_id=uuid.uuid4(),
+        hold_id=uuid.uuid4(),
+        user_id="user-1",
+        created_at=datetime.now(UTC),
+        timings=TIMINGS,
+    )
+
+    wait = OrderWorkflow._reply_wait(order, attempt)
+
+    assert wait == timedelta(seconds=seconds)
 
 
 async def test_a_second_answer_to_the_charge_changes_nothing(env):

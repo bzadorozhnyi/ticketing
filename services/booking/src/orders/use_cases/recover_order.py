@@ -1,13 +1,12 @@
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.backoff import backoff_seconds
 from core.settings import SagaSettings
 from orders.dto.order import FinishedOrder
 from orders.models.order import FailureReason, Order, OrderStatus, SagaStep
 from orders.repositories.order import OrderRepository
 from orders.services.payment_commands import PaymentCommands, order_sum
-
-MAX_BACKOFF_EXPONENT = 10
 
 
 class RecoverOrderUseCase:
@@ -77,11 +76,12 @@ class RecoverOrderUseCase:
 
     async def _wait_again(self, *, order: Order) -> None:
         attempts = order.attempts + 1
-        delay = self.settings.REPLY_WAIT_SECONDS * 2 ** min(
-            attempts, MAX_BACKOFF_EXPONENT
-        )
         await self.order_repository.postpone(
             order_id=order.id,
             attempts=attempts,
-            delay_seconds=min(delay, self.settings.MAX_REPLY_WAIT_SECONDS),
+            delay_seconds=backoff_seconds(
+                base=self.settings.REPLY_WAIT_SECONDS,
+                attempt=attempts,
+                limit=self.settings.MAX_REPLY_WAIT_SECONDS,
+            ),
         )

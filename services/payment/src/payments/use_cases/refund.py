@@ -44,7 +44,7 @@ class RefundUseCase:
         it, so the refund finishes it first with the same provider key. The refund is
         stored before the provider call and repeats it with its own key on every run.
         """
-        cancelled_first = await self.charge_repository.insert_if_absent(
+        await self.charge_repository.insert_if_absent(
             order_id=order_id,
             amount_minor=amount_minor,
             currency=currency,
@@ -52,8 +52,6 @@ class RefundUseCase:
         )
         charge = await self.charge_repository.get_by_order(order_id=order_id)
         await self.session.commit()
-        if cancelled_first:
-            return RefundStatus.NOTHING_TO_REFUND
         if charge is None:
             raise InternalServerException(f"Charge for {order_id} is missing")
 

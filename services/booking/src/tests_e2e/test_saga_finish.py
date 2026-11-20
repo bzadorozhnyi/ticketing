@@ -52,9 +52,12 @@ class SimulatedCrash(Exception):
 class RecordedDelivery(Delivery):
     """Records how a message was settled, without a broker."""
 
-    def __init__(self, *, content: bytes, traceparent: str | None = None):
+    def __init__(
+        self, *, content: bytes, traceparent: str | None = None, attempts: int = 0
+    ):
         self.content = content
         self.sent_traceparent = traceparent
+        self.delivered_before = attempts
         self.settled: list[str] = []
 
     @property
@@ -63,7 +66,7 @@ class RecordedDelivery(Delivery):
 
     @property
     def attempts(self) -> int:
-        return 0
+        return self.delivered_before
 
     @property
     def traceparent(self) -> str | None:
@@ -104,8 +107,8 @@ def refund_result(order_id: uuid.UUID, refund_status: str) -> bytes:
     ).encode()
 
 
-async def deliver(content: bytes, **overrides) -> list[str]:
-    delivery = RecordedDelivery(content=content)
+async def deliver(content: bytes, *, attempts: int = 0, **overrides) -> list[str]:
+    delivery = RecordedDelivery(content=content, attempts=attempts)
     await make_consumer(**overrides).handle(delivery)
     return delivery.settled
 
@@ -299,6 +302,22 @@ async def test_retry_pauses_before_the_message_goes_back(monkeypatch):
     )
 
     assert time.perf_counter() - started >= 0.1
+
+
+async def test_retry_pause_doubles_with_each_delivery(monkeypatch):
+    async def crash(self, *, result):
+        raise SimulatedCrash
+
+    monkeypatch.setattr(ApplyChargeResultUseCase, "execute", crash)
+    started = time.perf_counter()
+
+    await deliver(
+        charge_result(uuid.uuid4(), ChargeStatus.SUCCEEDED),
+        attempts=2,
+        RETRY_BASE_DELAY_SECONDS=0.05,
+    )
+
+    assert time.perf_counter() - started >= 0.2
 
 
 async def test_retry_pause_has_a_limit(monkeypatch):

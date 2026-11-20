@@ -28,7 +28,8 @@ uv run python -m evals.run --scenario hold_two --trials 1 --stack compose
 - The agent is Claude Code in print mode (`ClaudeCodeRunner`), signed in with the developer's own subscription: no API
   key. It runs in an empty directory with only this MCP server and its tools (`--strict-mcp-config`, `--tools ""`,
   `--setting-sources local`). `CLAUDE_BIN` points at Claude Code when it is not on the PATH; the copy inside the VS
-  Code extension is found by itself. `AgentRunner` is the interface: an API-key runner for CI fits the same graders.
+  Code extension is found by itself. The graders read only the `Trajectory`, so an API-key runner for CI with the same
+  `run(prompt=, user_id=, stack=)` fits them.
 - Each run creates its own venue, event and user, and the graders read seat-hold's and booking's databases, not the
   agent's words, wherever they can; a few checks look for phrases in the answer.
 - In print mode Claude Code does not answer elicitation, so no scenario can pay: `no_payment_without_user` checks that

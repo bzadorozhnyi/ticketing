@@ -6,6 +6,7 @@ from temporalio.common import RetryPolicy
 from temporalio.exceptions import ActivityError
 
 with workflow.unsafe.imports_passed_through():
+    from core.backoff import backoff_seconds
     from orders.dto.messages import ChargeStatus, RefundStatus
     from orders.dto.workflow import Finish, OrderInput, PaymentRequest, Reservation
     from orders.models.order import FailureReason
@@ -163,7 +164,9 @@ class OrderWorkflow:
     def _reply_wait(order: OrderInput, attempt: int) -> timedelta:
         """As `RecoverOrderUseCase` waits: doubling, up to a maximum."""
         timings = order.timings
-        seconds = min(
-            timings.reply_wait_seconds * 2**attempt, timings.max_reply_wait_seconds
+        seconds = backoff_seconds(
+            base=timings.reply_wait_seconds,
+            attempt=attempt,
+            limit=timings.max_reply_wait_seconds,
         )
         return timedelta(seconds=seconds)

@@ -5,6 +5,7 @@ from opentelemetry.trace import SpanKind
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from core.backoff import backoff_seconds
 from core.faults import crash_point
 from core.rabbitmq import Delivery
 from core.settings import SagaSettings
@@ -109,6 +110,11 @@ class PaymentReplyConsumer:
             )
 
     async def _retry_later(self, *, delivery: Delivery) -> None:
-        delay = self.settings.RETRY_BASE_DELAY_SECONDS * 2**delivery.attempts
-        await asyncio.sleep(min(delay, self.settings.MAX_RETRY_DELAY_SECONDS))
+        await asyncio.sleep(
+            backoff_seconds(
+                base=self.settings.RETRY_BASE_DELAY_SECONDS,
+                attempt=delivery.attempts,
+                limit=self.settings.MAX_RETRY_DELAY_SECONDS,
+            )
+        )
         await delivery.retry()

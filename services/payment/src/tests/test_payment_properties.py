@@ -149,26 +149,33 @@ async def run_refund(session, order_id: uuid.UUID, command: Refund) -> RefundSta
 
 @settings(
     deadline=None,
-    # Each example uses orders of its own, so sharing the test's transaction is safe.
+    # The examples share the test's transaction, each inside a savepoint of its own.
     suppress_health_check=[HealthCheck.function_scoped_fixture],
 )
 @given(commands=commands)
 async def test_money_is_the_amount_or_nothing_whatever_the_order_of_commands(
     db_connection, session_factory, commands: list[Command]
 ):
+    """Each example is rolled back at its end: a committed savepoint keeps its locks
+    until the transaction ends, and those of 2,000 examples overflow Postgres's lock
+    table ("out of shared memory")."""
     order_ids = [uuid.uuid4() for _ in range(3)]
     models = [OrderModel() for _ in range(3)]
 
-    for command in commands:
-        order_id, model = order_ids[command.order], models[command.order]
-        async with session_factory(
-            bind=db_connection, join_transaction_mode="create_savepoint"
-        ) as session:
-            await apply(session, order_id, model, command)
-        async with session_factory(
-            bind=db_connection, join_transaction_mode="create_savepoint"
-        ) as session:
-            await check(session, order_id, model)
+    example = await db_connection.begin_nested()
+    try:
+        for command in commands:
+            order_id, model = order_ids[command.order], models[command.order]
+            async with session_factory(
+                bind=db_connection, join_transaction_mode="create_savepoint"
+            ) as session:
+                await apply(session, order_id, model, command)
+            async with session_factory(
+                bind=db_connection, join_transaction_mode="create_savepoint"
+            ) as session:
+                await check(session, order_id, model)
+    finally:
+        await example.rollback()
 
 
 async def apply(session, order_id: uuid.UUID, model: OrderModel, command: Command):
