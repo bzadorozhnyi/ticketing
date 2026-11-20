@@ -67,7 +67,8 @@ Each line links to the decision or the evidence. Numbers are from one laptop.
 - Idempotency keys on holds, orders and the provider call; 50 concurrent duplicates give one order and one charge.
 - Property-based and stateful tests with Hypothesis: the circuit breaker against a model of its rules on generated
   sequences of calls, results, cancellations and time, and payment's charges and refunds in any order with crashes,
-  counted by the provider's ledger (M10).
+  counted by the provider's ledger, and a differential test that runs one generated scenario through both saga
+  engines against a model of the rules (M10).
 
 **💸 The purchase saga and money**
 - An orchestrated saga with persisted state, a transactional outbox to RabbitMQ and recovery of stuck orders

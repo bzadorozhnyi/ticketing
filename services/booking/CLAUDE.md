@@ -117,6 +117,10 @@ request, read from the primary. payment checks its charges against it (ADR 0013)
   on generated calls, results, cancellations and time. `event()` in the model shows in
   `pytest --hypothesis-show-statistics` how often each transition was reached; check it after changing the rules, or a
   passing test may never have tried them. Found examples are kept in `.hypothesis/` (not committed) and replayed first.
+- `tests_e2e/test_saga_differential.py` runs one generated scenario of seat-hold, catalog and payment through both
+  engines, the saga through real commits and `PaymentReplyConsumer`, the workflow on Temporal's test server, and
+  compares both with a model of the rules (`expected()`). Final results are compared, not counts of repeated commands.
+  The driver counts outbox commands by type: rows come back in no particular order after deletes.
 - The `probe_routes` fixture (`tests/helpers/probe_routes.py`) gives tests failures a real route cannot produce on demand.
 - `src/tests_e2e/` has real commits and several connections: run it with `uv run pytest src/tests_e2e`. It needs RabbitMQ.
 - The outbox relay is a background job: `python -m scripts.relay`, the `booking-relay` service in compose.
