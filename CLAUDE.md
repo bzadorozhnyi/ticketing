@@ -99,7 +99,8 @@ docs/LEARNINGS.md       short running log of what was learned / what surprised u
 
 Decided tools: loguru (logging), ruff (lint + format), ty (type checking), pre-commit (runs ruff and ty),
 OpenTelemetry (`opentelemetry-sdk`, the OTLP HTTP exporter, FastAPI's built-in telemetry, the asyncpg instrumentation;
-see `core/telemetry.py` in catalog and ADR 0006). Everything else: ask first.
+see `core/telemetry.py` in catalog and ADR 0006), Hypothesis (property-based and stateful tests, a dev dependency where
+used; 100 examples by default, `pytest --hypothesis-profile=thorough` for 2,000). Everything else: ask first.
 
 ### Code organization (onion, grouped by entity)
 

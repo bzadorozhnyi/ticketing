@@ -65,6 +65,8 @@ Each line links to the decision or the evidence. Numbers are from one laptop.
 - One winner per seat under 100 concurrent clients, and a Jepsen-style check of recorded histories under crashes and
   pauses of seat-hold and its database: no seat ever held by two users ([ADR 0003](docs/adr/0003-seat-hold-storage.md), TIK-23, TIK-87).
 - Idempotency keys on holds, orders and the provider call; 50 concurrent duplicates give one order and one charge.
+- Property-based and stateful tests with Hypothesis: the circuit breaker against a model of its rules on generated
+  sequences of calls, results, cancellations and time (M10).
 
 **💸 The purchase saga and money**
 - An orchestrated saga with persisted state, a transactional outbox to RabbitMQ and recovery of stuck orders
@@ -216,3 +218,4 @@ docs/               board, ADRs, claims, learnings
 | M8 | Kubernetes on kind | ✅ Done |
 | After M8 | Review fixes, Postgres failover, Jepsen-style checks, CQRS measured and reverted, caching, MCP and evals, Postgres internals | ✅ Done |
 | M9 | Temporal as a second saga engine | 🧪 Experiment, measured |
+| M10 | Property-based and stateful testing | 🚧 In progress |

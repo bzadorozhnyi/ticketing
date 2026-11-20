@@ -6,6 +6,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from httpx import ASGITransport, AsyncClient
+from hypothesis import settings as hypothesis_settings
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 ALEMBIC_INI_PATH = Path(__file__).resolve().parent.parent / "alembic.ini"
@@ -16,6 +17,10 @@ ALEMBIC_INI_PATH = Path(__file__).resolve().parent.parent / "alembic.ini"
 from tests.helpers.env import load_dotenv_into_environ  # noqa: E402
 
 load_dotenv_into_environ(".env.test", "../.env.test")
+
+# Property tests: 100 examples by default and in CI;
+# `pytest --hypothesis-profile=thorough` for a long local run.
+hypothesis_settings.register_profile("thorough", max_examples=2000)
 
 from core.db import engine as core_engine  # noqa: E402
 from core.db import get_replica_session, get_session  # noqa: E402
