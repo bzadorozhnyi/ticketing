@@ -45,6 +45,10 @@ API and `payment-consumer` for the worker.
 - `MockProvider` keeps its own ledger, `provider_operations`, committed apart from our transaction like an external system.
   Count money by it (`tests/helpers/ledger.py`), not by our `charges` table. Unit tests give the provider a second session
   on the test's connection (`tests/helpers/provider.py`), so its commit is a savepoint; `tests_e2e` checks the real separate commit.
+- Property test (Hypothesis): `tests/test_payment_properties.py` runs generated sequences of charges and refunds of two
+  orders, with repeats, other amounts, declined cards and the provider dying before or after our commit, each command
+  in a new session as after a restart, and counts money by the ledger after every step. `--hypothesis-show-statistics`
+  shows how often each answer was reached; a rare conflict command keeps the generator on the money paths.
 - Never hold a database connection while the provider answers: commit before the call. The mock shares our pool, so a held connection deadlocks.
 
 ## Payments

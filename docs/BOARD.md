@@ -5,7 +5,6 @@ Next ticket: TIK-123
 ## In progress
 
 ## To do
-- [ ] TIK-120 Payment: property tests of charges and refunds in any order, counted by the provider's ledger (M10)
 - [ ] TIK-121 Booking: one generated scenario through the saga and the Temporal workflow, both against a model (M10)
 - [ ] TIK-122 Seat-hold: a state machine test of holds against a model "seat -> owner" (proptest, optional) (M10)
 
@@ -126,3 +125,4 @@ Next ticket: TIK-123
 - [x] TIK-117 Temporal against the saga: money right under every fault on both; Temporal slower to recover (144 s vs 34 s) and +23 to 90 % p50 on its dev server (M9, experiment)
 - [x] TIK-118 Temporal: timeouts that find a dead worker in seconds; recovery under crashes 144 s down to 57-68 s, within twice the saga's 34 s (M9, experiment)
 - [x] TIK-119 Booking: the circuit breaker against a model on generated sequences; it caught 3 mutations the examples missed (M10)
+- [x] TIK-120 Payment: generated charges and refunds in any order keep money at the amount or nothing; no new bug, one redundant branch (M10)

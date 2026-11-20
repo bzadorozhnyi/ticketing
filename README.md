@@ -66,7 +66,8 @@ Each line links to the decision or the evidence. Numbers are from one laptop.
   pauses of seat-hold and its database: no seat ever held by two users ([ADR 0003](docs/adr/0003-seat-hold-storage.md), TIK-23, TIK-87).
 - Idempotency keys on holds, orders and the provider call; 50 concurrent duplicates give one order and one charge.
 - Property-based and stateful tests with Hypothesis: the circuit breaker against a model of its rules on generated
-  sequences of calls, results, cancellations and time (M10).
+  sequences of calls, results, cancellations and time, and payment's charges and refunds in any order with crashes,
+  counted by the provider's ledger (M10).
 
 **💸 The purchase saga and money**
 - An orchestrated saga with persisted state, a transactional outbox to RabbitMQ and recovery of stuck orders
