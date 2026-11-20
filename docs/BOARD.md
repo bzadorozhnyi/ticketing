@@ -5,7 +5,6 @@ Next ticket: TIK-123
 ## In progress
 
 ## To do
-- [ ] TIK-122 Seat-hold: a state machine test of holds against a model "seat -> owner" (proptest, optional) (M10)
 
 ## Done
 - [x] TIK-1 Catalog: service skeleton (M1)
