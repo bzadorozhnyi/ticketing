@@ -1,6 +1,6 @@
 # Board
 
-Next ticket: TIK-127
+Next ticket: TIK-128
 
 ## In progress
 
@@ -128,3 +128,4 @@ Next ticket: TIK-127
 - [x] TIK-123 Seat-hold: a request cut off before its commit leaves nothing, its query keeps waiting in Postgres; cut off during the commit, a hold the client never heard of (M11)
 - [x] TIK-124 Booking: a client gone during POST /orders still gets its order made (the key finds it); a timed-out reply cancels its query in Postgres too (M11)
 - [x] TIK-126 Seat-hold: a repeat by the holder answers 409 already_held_by_you with the hold ids; MCP turns it into the hold to use (M11)
+- [x] TIK-127 Booking, payment, mcp: one retry pause function (the workflow's could overflow), a redundant refund branch and two unused names removed; payment's thorough property run fixed

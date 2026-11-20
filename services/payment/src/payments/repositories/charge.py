@@ -30,11 +30,11 @@ class ChargeRepository:
         currency: str,
         status: str,
         payment_token: str | None = None,
-    ) -> bool:
+    ) -> None:
         """The unique `order_id` decides the race: of two concurrent calls one inserts,
-        the other waits for it and gets False.
+        the other waits for it and inserts nothing.
         """
-        result = await self.session.execute(
+        await self.session.execute(
             insert(Charge)
             .values(
                 order_id=order_id,
@@ -44,9 +44,7 @@ class ChargeRepository:
                 payment_token=payment_token,
             )
             .on_conflict_do_nothing(index_elements=[Charge.order_id])
-            .returning(Charge.id)
         )
-        return result.scalar_one_or_none() is not None
 
     async def taken_without_refund(
         self, *, older_than: timedelta, newer_than: timedelta

@@ -8,6 +8,7 @@ from loguru import logger
 from opentelemetry.trace import SpanKind
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from core.backoff import backoff_seconds
 from core.breaker import CircuitOpenError
 from core.settings import SagaSettings
 from core.telemetry import (
@@ -26,9 +27,6 @@ from orders.use_cases.confirm_order import ConfirmOrderUseCase
 from orders.use_cases.recover_order import RecoverOrderUseCase
 from orders.use_cases.start_saga import StartSagaUseCase
 from outbox.repositories.message import OutboxRepository
-
-MAX_BACKOFF_EXPONENT = 10
-
 
 # What happened to a step: the `outcome` of `booking.saga.steps`.
 SagaOutcome = Literal["ran", "postponed", "failed"]
@@ -189,7 +187,8 @@ class SagaRunner:
         return datetime.now(UTC) >= give_up_at
 
     def _retry_delay(self, *, attempts: int) -> float:
-        delay = self.settings.RETRY_BASE_DELAY_SECONDS * 2 ** min(
-            attempts, MAX_BACKOFF_EXPONENT
+        return backoff_seconds(
+            base=self.settings.RETRY_BASE_DELAY_SECONDS,
+            attempt=attempts,
+            limit=self.settings.MAX_RETRY_DELAY_SECONDS,
         )
-        return min(delay, self.settings.MAX_RETRY_DELAY_SECONDS)
