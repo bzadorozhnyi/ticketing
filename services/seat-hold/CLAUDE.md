@@ -68,7 +68,8 @@ docker compose up -d --wait --build              # db -> seat-hold-migrate -> se
   connection back. A deadlock or serialization victim, a database that is shutting down, starting or out of
   connections, and a lost connection answer 503 too (`core/errors.rs`, `tests/database_errors.rs`). It does not remove
   the lock: while a migration locks `holds`, every write to it fails, but reads and `/ready` go on.
-  `tests/session_limits.rs`; the concurrency tests run with the same limits.
+  `tests/session_limits.rs`; the concurrency tests run with the same limits, except the per-user limit test: its twenty
+  requests queue on one lock, and on a slow CI runner the last waited past `lock_timeout` and answered 503.
 - The trace comes from the gateway: a valid `traceparent` is continued, an invalid one starts a new trace that is not
   recorded (ADR 0006: a trace starts only at the gateway). `core/telemetry/` mirrors the gateway's: a server span per
   request named by route template, `http.server.request.duration` with `error.type` = the error code, and

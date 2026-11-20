@@ -32,7 +32,10 @@ struct Attempt {
 /// with the same lock and statement timeouts, so contention that is normal never times out.
 /// A test closes the returned pool, otherwise dropping the test database waits for it.
 async fn service_for(pool: &PgPool) -> (String, PgPool) {
-    let settings = PoolSettings::default();
+    service_with_limits(pool, PoolSettings::default()).await
+}
+
+async fn service_with_limits(pool: &PgPool, settings: PoolSettings) -> (String, PgPool) {
     let options = with_session_limits(pool.connect_options().as_ref().clone(), &settings);
     let service_pool = PgPoolOptions::new()
         .max_connections(settings.max_connections)
@@ -298,7 +301,15 @@ async fn a_seat_held_by_another_is_refused_without_waiting_for_its_lock(pool: Pg
 
 #[sqlx::test]
 async fn concurrent_requests_of_one_user_never_pass_the_limit(pool: PgPool) {
-    let (service, service_pool) = service_for(&pool).await;
+    // Twenty requests of one user take turns on one lock: on a slow runner the last of
+    // them waits past the 1 s lock timeout and answers 503, as it should. This test is
+    // about the limit, so its service waits as long as it takes.
+    let patient = PoolSettings {
+        lock_timeout: Duration::from_secs(30),
+        statement_timeout: Duration::from_secs(30),
+        ..PoolSettings::default()
+    };
+    let (service, service_pool) = service_with_limits(&pool, patient).await;
     let event_id = Uuid::now_v7();
     let limit = usize::try_from(HoldSettings::default().max_seats_per_user).unwrap();
     let mut requests = JoinSet::new();
