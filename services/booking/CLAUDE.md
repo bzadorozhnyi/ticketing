@@ -121,6 +121,10 @@ request, read from the primary. payment checks its charges against it (ADR 0013)
   engines, the saga through real commits and `PaymentReplyConsumer`, the workflow on Temporal's test server, and
   compares both with a model of the rules (`expected()`). Final results are compared, not counts of repeated commands.
   The driver counts outbox commands by type: rows come back in no particular order after deletes.
+- Cancellation (`tests_e2e/test_cancellation.py`): Starlette does not cancel an endpoint whose client went away, so
+  `POST /orders` runs on and makes the order; the required `Idempotency-Key` finds it again. An `asyncio.timeout` that
+  cancels a coroutine in the middle of a query also cancels the query in Postgres (asyncpg sends a cancel request),
+  so a reply cut off by `REPLY_TIMEOUT_SECONDS` leaves no query waiting and no transaction open.
 - The `probe_routes` fixture (`tests/helpers/probe_routes.py`) gives tests failures a real route cannot produce on demand.
 - `src/tests_e2e/` has real commits and several connections: run it with `uv run pytest src/tests_e2e`. It needs RabbitMQ.
 - The outbox relay is a background job: `python -m scripts.relay`, the `booking-relay` service in compose.
