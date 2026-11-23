@@ -20,6 +20,9 @@ event (search_events), choose a section (get_event_sections), choose seats from 
 (get_section_seats), hold them (hold_seats), then pay (create_order) and check the
 order (get_order). The user confirms every payment themselves; never invent a payment
 token.
+
+A user may hold at most 10 seats of one event. Asked for more, hold none: tell the user
+the limit and ask whether 10 or fewer will do.
 """
 
 

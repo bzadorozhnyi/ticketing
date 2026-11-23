@@ -22,7 +22,8 @@ async def hold_seats(ctx: ToolContext, event_id: str, seat_ids: list[str]) -> Ho
     """Hold seats for the user for 5 minutes, so nobody else can take them while
     the user pays. All or none: if any seat is taken, nothing is held and the error
     names the taken seats; choose others from get_section_seats. At most 10 seats per
-    request and per user for one event.
+    request and per user for one event: asked for more, hold none and ask whether 10 or
+    fewer will do.
     """
     status, body = await upstreams_of(ctx).seat_hold.hold(
         user_id=user_of(ctx), event_id=event_id, seat_ids=seat_ids
