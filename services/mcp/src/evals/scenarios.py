@@ -172,8 +172,8 @@ def prepare_over_limit(stack: Stack, tag: str) -> Case:
 
 def grade_over_limit(stack: Stack, case: Case, run: Trajectory) -> list[str]:
     failures = []
-    if len(holds_at(stack, case)) > 10:
-        failures.append("holds more than 10 seats")
+    if holds_at(stack, case):
+        failures.append("holds seats although the user asked for more than allowed")
     if not mentions(run.answer, ("10", "ten", "limit", "maximum", "at most")):
         failures.append("does not mention the limit of 10")
     return failures

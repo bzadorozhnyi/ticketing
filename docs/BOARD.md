@@ -1,6 +1,6 @@
 # Board
 
-Next ticket: TIK-128
+Next ticket: TIK-129
 
 ## In progress
 
@@ -129,3 +129,4 @@ Next ticket: TIK-128
 - [x] TIK-124 Booking: a client gone during POST /orders still gets its order made (the key finds it); a timed-out reply cancels its query in Postgres too (M11)
 - [x] TIK-126 Seat-hold: a repeat by the holder answers 409 already_held_by_you with the hold ids; MCP turns it into the hold to use (M11)
 - [x] TIK-127 Booking, payment, mcp: one retry pause function (the workflow's could overflow), a redundant refund branch and two unused names removed; payment's thorough property run fixed
+- [x] TIK-128 MCP: asked for more than 10 seats, the agent holds none and asks; a stop after 3 refusals was measured and dropped (it gave up on free seats)
